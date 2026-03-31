@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Prevent copying referenced AutoCAD libraries to the output folder -->
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Official Autodesk NuGet packages for AutoCAD 2025 API -->
+    <PackageReference Include="AutoCAD.NET" Version="25.0.0" ExcludeAssets="runtime" />
+    <PackageReference Include="AutoCAD.NET.Core" Version="25.0.0" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AdElec.Core\AdElec.Core.csproj" />
+    <ProjectReference Include="..\AdElec.UI\AdElec.UI.csproj" />
+  </ItemGroup>
+
+</Project>
