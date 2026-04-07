@@ -1,5 +1,6 @@
 using Autodesk.AutoCAD.Runtime;
 using Autodesk.AutoCAD.ApplicationServices;
+using Application = Autodesk.AutoCAD.ApplicationServices.Application;
 using AdElec.AutoCAD;
 
 [assembly: ExtensionApplication(typeof(PluginEntry))]

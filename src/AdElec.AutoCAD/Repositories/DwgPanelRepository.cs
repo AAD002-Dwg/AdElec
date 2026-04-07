@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using Autodesk.AutoCAD.ApplicationServices;
+using Application = Autodesk.AutoCAD.ApplicationServices.Application;
 using Autodesk.AutoCAD.DatabaseServices;
 using AdElec.Core.Models;
 using AdElec.Core.Interfaces;
+using Panel = AdElec.Core.Models.Panel;
 
 namespace AdElec.AutoCAD.Repositories
 {

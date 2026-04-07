@@ -1,4 +1,5 @@
 using Autodesk.AutoCAD.ApplicationServices;
+using Application = Autodesk.AutoCAD.ApplicationServices.Application;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.Geometry;

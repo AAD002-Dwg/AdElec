@@ -3,6 +3,7 @@ using Autodesk.AutoCAD.Runtime;
 using Autodesk.AutoCAD.Windows;
 using AdElec.UI.Views;
 using Autodesk.AutoCAD.ApplicationServices;
+using Application = Autodesk.AutoCAD.ApplicationServices.Application;
 
 namespace AdElec.AutoCAD.Commands
 {
