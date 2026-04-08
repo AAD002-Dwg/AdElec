@@ -21,4 +21,20 @@
     <ProjectReference Include="..\AdElec.UI\AdElec.UI.csproj" />
   </ItemGroup>
 
+  <!--
+    Post-build: copia los DLLs al directorio de deploy fijo.
+    AutoCAD debe cargar siempre desde G:\AD-ELEC\deploy\ via NETLOAD o acad.lsp.
+    Funciona tanto en Debug como en Release — siempre queda la última build.
+  -->
+  <Target Name="DeployToFixed" AfterTargets="Build">
+    <PropertyGroup>
+      <DeployDir>G:\AD-ELEC\deploy\</DeployDir>
+    </PropertyGroup>
+    <MakeDir Directories="$(DeployDir)" />
+    <Copy SourceFiles="$(OutputPath)AdElec.AutoCAD.dll" DestinationFolder="$(DeployDir)" OverwriteReadOnlyFiles="true" />
+    <Copy SourceFiles="$(OutputPath)AdElec.Core.dll"    DestinationFolder="$(DeployDir)" OverwriteReadOnlyFiles="true" />
+    <Copy SourceFiles="$(OutputPath)AdElec.UI.dll"      DestinationFolder="$(DeployDir)" OverwriteReadOnlyFiles="true" />
+    <Message Text="✓ AD-ELEC desplegado en $(DeployDir)" Importance="high" />
+  </Target>
+
 </Project>
