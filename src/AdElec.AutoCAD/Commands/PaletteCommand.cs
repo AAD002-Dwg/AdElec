@@ -29,6 +29,7 @@ namespace AdElec.AutoCAD.Commands
                     // Dependencias
                     var repo = new DwgPanelRepository();
                     var ambienteRepo = new DwgAmbienteRepository();
+                    var projectRepo = new DwgProjectRepository();
                     var motorClient = new AeaMotorClient(); // localhost:8000
 
                     // Callbacks que ejecutan los comandos de AutoCAD desde la UI
@@ -64,12 +65,20 @@ namespace AdElec.AutoCAD.Commands
                         });
                     };
 
+                    var electricoRepo = new DwgElectricoRepository();
+
+                    Func<string, List<AdElec.Core.AeaMotor.Dtos.SyncRoom>> onGetRoomsConPuntos =
+                        (tableroName) => electricoRepo.GetRoomsConPuntos(tableroName);
+
                     vm = new PanelViewModel(
-                        repo, motorClient,
+                        repo,
+                        motorClient,
+                        projectRepo,
                         onLuminarias, onTomas,
                         onInsertarTablero,
                         ambienteRepo,
-                        onRecargarCircuitos);
+                        onRecargarCircuitos,
+                        onGetRoomsConPuntos);
                     _view = new MainPaletteView(vm);
 
                     _ps = new PaletteSet("AD-ELEC", new Guid("23CDA41A-6A3B-4D88-B3EE-9A4B8F67A811"));

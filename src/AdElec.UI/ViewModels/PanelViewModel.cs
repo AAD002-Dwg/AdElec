@@ -15,10 +15,12 @@ public sealed class PanelViewModel : INotifyPropertyChanged
     private readonly IPanelRepository _repo;
     private readonly IAeaMotorClient _motorClient;
     private readonly IAmbienteRepository? _ambienteRepo;
+    private readonly IProjectRepository _projectRepo;
     private readonly Action _onSugerirLuminarias;
     private readonly Action _onSugerirTomas;
     private readonly Action<string> _onRecargarCircuitos;
     private readonly Action<string, string>? _onInsertarTablero;
+    private readonly Func<string, List<SyncRoom>>? _onGetRoomsConPuntos;
 
     // ── Estado ──────────────────────────────────────────────────────────────
 
@@ -26,6 +28,7 @@ public sealed class PanelViewModel : INotifyPropertyChanged
     private string _statusMessage = "Listo";
     private bool _isMotorAvailable;
     private bool _isBusy;
+    private int _projectId;
     private ResultadoProyectoDto? _lastResultado;
 
     public ObservableCollection<Panel> Panels { get; } = [];
@@ -64,6 +67,21 @@ public sealed class PanelViewModel : INotifyPropertyChanged
     public string CumpleNormaText => _lastResultado is null ? "" : (CumpleNorma == true ? "✓ CUMPLE" : "✗ NO CUMPLE");
     public string CumpleNormaColor => CumpleNorma == true ? "#4CAF50" : "#F44336";
 
+    public int ProjectId
+    {
+        get => _projectId;
+        set
+        {
+            if (_projectId == value) return;
+            _projectId = value;
+            OnPropertyChanged();
+            _projectRepo.SaveProjectId(value);
+            RaiseAllCommandsCanExecuteChanged();
+        }
+    }
+
+    public bool EstaVinculado => _projectId > 0;
+
     // ── Nuevo Tablero (inline form) ──────────────────────────────────────────
 
     private bool _showNewPanelForm;
@@ -90,17 +108,20 @@ public sealed class PanelViewModel : INotifyPropertyChanged
     public ICommand SugerirTomasCommand { get; }
     public ICommand CheckMotorCommand { get; }
     public ICommand RecargarCircuitosCommand { get; }
+    public ICommand SincronizarCommand { get; }
 
     // ── Constructor ─────────────────────────────────────────────────────────
 
     public PanelViewModel(
         IPanelRepository repo,
         IAeaMotorClient motorClient,
+        IProjectRepository projectRepo,
         Action onSugerirLuminarias,
         Action onSugerirTomas,
         Action<string, string>? onInsertarTablero = null,
         IAmbienteRepository? ambienteRepo = null,
-        Action<string>? onRecargarCircuitos = null)
+        Action<string>? onRecargarCircuitos = null,
+        Func<string, List<SyncRoom>>? onGetRoomsConPuntos = null)
     {
         _repo = repo;
         _motorClient = motorClient;
@@ -109,6 +130,8 @@ public sealed class PanelViewModel : INotifyPropertyChanged
         _onSugerirTomas = onSugerirTomas;
         _onInsertarTablero = onInsertarTablero;
         _onRecargarCircuitos = onRecargarCircuitos ?? (_ => { });
+        _onGetRoomsConPuntos = onGetRoomsConPuntos;
+        _projectRepo = projectRepo;
 
         NuevoTableroCommand = new RelayCommand(() => ShowNewPanelForm = true, () => !ShowNewPanelForm);
         ConfirmarNuevoTableroCommand = new RelayCommand(ConfirmarNuevoTablero, () => !string.IsNullOrWhiteSpace(NewPanelName));
@@ -118,7 +141,9 @@ public sealed class PanelViewModel : INotifyPropertyChanged
         SugerirTomasCommand = new RelayCommand(_onSugerirTomas, () => HasPanel);
         CheckMotorCommand = new RelayCommand(async () => await CheckMotorAsync());
         RecargarCircuitosCommand = new RelayCommand(RecargarCircuitos, () => HasPanel);
+        SincronizarCommand = new RelayCommand(async () => await SincronizarAsync(), () => EstaVinculado && IsMotorAvailable && !IsBusy);
 
+        _projectId = _projectRepo.GetProjectId();
         LoadPanels();
         _ = CheckMotorAsync();
     }
@@ -251,6 +276,131 @@ public sealed class PanelViewModel : INotifyPropertyChanged
             : "AEA-MOTOR no disponible (iniciá Iniciar_Proyecto.bat).";
     }
 
+    private async Task SincronizarAsync()
+    {
+        if (!EstaVinculado) return;
+        IsBusy = true;
+        StatusMessage = "Sincronizando con AEA-MOTOR...";
+
+        try
+        {
+            // 1. Obtener datos del proyecto en el servidor
+            var currentProject = await _motorClient.GetProjectAsync(_projectId);
+
+            if (_ambienteRepo == null)
+                throw new InvalidOperationException("No se pudo acceder al repositorio de ambientes.");
+
+            // 2. Geometría: rooms desde ID_LOCALES con polígonos
+            var ambientesDwg = _ambienteRepo.GetAllAmbientes();
+            if (ambientesDwg.Count == 0)
+                throw new InvalidOperationException("No hay recintos en el dibujo. Usá ADE_AMBIENTES primero.");
+
+            StatusMessage = $"Procesando {ambientesDwg.Count} recintos y circuitos...";
+
+            // 3. Puntos eléctricos: rooms con puntos desde bloques eléctricos
+            // Si el panel está seleccionado, usamos su tablero para enriquecer con puntos
+            List<SyncRoom> syncRooms;
+            if (_selectedPanel != null && _onGetRoomsConPuntos != null)
+            {
+                // Rooms con puntos eléctricos ya asignados
+                syncRooms = _onGetRoomsConPuntos(_selectedPanel.Name);
+
+                // Completar con polígonos desde ambientes (el repo eléctrico ya los incluye si tiene XData)
+                // Si algún room no tiene polígono, lo complementamos desde ambientesDwg
+                foreach (var sr in syncRooms.Where(r => r.PolygonPoints.Count == 0))
+                {
+                    var match = ambientesDwg.FirstOrDefault(a =>
+                        string.Equals(a.TipoDisplay, sr.Name.Split('—')[0].Trim(), StringComparison.OrdinalIgnoreCase));
+                    if (match != null)
+                        sr.PolygonPoints = match.PolygonPoints
+                            .Select(p => new Dictionary<string, double> { ["x"] = p.X, ["y"] = p.Y })
+                            .ToList();
+                }
+            }
+            else
+            {
+                // Sin tablero seleccionado: sólo geometría, sin puntos
+                syncRooms = ambientesDwg.Select(a => new SyncRoom
+                {
+                    Id   = $"room_{ambientesDwg.IndexOf(a):000}",
+                    Name = $"{a.TipoDisplay} — {a.Planta}",
+                    Type = AdElec.Core.Models.TipoAmbienteInfo.DesdeNombre(a.TipoDisplay).RoomTypeName,
+                    Area = a.AreaM2,
+                    WallThickness = a.EspesorMuro,
+                    PolygonPoints = a.PolygonPoints
+                        .Select(p => new Dictionary<string, double> { ["x"] = Math.Round(p.X, 3), ["y"] = Math.Round(p.Y, 3) })
+                        .ToList(),
+                    Centroid = a.PolygonPoints.Count > 0
+                        ? new Dictionary<string, double>
+                          {
+                            ["x"] = Math.Round(a.PolygonPoints.Average(p => p.X), 3),
+                            ["y"] = Math.Round(a.PolygonPoints.Average(p => p.Y), 3),
+                          }
+                        : new Dictionary<string, double> { ["x"] = 0, ["y"] = 0 },
+                }).ToList();
+            }
+
+            // 4. Circuitos del panel → Board del canvas
+            var syncCircuits = (_selectedPanel?.Circuits ?? [])
+                .Select(c => new SyncCircuit
+                {
+                    Id         = c.Name,
+                    Name       = c.Name,
+                    Amperage   = (int)c.BreakerAmps,
+                    Protection = $"TM {c.BreakerAmps}A",
+                })
+                .ToList();
+
+            // 5. Grafo planar para el módulo AD-CAD (visualización de muros)
+            var graph = AdElec.Core.Utils.GeometryConverter.BuildGraphFromAmbientes(ambientesDwg);
+
+            // 6. Construir request y enviar PUT
+            var request = new SyncProjectRequest
+            {
+                Name = currentProject.Name,
+                DataJson = new SyncProjectData
+                {
+                    AdElec = new SyncProjectCanvas
+                    {
+                        Rooms = syncRooms,
+                        Board = new SyncBoard
+                        {
+                            Id         = _selectedPanel?.Name ?? "board_001",
+                            MainSwitch = $"TM {_selectedPanel?.MainBreakerAmps ?? 32}A",
+                            Rcd        = "ID 40A/30mA",
+                            Circuits   = syncCircuits,
+                        }
+                    },
+                    AdCad = new SyncAdCadData
+                    {
+                        Plantas =
+                        [
+                            new SyncPlanta
+                            {
+                                Id     = "PL1",
+                                Nombre = "Planta Baja",
+                                Graph  = graph,
+                            }
+                        ]
+                    }
+                }
+            };
+
+            await _motorClient.ActualizarProyectoAsync(_projectId, request);
+
+            int totalPuntos = syncRooms.Sum(r => r.Points.Count);
+            StatusMessage = $"✓ Sync OK — {syncRooms.Count} recintos, {syncCircuits.Count} circuitos, {totalPuntos} bocas → Proyecto #{_projectId}";
+        }
+        catch (System.Exception ex)
+        {
+            StatusMessage = $"Error de sincronización: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
     /// <summary>
     /// Dispara ADE_RECARGAR en AutoCAD para que escanee el DWG y actualice los circuitos
     /// del tablero seleccionado, luego recarga la vista.
@@ -280,6 +430,7 @@ public sealed class PanelViewModel : INotifyPropertyChanged
         ((RelayCommand)SugerirTomasCommand).RaiseCanExecuteChanged();
         ((RelayCommand)RecargarCircuitosCommand).RaiseCanExecuteChanged();
         ((RelayCommand)NuevoTableroCommand).RaiseCanExecuteChanged();
+        ((RelayCommand)SincronizarCommand).RaiseCanExecuteChanged();
     }
 
     // ── INotifyPropertyChanged ───────────────────────────────────────────────
