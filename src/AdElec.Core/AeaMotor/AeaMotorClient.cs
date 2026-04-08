@@ -91,7 +91,7 @@ public sealed class AeaMotorClient : IAeaMotorClient
     /// <inheritdoc/>
     public async Task<SyncProjectResponse> SincronizarProyectoAsync(SyncProjectRequest request, CancellationToken ct = default)
     {
-        var response = await _http.PostAsJsonAsync("/proyectos", request, _jsonOptions, ct);
+        var response = await _http.PostAsJsonAsync("/api/v1/proyectos", request, _jsonOptions, ct);
 
         if (!response.IsSuccessStatusCode)
         {
