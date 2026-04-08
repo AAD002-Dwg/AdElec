@@ -329,13 +329,16 @@ namespace AdElec.AutoCAD.Commands
                     Name = input.ProjectName,
                     DataJson = new SyncProjectData
                     {
-                        Rooms = syncRooms,
-                        Board = new SyncBoard
+                        AdElec = new SyncProjectCanvas
                         {
-                            Id         = tableroName,
-                            MainSwitch = input.Board.MainSwitch,
-                            Rcd        = input.Board.Rcd,
-                            Circuits   = syncCircuits,
+                            Rooms = syncRooms,
+                            Board = new SyncBoard
+                            {
+                                Id         = tableroName,
+                                MainSwitch = input.Board.MainSwitch,
+                                Rcd        = input.Board.Rcd,
+                                Circuits   = syncCircuits,
+                            },
                         },
                     },
                 };

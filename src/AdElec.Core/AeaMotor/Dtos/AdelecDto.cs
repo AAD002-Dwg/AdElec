@@ -14,7 +14,16 @@ public class SyncProjectRequest
     public SyncProjectData DataJson { get; set; } = new();
 }
 
+/// <summary>
+/// Envoltura de data_json: el frontend lee data_json.ad_elec.rooms
+/// </summary>
 public class SyncProjectData
+{
+    [JsonPropertyName("ad_elec")]
+    public SyncProjectCanvas AdElec { get; set; } = new();
+}
+
+public class SyncProjectCanvas
 {
     [JsonPropertyName("rooms")]
     public List<SyncRoom> Rooms { get; set; } = [];

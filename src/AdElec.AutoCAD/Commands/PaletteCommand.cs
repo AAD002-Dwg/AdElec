@@ -48,12 +48,29 @@ namespace AdElec.AutoCAD.Commands
                             ?.SendStringToExecute("ADE_INSERTAR_TABLERO\n", false, false, true);
                     };
 
-                    var viewModel = new PanelViewModel(
+                    // El ViewModel se crea antes del callback para poder referenciar vm.RefreshFromRepo
+                    PanelViewModel? vm = null;
+
+                    Action<string> onRecargarCircuitos = (panelName) =>
+                    {
+                        // 1. Disparar ADE_RECARGAR en AutoCAD (actualiza XRecord)
+                        Application.DocumentManager.MdiActiveDocument
+                            ?.SendStringToExecute($"ADE_RECARGAR\n{panelName}\n", false, false, true);
+
+                        // 2. Refrescar la paleta tras 900ms (tiempo para que AutoCAD procese el comando)
+                        System.Threading.Tasks.Task.Delay(900).ContinueWith(_ =>
+                        {
+                            System.Windows.Application.Current?.Dispatcher.Invoke(() => vm?.RefreshFromRepo(panelName));
+                        });
+                    };
+
+                    vm = new PanelViewModel(
                         repo, motorClient,
                         onLuminarias, onTomas,
                         onInsertarTablero,
-                        ambienteRepo);
-                    _view = new MainPaletteView(viewModel);
+                        ambienteRepo,
+                        onRecargarCircuitos);
+                    _view = new MainPaletteView(vm);
 
                     _ps = new PaletteSet("AD-ELEC", new Guid("23CDA41A-6A3B-4D88-B3EE-9A4B8F67A811"));
                     _ps.Style = PaletteSetStyles.ShowPropertiesMenu |

@@ -292,11 +292,24 @@
         <!-- ═══ ACCIONES ══════════════════════════════════════════════════ -->
         <Border Grid.Row="5" Background="#1A1A1A" Padding="10,8">
             <StackPanel>
-                <Button Content="Calcular AEA 90364"
-                        Style="{StaticResource BtnPrimary}"
-                        Command="{Binding CalcularAeaCommand}"
-                        Margin="0,0,0,6"
-                        ToolTip="Envía los circuitos al motor AEA-MOTOR y calcula secciones, caída de tensión y cumplimiento normativo."/>
+                <Grid Margin="0,0,0,6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="6"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Button Grid.Column="0"
+                            Content="Calcular AEA 90364"
+                            Style="{StaticResource BtnPrimary}"
+                            Command="{Binding CalcularAeaCommand}"
+                            ToolTip="Envía los circuitos al motor AEA-MOTOR y calcula secciones, caída de tensión y cumplimiento normativo."/>
+                    <Button Grid.Column="2"
+                            Content="↺ DWG"
+                            Style="{StaticResource BtnSecondary}"
+                            Command="{Binding RecargarCircuitosCommand}"
+                            Padding="8,5"
+                            ToolTip="Escanea los bloques del dibujo con D=tablero y recarga los circuitos (ADE_RECARGAR)."/>
+                </Grid>
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>

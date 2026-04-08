@@ -17,6 +17,7 @@ public sealed class PanelViewModel : INotifyPropertyChanged
     private readonly IAmbienteRepository? _ambienteRepo;
     private readonly Action _onSugerirLuminarias;
     private readonly Action _onSugerirTomas;
+    private readonly Action<string> _onRecargarCircuitos;
     private readonly Action<string, string>? _onInsertarTablero;
 
     // ── Estado ──────────────────────────────────────────────────────────────
@@ -88,6 +89,7 @@ public sealed class PanelViewModel : INotifyPropertyChanged
     public ICommand SugerirLuminariasCommand { get; }
     public ICommand SugerirTomasCommand { get; }
     public ICommand CheckMotorCommand { get; }
+    public ICommand RecargarCircuitosCommand { get; }
 
     // ── Constructor ─────────────────────────────────────────────────────────
 
@@ -97,7 +99,8 @@ public sealed class PanelViewModel : INotifyPropertyChanged
         Action onSugerirLuminarias,
         Action onSugerirTomas,
         Action<string, string>? onInsertarTablero = null,
-        IAmbienteRepository? ambienteRepo = null)
+        IAmbienteRepository? ambienteRepo = null,
+        Action<string>? onRecargarCircuitos = null)
     {
         _repo = repo;
         _motorClient = motorClient;
@@ -105,6 +108,7 @@ public sealed class PanelViewModel : INotifyPropertyChanged
         _onSugerirLuminarias = onSugerirLuminarias;
         _onSugerirTomas = onSugerirTomas;
         _onInsertarTablero = onInsertarTablero;
+        _onRecargarCircuitos = onRecargarCircuitos ?? (_ => { });
 
         NuevoTableroCommand = new RelayCommand(() => ShowNewPanelForm = true, () => !ShowNewPanelForm);
         ConfirmarNuevoTableroCommand = new RelayCommand(ConfirmarNuevoTablero, () => !string.IsNullOrWhiteSpace(NewPanelName));
@@ -113,6 +117,7 @@ public sealed class PanelViewModel : INotifyPropertyChanged
         SugerirLuminariasCommand = new RelayCommand(_onSugerirLuminarias, () => HasPanel);
         SugerirTomasCommand = new RelayCommand(_onSugerirTomas, () => HasPanel);
         CheckMotorCommand = new RelayCommand(async () => await CheckMotorAsync());
+        RecargarCircuitosCommand = new RelayCommand(RecargarCircuitos, () => HasPanel);
 
         LoadPanels();
         _ = CheckMotorAsync();
@@ -246,11 +251,34 @@ public sealed class PanelViewModel : INotifyPropertyChanged
             : "AEA-MOTOR no disponible (iniciá Iniciar_Proyecto.bat).";
     }
 
+    /// <summary>
+    /// Dispara ADE_RECARGAR en AutoCAD para que escanee el DWG y actualice los circuitos
+    /// del tablero seleccionado, luego recarga la vista.
+    /// </summary>
+    private void RecargarCircuitos()
+    {
+        if (_selectedPanel is null) return;
+        // Delegar a AutoCAD (PaletteCommand provee la implementación)
+        // El callback ejecuta ADE_RECARGAR y luego llama RefreshFromRepo()
+        _onRecargarCircuitos(_selectedPanel.Name);
+    }
+
+    /// <summary>Recarga el panel desde el XRecord y actualiza la vista. Llamado por PaletteCommand tras ADE_RECARGAR.</summary>
+    public void RefreshFromRepo(string panelName)
+    {
+        var updated = _repo.GetAllPanels().FirstOrDefault(p => p.Name == panelName);
+        if (updated is null) return;
+        _selectedPanel = updated;
+        RefreshCircuits();
+        StatusMessage = $"Recargado: {updated.Circuits.Count} circuito(s) desde el DWG";
+    }
+
     private void RaiseAllCommandsCanExecuteChanged()
     {
         ((RelayCommand)CalcularAeaCommand).RaiseCanExecuteChanged();
         ((RelayCommand)SugerirLuminariasCommand).RaiseCanExecuteChanged();
         ((RelayCommand)SugerirTomasCommand).RaiseCanExecuteChanged();
+        ((RelayCommand)RecargarCircuitosCommand).RaiseCanExecuteChanged();
         ((RelayCommand)NuevoTableroCommand).RaiseCanExecuteChanged();
     }
 
