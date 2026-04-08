@@ -380,6 +380,20 @@ public sealed class PanelViewModel : INotifyPropertyChanged
                                 Id     = "PL1",
                                 Nombre = "Planta Baja",
                                 Graph  = graph,
+                                // Metadata de recintos: tipo por centroide (AD-CAD hace point-in-polygon)
+                                RecintosMeta = ambientesDwg.Select(a => new SyncRecintoMeta
+                                {
+                                    FaceKey = "",
+                                    Nombre  = a.TipoDisplay,
+                                    Tipo    = AdElec.Core.Models.TipoAmbienteInfo.DesdeNombre(a.TipoDisplay).ApiValue,
+                                    Coord   = a.PolygonPoints.Count > 0
+                                        ? new System.Collections.Generic.Dictionary<string, double>
+                                          {
+                                            ["x"] = Math.Round(a.PolygonPoints.Average(p => p.X), 3),
+                                            ["y"] = Math.Round(a.PolygonPoints.Average(p => p.Y), 3),
+                                          }
+                                        : null,
+                                }).ToList(),
                             }
                         ]
                     }

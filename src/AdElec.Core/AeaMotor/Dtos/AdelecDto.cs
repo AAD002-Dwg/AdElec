@@ -21,6 +21,92 @@ public class SyncProjectData
 {
     [JsonPropertyName("ad_elec")]
     public SyncProjectCanvas AdElec { get; set; } = new();
+
+    [JsonPropertyName("ad_cad")]
+    public SyncAdCadData AdCad { get; set; } = new();
+}
+
+public class SyncAdCadData
+{
+    [JsonPropertyName("plantas")]
+    public List<SyncPlanta> Plantas { get; set; } = [];
+}
+
+public class SyncPlanta
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "PL1";
+
+    [JsonPropertyName("nombre")]
+    public string Nombre { get; set; } = "Planta Baja";
+
+    [JsonPropertyName("nivel")]
+    public double Nivel { get; set; } = 0;
+
+    [JsonPropertyName("graph")]
+    public SyncGraph Graph { get; set; } = new();
+
+    [JsonPropertyName("recintosMeta")]
+    public List<SyncRecintoMeta> RecintosMeta { get; set; } = [];
+}
+
+public class SyncGraph
+{
+    [JsonPropertyName("nodes")]
+    public List<SyncNode> Nodes { get; set; } = [];
+
+    [JsonPropertyName("edges")]
+    public List<SyncEdge> Edges { get; set; } = [];
+}
+
+public class SyncNode
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [JsonPropertyName("x")]
+    public double X { get; set; }
+
+    [JsonPropertyName("y")]
+    public double Y { get; set; }
+}
+
+public class SyncEdge
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [JsonPropertyName("a")]
+    public string NodeA { get; set; } = string.Empty;
+
+    [JsonPropertyName("b")]
+    public string NodeB { get; set; } = string.Empty;
+
+    [JsonPropertyName("thickness")]
+    public double Thickness { get; set; } = 0.15;
+
+    [JsonPropertyName("type")]
+    public string Type { get; set; } = "wall";
+}
+
+public class SyncRecintoMeta
+{
+    [JsonPropertyName("faceKey")]
+    public string FaceKey { get; set; } = string.Empty;
+
+    [JsonPropertyName("nombre")]
+    public string Nombre { get; set; } = string.Empty;
+
+    [JsonPropertyName("tipo")]
+    public string Tipo { get; set; } = "otro";
+
+    /// <summary>
+    /// Centroide del recinto en coordenadas mundo.
+    /// Cuando faceKey está vacío, AD-CAD usa este punto para hacer
+    /// point-in-polygon y asignar el tipo al face del grafo correspondiente.
+    /// </summary>
+    [JsonPropertyName("coord")]
+    public Dictionary<string, double>? Coord { get; set; }
 }
 
 public class SyncProjectCanvas
@@ -48,6 +134,9 @@ public class SyncRoom
 
     [JsonPropertyName("polygon_points")]
     public List<Dictionary<string, double>> PolygonPoints { get; set; } = [];
+
+    [JsonPropertyName("wall_thickness")]
+    public double WallThickness { get; set; } = 0.15;
 
     [JsonPropertyName("centroid")]
     public Dictionary<string, double> Centroid { get; set; } = new();

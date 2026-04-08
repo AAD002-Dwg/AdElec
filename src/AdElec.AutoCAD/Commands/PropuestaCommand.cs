@@ -222,7 +222,8 @@ namespace AdElec.AutoCAD.Commands
             ActualizarCircuitosPanel(panel, proposal, panelRepo, tableroName);
 
             // ── 9. Sincronizar con el editor web de AEA-MOTOR ────────────────
-            SincronizarConAdelec(motorClient, input, proposal, tableroName, ed);
+            var projectRepo = new DwgProjectRepository();
+            SincronizarConAdelec(motorClient, projectRepo, input, proposal, tableroName, ed);
 
             ed.WriteMessage("\n  Atributo D = tablero. Usá ADE_PANEL → 'Calcular AEA 90364' para obtener secciones y validaciones.");
         }
@@ -276,6 +277,7 @@ namespace AdElec.AutoCAD.Commands
         /// </summary>
         private static void SincronizarConAdelec(
             AeaMotorClient motorClient,
+            DwgProjectRepository projectRepo,
             ProposalProjectInput input,
             ProposalResponse proposal,
             string tableroName,
@@ -283,10 +285,9 @@ namespace AdElec.AutoCAD.Commands
         {
             try
             {
-                // Construir mapa room_id → puntos del motor
+                // ── Rooms para el canvas adelec ──────────────────────────────
                 var ptMap = proposal.RoomsUpdate.ToDictionary(r => r.Id, r => r.Points);
 
-                // Construir rooms para el canvas
                 var syncRooms = input.Rooms.Select(r =>
                 {
                     ptMap.TryGetValue(r.Id, out var pts);
@@ -302,18 +303,26 @@ namespace AdElec.AutoCAD.Commands
                     };
                 }).ToList();
 
-                // Derivar circuitos únicos para el tablero canvas
+                // ── recintosMeta para AD-CAD (tipo por centroide) ────────────
+                // AD-CAD matchea por coord (punto dentro del polígono) cuando no tiene faceKey
+                var recintosMeta = input.Rooms.Select(r => new SyncRecintoMeta
+                {
+                    FaceKey = "",    // vacío → AD-CAD usa coord para matchear
+                    Nombre  = r.Name,
+                    Tipo    = r.Type, // "sala_estar", "dormitorio", etc.
+                    Coord   = r.Centroid,
+                }).ToList();
+
+                // ── Circuitos ────────────────────────────────────────────────
                 var circuitIds = proposal.RoomsUpdate
                     .SelectMany(r => r.Points)
                     .Where(p => !string.IsNullOrEmpty(p.CircuitId))
                     .Select(p => p.CircuitId!)
-                    .Distinct()
-                    .OrderBy(c => c);
+                    .Distinct().OrderBy(c => c);
 
                 var syncCircuits = circuitIds.Select(cid =>
                 {
-                    bool esLuz = proposal.RoomsUpdate
-                        .SelectMany(r => r.Points)
+                    bool esLuz = proposal.RoomsUpdate.SelectMany(r => r.Points)
                         .Any(p => p.CircuitId == cid && (p.Type == "IUG" || p.Type == "IUE"));
                     return new SyncCircuit
                     {
@@ -324,29 +333,57 @@ namespace AdElec.AutoCAD.Commands
                     };
                 }).ToList();
 
-                var syncReq = new SyncProjectRequest
+                var syncData = new SyncProjectData
                 {
-                    Name = input.ProjectName,
-                    DataJson = new SyncProjectData
+                    AdElec = new SyncProjectCanvas
                     {
-                        AdElec = new SyncProjectCanvas
+                        Rooms = syncRooms,
+                        Board = new SyncBoard
                         {
-                            Rooms = syncRooms,
-                            Board = new SyncBoard
-                            {
-                                Id         = tableroName,
-                                MainSwitch = input.Board.MainSwitch,
-                                Rcd        = input.Board.Rcd,
-                                Circuits   = syncCircuits,
-                            },
+                            Id         = tableroName,
+                            MainSwitch = input.Board.MainSwitch,
+                            Rcd        = input.Board.Rcd,
+                            Circuits   = syncCircuits,
                         },
+                    },
+                    AdCad = new SyncAdCadData
+                    {
+                        Plantas =
+                        [
+                            new SyncPlanta
+                            {
+                                Id            = "PL1",
+                                Nombre        = "Planta Baja",
+                                RecintosMeta  = recintosMeta,
+                            }
+                        ]
                     },
                 };
 
-                var syncResult = Task.Run(() => motorClient.SincronizarProyectoAsync(syncReq))
-                                     .GetAwaiter().GetResult();
+                var syncReq = new SyncProjectRequest
+                {
+                    Name     = input.ProjectName,
+                    DataJson = syncData,
+                };
 
-                ed.WriteMessage($"\n  Proyecto sincronizado con AEA-MOTOR (ID #{syncResult.Id}) — abrí el editor web para visualizarlo.");
+                // ── POST si es nuevo, PUT si el DWG ya tiene un ID vinculado ──
+                int existingId = projectRepo.GetProjectId();
+                SyncProjectResponse syncResult;
+
+                if (existingId > 0)
+                {
+                    syncResult = Task.Run(() => motorClient.ActualizarProyectoAsync(existingId, syncReq))
+                                     .GetAwaiter().GetResult();
+                    ed.WriteMessage($"\n  Proyecto #{existingId} actualizado en AEA-MOTOR.");
+                }
+                else
+                {
+                    syncResult = Task.Run(() => motorClient.SincronizarProyectoAsync(syncReq))
+                                     .GetAwaiter().GetResult();
+                    // Persistir el ID nuevo en el DWG para que futuras propuestas usen PUT
+                    projectRepo.SaveProjectId(syncResult.Id);
+                    ed.WriteMessage($"\n  Proyecto creado en AEA-MOTOR (ID #{syncResult.Id}) — vinculado a este DWG.");
+                }
             }
             catch (System.Exception ex)
             {
