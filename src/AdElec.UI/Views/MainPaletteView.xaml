@@ -4,32 +4,51 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              mc:Ignorable="d"
-             d:DesignHeight="600" d:DesignWidth="280"
-             Background="#2D2D2D">
+             d:DesignHeight="640" d:DesignWidth="280"
+             Background="#1B1D23">
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         Paleta de colores AEA-MOTOR
+         bg-main:      #1B1D23   (fondo base)
+         bg-panel:     #21252B   (paneles / cards)
+         bg-tertiary:  #272C36   (filas alternas, inputs)
+         accent:       #55AAFF   (azul primario)
+         text-main:    #D2D2D2
+         text-secondary:#8A91A1
+         border:       #343B48
+         success:      #4CAF50
+         warning:      #FFC107
+         error:        #F44336
+         Circuitos: C1=#60a5fa C2=#f59e0b C3=#a78bfa C4=#34d399
+    ═══════════════════════════════════════════════════════════════════════ -->
 
     <UserControl.Resources>
-        <!-- Botón primario oscuro -->
+
+        <BooleanToVisibilityConverter x:Key="BoolVis"/>
+
+        <!-- ── Botón primario (accent) ─────────────────────────────────── -->
         <Style x:Key="BtnPrimary" TargetType="Button">
-            <Setter Property="Background" Value="#0078D4"/>
-            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Background" Value="#55AAFF"/>
+            <Setter Property="Foreground" Value="#1B1D23"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Padding" Value="8,5"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border Background="{TemplateBinding Background}"
-                                CornerRadius="3" Padding="{TemplateBinding Padding}">
+                                CornerRadius="4" Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#005A9E"/>
+                                <Setter Property="Background" Value="#4aa0ec"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Background" Value="#444"/>
-                                <Setter Property="Foreground" Value="#888"/>
+                                <Setter Property="Background" Value="#272C36"/>
+                                <Setter Property="Foreground" Value="#5A6170"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -37,309 +56,777 @@
             </Setter>
         </Style>
 
-        <!-- Botón secundario gris -->
+        <!-- ── Botón secundario (panel) ───────────────────────────────── -->
         <Style x:Key="BtnSecondary" TargetType="Button" BasedOn="{StaticResource BtnPrimary}">
-            <Setter Property="Background" Value="#444"/>
+            <Setter Property="Background" Value="#272C36"/>
+            <Setter Property="Foreground" Value="#D2D2D2"/>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#555"/>
+                    <Setter Property="Background" Value="#343B48"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- Botón acción verde -->
+        <!-- ── Botón acción verde (success) ────────────────────────────── -->
         <Style x:Key="BtnAction" TargetType="Button" BasedOn="{StaticResource BtnPrimary}">
-            <Setter Property="Background" Value="#2E7D32"/>
+            <Setter Property="Background" Value="#4CAF50"/>
+            <Setter Property="Foreground" Value="#1B1D23"/>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#1B5E20"/>
-                </Trigger>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#444"/>
-                    <Setter Property="Foreground" Value="#888"/>
+                    <Setter Property="Background" Value="#43A047"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- Label de sección -->
+        <!-- ── Input oscuro ────────────────────────────────────────────── -->
+        <Style x:Key="DarkInput" TargetType="TextBox">
+            <Setter Property="Background" Value="#272C36"/>
+            <Setter Property="Foreground" Value="#D2D2D2"/>
+            <Setter Property="BorderBrush" Value="#343B48"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="7,4"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="CaretBrush" Value="#D2D2D2"/>
+            <Setter Property="SelectionBrush" Value="#55AAFF"/>
+        </Style>
+
+        <!-- ── ComboBox ítem oscuro ─────────────────────────────────────── -->
+        <Style x:Key="DarkComboItem" TargetType="ComboBoxItem">
+            <Setter Property="Background" Value="#21252B"/>
+            <Setter Property="Foreground" Value="#D2D2D2"/>
+            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBoxItem">
+                        <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter Property="Background" Value="#55AAFF"/>
+                                <Setter Property="Foreground" Value="#1B1D23"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="#3e8ed0"/>
+                                <Setter Property="Foreground" Value="#1B1D23"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ── ComboBox oscuro completo ─────────────────────────────────── -->
+        <Style x:Key="DarkCombo" TargetType="ComboBox">
+            <Setter Property="Background" Value="#272C36"/>
+            <Setter Property="Foreground" Value="#D2D2D2"/>
+            <Setter Property="BorderBrush" Value="#343B48"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="7,4"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="ItemContainerStyle" Value="{StaticResource DarkComboItem}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <ToggleButton Background="{TemplateBinding Background}"
+                                          BorderBrush="{TemplateBinding BorderBrush}"
+                                          BorderThickness="{TemplateBinding BorderThickness}"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay,
+                                                      RelativeSource={RelativeSource TemplatedParent}}"
+                                          Focusable="False">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border Background="{TemplateBinding Background}"
+                                                BorderBrush="{TemplateBinding BorderBrush}"
+                                                BorderThickness="{TemplateBinding BorderThickness}"
+                                                CornerRadius="4">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="24"/>
+                                                </Grid.ColumnDefinitions>
+                                                <ContentPresenter Grid.Column="0"/>
+                                                <Path Grid.Column="1" Data="M 0 0 L 5 5 L 10 0"
+                                                      Stroke="#8A91A1" StrokeThickness="1.5"
+                                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="BorderBrush" Value="#55AAFF"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+                            <ContentPresenter Margin="8,0,26,0" VerticalAlignment="Center"
+                                              IsHitTestVisible="False"
+                                              TextElement.Foreground="#D2D2D2"/>
+                            <Popup Placement="Bottom" IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   AllowsTransparency="True" PopupAnimation="Slide">
+                                <Border Background="#21252B" BorderBrush="#343B48" BorderThickness="1"
+                                        CornerRadius="0,0,4,4"
+                                        MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=ComboBox}}">
+                                    <ScrollViewer MaxHeight="180">
+                                        <ItemsPresenter/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ── Etiqueta de sección ──────────────────────────────────────── -->
         <Style x:Key="SectionLabel" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#AAAAAA"/>
+            <Setter Property="Foreground" Value="#8A91A1"/>
             <Setter Property="FontSize" Value="10"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Margin" Value="0,0,0,4"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
         </Style>
 
-        <!-- Valor numérico -->
-        <Style x:Key="ValueText" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="FontSize" Value="13"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
+        <!-- ── Valor destacado ──────────────────────────────────────────── -->
+        <Style x:Key="BigValue" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#D2D2D2"/>
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="FontWeight" Value="Bold"/>
         </Style>
 
-        <!-- Input de texto oscuro -->
-        <Style x:Key="DarkInput" TargetType="TextBox">
-            <Setter Property="Background" Value="#3C3C3C"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="BorderBrush" Value="#555"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="5,4"/>
+        <!-- ── Tab personalizado ────────────────────────────────────────── -->
+        <Style x:Key="AdeTab" TargetType="TabItem">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#8A91A1"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="14,8"/>
             <Setter Property="FontSize" Value="12"/>
-            <Setter Property="CaretBrush" Value="White"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="Root" Background="Transparent"
+                                BorderThickness="0,0,0,2" BorderBrush="Transparent"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter ContentSource="Header"
+                                              HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Root" Property="BorderBrush" Value="#55AAFF"/>
+                                <Setter Property="Foreground" Value="#55AAFF"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="#D2D2D2"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
-        <!-- ComboBox oscuro -->
-        <Style x:Key="DarkCombo" TargetType="ComboBox">
-            <Setter Property="Background" Value="#3C3C3C"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="BorderBrush" Value="#555"/>
+        <!-- ── DataGrid oscuro ──────────────────────────────────────────── -->
+        <Style x:Key="AdeDataGrid" TargetType="DataGrid">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#D2D2D2"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="RowBackground" Value="Transparent"/>
+            <Setter Property="AlternatingRowBackground" Value="#272C36"/>
+            <Setter Property="HorizontalGridLinesBrush" Value="#343B48"/>
+            <Setter Property="VerticalGridLinesBrush" Value="Transparent"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="HeadersVisibility" Value="Column"/>
+            <Setter Property="ColumnHeaderStyle">
+                <Setter.Value>
+                    <Style TargetType="DataGridColumnHeader">
+                        <Setter Property="Background" Value="#14161b"/>
+                        <Setter Property="Foreground" Value="#8A91A1"/>
+                        <Setter Property="FontSize" Value="10"/>
+                        <Setter Property="FontWeight" Value="SemiBold"/>
+                        <Setter Property="Padding" Value="8,5"/>
+                        <Setter Property="BorderThickness" Value="0"/>
+                        <Setter Property="SeparatorBrush" Value="#343B48"/>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="CellStyle">
+                <Setter.Value>
+                    <Style TargetType="DataGridCell">
+                        <Setter Property="Foreground" Value="#D2D2D2"/>
+                        <Setter Property="BorderThickness" Value="0"/>
+                        <Setter Property="Padding" Value="8,4"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="DataGridCell">
+                                    <Border Background="{TemplateBinding Background}"
+                                            Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter VerticalAlignment="Center"/>
+                                    </Border>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                        <Style.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="#1a2840"/>
+                                <Setter Property="Foreground" Value="#D2D2D2"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="AdeCard" TargetType="Border">
+            <Setter Property="Background" Value="#21252B"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="10"/>
+            <Setter Property="Margin" Value="0,0,0,12"/>
+            <Setter Property="BorderBrush" Value="#343B48"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="5,4"/>
-            <Setter Property="FontSize" Value="12"/>
         </Style>
 
-        <BooleanToVisibilityConverter x:Key="BoolVis"/>
+        <Style x:Key="AdeExpander" TargetType="Expander">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#D2D2D2"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="0,0,0,10"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Expander">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="#343B48" BorderThickness="0,0,0,1">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*" x:Name="ContentRow"/>
+                                </Grid.RowDefinitions>
+                                <ToggleButton IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                                              Background="Transparent" BorderThickness="0" Padding="0,8">
+                                    <ToggleButton.Template>
+                                        <ControlTemplate TargetType="ToggleButton">
+                                            <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <ContentPresenter Grid.Column="0" VerticalAlignment="Center"/>
+                                                    <TextBlock x:Name="Arrow" Grid.Column="1" Text="▼" 
+                                                               Foreground="#55AAFF" FontSize="10" 
+                                                               VerticalAlignment="Center" Margin="5,0"/>
+                                                </Grid>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding IsExpanded, RelativeSource={RelativeSource AncestorType=Expander}}" Value="True">
+                                                    <Setter TargetName="Arrow" Property="Text" Value="▲"/>
+                                                </DataTrigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </ToggleButton.Template>
+                                    <ContentPresenter ContentSource="Header" RecognizesAccessKey="True"/>
+                                </ToggleButton>
+                                <ContentPresenter Grid.Row="1" x:Name="ExpandSite" Visibility="Collapsed" Margin="0,8,0,0"/>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsExpanded" Value="True">
+                                <Setter TargetName="ExpandSite" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
     </UserControl.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>  <!-- Header -->
-            <RowDefinition Height="Auto"/>  <!-- Tablero selector -->
-            <RowDefinition Height="Auto"/>  <!-- Nuevo tablero form -->
-            <RowDefinition Height="Auto"/>  <!-- Info AEA -->
-            <RowDefinition Height="*"/>     <!-- Circuitos DataGrid -->
-            <RowDefinition Height="Auto"/>  <!-- Acciones -->
-            <RowDefinition Height="Auto"/>  <!-- Status bar -->
+            <RowDefinition Height="Auto"/>   <!-- Header -->
+            <RowDefinition Height="*"/>      <!-- Tabs -->
+            <RowDefinition Height="Auto"/>   <!-- Status bar -->
         </Grid.RowDefinitions>
 
-        <!-- ═══ HEADER ═══════════════════════════════════════════════════ -->
-        <Border Grid.Row="0" Background="#1A1A1A" Padding="10,8">
+        <!-- ═══ HEADER ══════════════════════════════════════════════════════ -->
+        <Border Grid.Row="0" Background="#14161b" Padding="12,8"
+                BorderBrush="#343B48" BorderThickness="0,0,0,1">
             <Grid>
-                <TextBlock Text="AD-ELEC" Foreground="White"
-                           FontSize="15" FontWeight="Bold" VerticalAlignment="Center"/>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <Button Content="⟳" Style="{StaticResource BtnSecondary}"
-                            Padding="6,3" FontSize="11"
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="AD-ELEC" Foreground="#55AAFF"
+                               FontSize="14" FontWeight="Bold"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                            VerticalAlignment="Center">
+                    <Button Style="{StaticResource BtnSecondary}"
+                            Content="⟳" Padding="6,3" FontSize="12"
                             Command="{Binding CheckMotorCommand}"
                             ToolTip="Verificar conexión con AEA-MOTOR"/>
-                    <TextBlock Text="{Binding MotorStatusText}"
-                               Foreground="{Binding MotorStatusColor}"
-                               FontSize="11" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                    <Ellipse Width="8" Height="8" Margin="8,0,0,0"
+                             VerticalAlignment="Center">
+                        <Ellipse.Style>
+                            <Style TargetType="Ellipse">
+                                <Setter Property="Fill" Value="#F44336"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsMotorAvailable}" Value="True">
+                                        <Setter Property="Fill" Value="#4CAF50"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Ellipse.Style>
+                    </Ellipse>
+                    <TextBlock Foreground="#8A91A1" FontSize="10" Margin="5,0,0,0"
+                               VerticalAlignment="Center" Text="AEA-MOTOR"/>
                 </StackPanel>
             </Grid>
         </Border>
 
-        <!-- ═══ SELECTOR DE TABLERO ══════════════════════════════════════ -->
-        <Border Grid.Row="1" Background="#252525" Padding="10,8">
-            <StackPanel>
-                <TextBlock Text="Tablero" Style="{StaticResource SectionLabel}"/>
+        <!-- ═══ TABS ════════════════════════════════════════════════════════ -->
+        <TabControl Grid.Row="1" Background="#1B1D23" BorderThickness="0"
+                    TabStripPlacement="Top">
+            <TabControl.Template>
+                <ControlTemplate TargetType="TabControl">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <!-- Tab strip -->
+                        <Border Grid.Row="0" Background="#14161b"
+                                BorderBrush="#343B48" BorderThickness="0,0,0,1">
+                            <TabPanel IsItemsHost="True" Background="Transparent"/>
+                        </Border>
+                        <!-- Tab content -->
+                        <ContentPresenter Grid.Row="1" ContentSource="SelectedContent"/>
+                    </Grid>
+                </ControlTemplate>
+            </TabControl.Template>
+
+            <!-- ══ TAB 1: TABLERO ══════════════════════════════════════════ -->
+            <TabItem Header="Tablero" Style="{StaticResource AdeTab}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                               HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Margin="12,10">
+
+                        <!-- ── SECCIÓN: TABLERO ACTIVO ────────────────────────── -->
+                        <Border Style="{StaticResource AdeCard}">
+                            <StackPanel>
+                                <TextBlock Text="TABLERO SELECCIONADO" Style="{StaticResource SectionLabel}"/>
+                                <Grid Margin="0,0,0,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="6"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <ComboBox Grid.Column="0" Style="{StaticResource DarkCombo}"
+                                              ItemsSource="{Binding Panels}"
+                                              SelectedItem="{Binding SelectedPanel, Mode=TwoWay}"
+                                              DisplayMemberPath="Name"/>
+                                    <Button Grid.Column="2" Content="+ Nuevo"
+                                            Style="{StaticResource BtnSecondary}"
+                                            Command="{Binding NuevoTableroCommand}"
+                                            Padding="10,5" FontSize="11"/>
+                                </Grid>
+
+                                <!-- Detalle del tablero -->
+                                <Border Background="#14161b" CornerRadius="4" Padding="10,8" 
+                                        Visibility="{Binding HasPanel, Converter={StaticResource BoolVis}}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding SelectedPanel.Location, FallbackValue='Sin ubicación'}"
+                                                       Foreground="#D2D2D2" FontSize="13" FontWeight="SemiBold"/>
+                                            <TextBlock Text="Ubicación / UF" Foreground="#8A91A1" FontSize="9"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" HorizontalAlignment="Right">
+                                            <TextBlock Text="{Binding SelectedPanel.PhaseCount, StringFormat='{}{0} Fases'}"
+                                                       Foreground="#55AAFF" FontSize="11" FontWeight="Bold" HorizontalAlignment="Right"/>
+                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                                <TextBlock Text="{Binding SelectedPanel.MainBreakerAmps, StringFormat='{}{0}A'}"
+                                                           Foreground="#8A91A1" FontSize="10"/>
+                                                <TextBlock Text=" · " Foreground="#343B48" Margin="4,0"/>
+                                                <TextBlock Text="{Binding SelectedPanel.SuperficieCubiertaM2, StringFormat='{}{0}m²'}"
+                                                           Foreground="#8A91A1" FontSize="10"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- ── FORMULARIO NUEVO TABLERO ─────────────────────── -->
+                        <Border Background="#1a2840" CornerRadius="6" Padding="12" Margin="0,0,0,12"
+                                BorderBrush="#55AAFF" BorderThickness="1"
+                                Visibility="{Binding ShowNewPanelForm, Converter={StaticResource BoolVis}}">
+                            <StackPanel>
+                                <TextBlock Text="CREAR NUEVO TABLERO" Foreground="#55AAFF"
+                                           FontSize="11" FontWeight="Bold" Margin="0,0,0,10"/>
+                                
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="10"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="Nombre" Style="{StaticResource SectionLabel}" Margin="0"/>
+                                        <TextBox Style="{StaticResource DarkInput}" 
+                                                 Text="{Binding NewPanelName, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Ubicación (UF)" Style="{StaticResource SectionLabel}" Margin="0"/>
+                                        <TextBox Style="{StaticResource DarkInput}" 
+                                                 Text="{Binding NewPanelLocation, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <Grid Margin="0,0,0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="10"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="Superficie m²" Style="{StaticResource SectionLabel}" Margin="0"/>
+                                        <TextBox Style="{StaticResource DarkInput}"
+                                                 Text="{Binding NewPanelSuperficie, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Fases" Style="{StaticResource SectionLabel}" Margin="0"/>
+                                        <ComboBox Style="{StaticResource DarkCombo}"
+                                                  SelectedValue="{Binding NewPanelPhaseCount, Mode=TwoWay}">
+                                            <ComboBoxItem Content="1F (Monofásico)" Tag="1"/>
+                                            <ComboBoxItem Content="3F (Trifásico)" Tag="3"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                </Grid>
+
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <Button Content="Descartar" Style="{StaticResource BtnSecondary}"
+                                            Command="{Binding CancelarNuevoTableroCommand}"
+                                            Margin="0,0,8,0" Padding="12,6"/>
+                                    <Button Content="Confirmar" Style="{StaticResource BtnPrimary}"
+                                            Command="{Binding ConfirmarNuevoTableroCommand}"
+                                            Padding="15,6"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- ── RESUMEN NORMATIVO ────────────────────────────── -->
+                        <Border Style="{StaticResource AdeCard}" Visibility="{Binding HasPanel, Converter={StaticResource BoolVis}}">
+                            <StackPanel>
+                                <TextBlock Text="ESTADO NORMATIVO (AEA)" Style="{StaticResource SectionLabel}"/>
+                                <Grid Margin="0,0,0,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" Margin="0,0,5,0">
+                                        <TextBlock Text="CARGA" Foreground="#8A91A1" FontSize="9" FontWeight="Bold"/>
+                                        <TextBlock Text="{Binding TotalLoadKVA, StringFormat='{}{0:F1} kVA'}"
+                                                   Style="{StaticResource BigValue}" FontSize="15" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" HorizontalAlignment="Center">
+                                        <TextBlock Text="GRADO" Foreground="#8A91A1" FontSize="9" FontWeight="Bold"/>
+                                        <TextBlock Text="{Binding LastGrado, FallbackValue='—'}"
+                                                   Style="{StaticResource BigValue}" FontSize="15" Foreground="#55AAFF" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" HorizontalAlignment="Right">
+                                        <TextBlock Text="NORMA" Foreground="#8A91A1" FontSize="9" FontWeight="Bold" HorizontalAlignment="Right"/>
+                                        <TextBlock Text="{Binding CumpleNormaText, FallbackValue='—'}"
+                                                   FontSize="11" FontWeight="Bold"
+                                                   Foreground="{Binding CumpleNormaColor}" Margin="0,4,0,0"/>
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- ── OPERACIONES Y ASISTENTES ─────────────────────── -->
+                        <Expander Header="OPERACIONES Y ASISTENTES" Style="{StaticResource AdeExpander}" IsExpanded="True">
+                            <StackPanel Margin="0,5,0,0">
+                                <TextBlock Text="Acciones Principales" Foreground="#5A6170" FontSize="9" Margin="0,0,0,6"/>
+                                <Grid Margin="0,0,0,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Button Grid.Column="0" Content="Calcular AEA 90364"
+                                            Style="{StaticResource BtnPrimary}"
+                                            Command="{Binding CalcularAeaCommand}"
+                                            ToolTip="Envía los circuitos al motor AEA-MOTOR"/>
+                                    <Button Grid.Column="2" Content="↺ DWG"
+                                            Style="{StaticResource BtnSecondary}"
+                                            Command="{Binding RecargarCircuitosCommand}"
+                                            Padding="10,5"
+                                            ToolTip="Actualiza circuitos desde los bloques del dibujo"/>
+                                </Grid>
+
+                                <TextBlock Text="Diseño Automático" Foreground="#5A6170" FontSize="9" Margin="0,0,0,6"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Button Grid.Column="0" Content="💡 Luminarias"
+                                            Style="{StaticResource BtnAction}"
+                                            Command="{Binding SugerirLuminariasCommand}"
+                                            ToolTip="Distribución automática de bocas de luz"/>
+                                    <Button Grid.Column="2" Content="⏚ Tomas"
+                                            Style="{StaticResource BtnAction}"
+                                            Command="{Binding SugerirTomasCommand}"
+                                            ToolTip="Ubicación normativa de tomacorrientes"/>
+                                </Grid>
+                            </StackPanel>
+                        </Expander>
+
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- ══ TAB 2: CIRCUITOS ════════════════════════════════════════ -->
+            <TabItem Header="Circuitos" Style="{StaticResource AdeTab}">
                 <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <ComboBox Grid.Column="0"
-                              Style="{StaticResource DarkCombo}"
-                              ItemsSource="{Binding Panels}"
-                              SelectedItem="{Binding SelectedPanel, Mode=TwoWay}"
-                              DisplayMemberPath="Name"
-                              Margin="0,0,6,0"/>
-                    <Button Grid.Column="1" Content="+ Nuevo"
-                            Style="{StaticResource BtnSecondary}"
-                            Command="{Binding NuevoTableroCommand}"
-                            Padding="8,4"/>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <DataGrid Grid.Row="0"
+                              Style="{StaticResource AdeDataGrid}"
+                              ItemsSource="{Binding Circuits}"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              CanUserResizeRows="False"
+                              CanUserAddRows="False"
+                              SelectionMode="Single"
+                              Margin="0">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Circuito" Binding="{Binding Name}" Width="60"/>
+                            <DataGridTextColumn Header="Tipo"     Binding="{Binding Type}" Width="45"/>
+                            <DataGridTextColumn Header="mm²"      Binding="{Binding WireSectionMm2, StringFormat='{}{0:F1}'}" Width="40"/>
+                            <DataGridTextColumn Header="VA"       Binding="{Binding LoadVA, StringFormat='{}{0:F0}'}" Width="55"/>
+                            <DataGridTextColumn Header="A"        Binding="{Binding BreakerAmps, StringFormat='{}{0:F0}'}" Width="35"/>
+                            <DataGridTextColumn Header="Fase"     Binding="{Binding Phase}" Width="35"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <!-- Placeholder vacío -->
+                    <TextBlock Grid.Row="0" Text="Sin circuitos — usá ADE_PROPUESTA o ↺ DWG"
+                               Foreground="#5A6170" FontSize="11" TextWrapping="Wrap"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               TextAlignment="Center" Margin="20"
+                               Visibility="{Binding HasCircuits, Converter={StaticResource BoolVis}, ConverterParameter=Inverse}"/>
+
+                    <!-- Footer circuitos -->
+                    <Border Grid.Row="1" Background="#14161b" Padding="10,6"
+                            BorderBrush="#343B48" BorderThickness="0,1,0,0">
+                        <TextBlock Foreground="#8A91A1" FontSize="10"
+                                   Text="{Binding Circuits.Count, StringFormat='{}{0} circuito(s)'}"/>
+                    </Border>
                 </Grid>
+            </TabItem>
 
-                <!-- Info del tablero seleccionado -->
-                <StackPanel Orientation="Horizontal" Margin="0,5,0,0"
-                            Visibility="{Binding HasPanel, Converter={StaticResource BoolVis}}">
-                    <TextBlock Foreground="#AAAAAA" FontSize="11"
-                               Text="{Binding SelectedPanel.Location, StringFormat='{}📍 {0}'}"/>
-                    <TextBlock Foreground="#AAAAAA" FontSize="11" Margin="8,0,0,0"
-                               Text="{Binding SelectedPanel.PhaseCount, StringFormat='{}⚡ {0}F'}"/>
-                    <TextBlock Foreground="#AAAAAA" FontSize="11" Margin="8,0,0,0"
-                               Text="{Binding SelectedPanel.MainBreakerAmps, StringFormat='{}{0}A'}"/>
-                    <TextBlock Foreground="#AAAAAA" FontSize="11" Margin="8,0,0,0"
-                               Text="{Binding SelectedPanel.SuperficieCubiertaM2, StringFormat='{}{0}m²'}"/>
-                </StackPanel>
-            </StackPanel>
-        </Border>
+            <!-- ══ TAB 3: MOTOR ════════════════════════════════════════════ -->
+            <TabItem Header="Motor" Style="{StaticResource AdeTab}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="12,10">
 
-        <!-- ═══ FORMULARIO NUEVO TABLERO (colapsable) ════════════════════ -->
-        <Border Grid.Row="2" Background="#1E3A52" Padding="10,8"
-                Visibility="{Binding ShowNewPanelForm, Converter={StaticResource BoolVis}}">
-            <StackPanel>
-                <TextBlock Text="Nuevo Tablero" Style="{StaticResource SectionLabel}" Foreground="#64B5F6"/>
-                <TextBlock Text="Nombre" Foreground="#AAAAAA" FontSize="11" Margin="0,0,0,2"/>
-                <TextBox Style="{StaticResource DarkInput}" Margin="0,0,0,6"
-                         Text="{Binding NewPanelName, UpdateSourceTrigger=PropertyChanged}"/>
-                <TextBlock Text="Ubicación" Foreground="#AAAAAA" FontSize="11" Margin="0,0,0,2"/>
-                <TextBox Style="{StaticResource DarkInput}" Margin="0,0,0,6"
-                         Text="{Binding NewPanelLocation, UpdateSourceTrigger=PropertyChanged}"/>
-                <TextBlock Text="Superficie cubierta (m²)" Foreground="#AAAAAA" FontSize="11" Margin="0,0,0,2"/>
-                <TextBox Style="{StaticResource DarkInput}" Margin="0,0,0,6"
-                         Text="{Binding NewPanelSuperficie, UpdateSourceTrigger=PropertyChanged}"/>
-                <TextBlock Text="Fases" Foreground="#AAAAAA" FontSize="11" Margin="0,0,0,2"/>
-                <ComboBox Style="{StaticResource DarkCombo}" Margin="0,0,0,6"
-                          SelectedValue="{Binding NewPanelPhaseCount, Mode=TwoWay}"
-                          SelectedValuePath="Tag">
-                    <ComboBoxItem Content="Monofásico (1F)" Tag="1" IsSelected="True"/>
-                    <ComboBoxItem Content="Trifásico (3F)" Tag="3"/>
-                </ComboBox>
-                <TextBlock Text="Tipo de tablero" Foreground="#AAAAAA" FontSize="11" Margin="0,0,0,2"/>
-                <ComboBox Style="{StaticResource DarkCombo}" Margin="0,0,0,8"
-                          SelectedValue="{Binding NewPanelTipo, Mode=TwoWay}"
-                          SelectedValuePath="Tag">
-                    <ComboBoxItem Content="Tablero Seccional"      Tag="Tablero Seccional" IsSelected="True"/>
-                    <ComboBoxItem Content="Tablero Principal"       Tag="Tablero Principal"/>
-                    <ComboBoxItem Content="Tablero Seccional Chico" Tag="Tablero Seccional Chico"/>
-                </ComboBox>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button Content="Cancelar" Style="{StaticResource BtnSecondary}"
-                            Command="{Binding CancelarNuevoTableroCommand}" Margin="0,0,6,0"/>
-                    <Button Content="Guardar" Style="{StaticResource BtnPrimary}"
-                            Command="{Binding ConfirmarNuevoTableroCommand}"/>
-                </StackPanel>
-            </StackPanel>
-        </Border>
+                        <!-- ── SECCIÓN: VÍNCULO WEB ────────────────────────── -->
+                        <Border Style="{StaticResource AdeCard}">
+                            <StackPanel>
+                                <TextBlock Text="PROYECTO EN AEA-MOTOR" Style="{StaticResource SectionLabel}"/>
+                                
+                                <Grid Margin="0,0,0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="ID del Proyecto" Foreground="#8A91A1" FontSize="9" Margin="0,0,0,4"/>
+                                        <TextBox Style="{StaticResource DarkInput}"
+                                                 Text="{Binding ProjectId, UpdateSourceTrigger=PropertyChanged}"
+                                                 ToolTip="ID asignado en la nube"/>
+                                    </StackPanel>
+                                    <Button Grid.Column="2" Content="Sincronizar"
+                                            VerticalAlignment="Bottom"
+                                            Style="{StaticResource BtnAction}"
+                                            Command="{Binding SincronizarCommand}"
+                                            Padding="15,6" FontSize="11"
+                                            ToolTip="Enviar arquitectura y circuitos hacia la Web"/>
+                                </Grid>
 
-        <!-- ═══ RESUMEN AEA ═══════════════════════════════════════════════ -->
-        <Border Grid.Row="3" Background="#252525" Padding="10,6"
-                Visibility="{Binding HasPanel, Converter={StaticResource BoolVis}}">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
+                                <Button Content="📥 Importar Cambios de Web (PULL)"
+                                        Style="{StaticResource BtnPrimary}"
+                                        Command="{Binding PullFromWebCommand}"
+                                        Margin="0,0,0,12"
+                                        Padding="15,8" FontSize="11"
+                                        ToolTip="Traer cambios de posición y nuevas bocas desde la Web a AutoCAD"/>
 
-                <StackPanel Grid.Column="0">
-                    <TextBlock Text="Carga Total" Style="{StaticResource SectionLabel}"/>
-                    <TextBlock Style="{StaticResource ValueText}"
-                               Text="{Binding TotalLoadKVA, StringFormat='{}{0} kVA'}"/>
-                </StackPanel>
-                <StackPanel Grid.Column="1" HorizontalAlignment="Center">
-                    <TextBlock Text="Grado" Style="{StaticResource SectionLabel}"/>
-                    <TextBlock Style="{StaticResource ValueText}"
-                               Text="{Binding LastGrado, FallbackValue='—'}"/>
-                </StackPanel>
-                <StackPanel Grid.Column="2" HorizontalAlignment="Right">
-                    <TextBlock Text="Norma" Style="{StaticResource SectionLabel}"/>
-                    <TextBlock Text="{Binding CumpleNormaText, FallbackValue='—'}"
-                               Foreground="{Binding CumpleNormaColor}"
-                               FontSize="12" FontWeight="SemiBold"/>
-                </StackPanel>
-            </Grid>
-        </Border>
+                                <TextBlock Text="Interpretación de Geometría" Foreground="#8A91A1" FontSize="9" Margin="0,0,0,4"/>
+                                <ComboBox Style="{StaticResource DarkCombo}" Margin="0,0,0,12"
+                                          SelectedValue="{Binding SyncMode, Mode=TwoWay}"
+                                          SelectedValuePath="Tag">
+                                    <ComboBoxItem Content="Ejes de Muro (Centro)" Tag="AXIS"/>
+                                    <ComboBoxItem Content="Perímetros Interiores (Neto)" Tag="INTERIOR"/>
+                                </ComboBox>
 
-        <!-- ═══ CIRCUITOS ══════════════════════════════════════════════════ -->
-        <Border Grid.Row="4" Background="#2D2D2D" Padding="10,8">
-            <StackPanel>
-                <TextBlock Text="Circuitos" Style="{StaticResource SectionLabel}"/>
-                <DataGrid ItemsSource="{Binding Circuits}"
-                          AutoGenerateColumns="False"
-                          IsReadOnly="True"
-                          CanUserResizeRows="False"
-                          CanUserAddRows="False"
-                          GridLinesVisibility="Horizontal"
-                          HeadersVisibility="Column"
-                          Background="#1A1A1A"
-                          RowBackground="#222"
-                          AlternatingRowBackground="#282828"
-                          Foreground="White"
-                          BorderBrush="#444"
-                          BorderThickness="1"
-                          FontSize="11"
-                          MaxHeight="220">
-                    <DataGrid.ColumnHeaderStyle>
-                        <Style TargetType="DataGridColumnHeader">
-                            <Setter Property="Background" Value="#1A1A1A"/>
-                            <Setter Property="Foreground" Value="#AAAAAA"/>
-                            <Setter Property="FontSize" Value="10"/>
-                            <Setter Property="Padding" Value="5,4"/>
-                            <Setter Property="BorderBrush" Value="#333"/>
-                            <Setter Property="BorderThickness" Value="0,0,0,1"/>
-                        </Style>
-                    </DataGrid.ColumnHeaderStyle>
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="Nombre" Binding="{Binding Name}" Width="60"/>
-                        <DataGridTextColumn Header="Tipo"   Binding="{Binding Type}" Width="45"/>
-                        <DataGridTextColumn Header="mm²"   Binding="{Binding WireSectionMm2}" Width="38"/>
-                        <DataGridTextColumn Header="VA"    Binding="{Binding LoadVA, StringFormat=N0}" Width="50"/>
-                        <DataGridTextColumn Header="A"     Binding="{Binding BreakerAmps}" Width="35"/>
-                        <DataGridTextColumn Header="Fase"  Binding="{Binding Phase}" Width="35"/>
-                    </DataGrid.Columns>
-                </DataGrid>
+                                <!-- Estado vínculo -->
+                                <Border CornerRadius="4" Padding="8,6">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Background" Value="#1a3a1a"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding EstaVinculado}" Value="False">
+                                                    <Setter Property="Background" Value="#2a1a1a"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="●" FontSize="10" Margin="0,0,6,0">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="#4CAF50"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding EstaVinculado}" Value="False">
+                                                            <Setter Property="Foreground" Value="#F44336"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <TextBlock FontSize="10">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Text" Value="DWG vinculado correctamente"/>
+                                                    <Setter Property="Foreground" Value="#D2D2D2"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding EstaVinculado}" Value="False">
+                                                            <Setter Property="Text" Value="Sin vínculo — corré ADE_PROPUESTA"/>
+                                                            <Setter Property="Foreground" Value="#D2D2D2"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Border>
 
-                <!-- Placeholder cuando no hay tablero -->
-                <TextBlock Text="Seleccioná un tablero para ver sus circuitos."
-                           Foreground="#666" FontSize="11" TextAlignment="Center"
-                           Margin="0,20"
-                           Visibility="{Binding HasPanel, Converter={StaticResource BoolVis}}">
-                    <TextBlock.Style>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="Visibility" Value="Collapsed"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding HasPanel}" Value="False">
-                                    <Setter Property="Visibility" Value="Visible"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBlock.Style>
-                </TextBlock>
-            </StackPanel>
-        </Border>
+                        <!-- ── ESTADO DEL MOTOR ────────────────────────────── -->
+                        <Border Style="{StaticResource AdeCard}">
+                            <StackPanel>
+                                <TextBlock Text="SERVICIO LOCAL" Style="{StaticResource SectionLabel}"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Ellipse Grid.Column="0" Width="10" Height="10" VerticalAlignment="Center" Margin="0,0,10,0">
+                                        <Ellipse.Style>
+                                            <Style TargetType="Ellipse">
+                                                <Setter Property="Fill" Value="#F44336"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsMotorAvailable}" Value="True">
+                                                        <Setter Property="Fill" Value="#4CAF50"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Ellipse.Style>
+                                    </Ellipse>
+                                    <StackPanel Grid.Column="1">
+                                        <TextBlock Foreground="#D2D2D2" FontSize="12" FontWeight="SemiBold">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Text" Value="Motor Desconectado"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsMotorAvailable}" Value="True">
+                                                            <Setter Property="Text" Value="Motor Conectado"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <TextBlock Text="localhost:8000" Foreground="#5A6170" FontSize="10"/>
+                                    </StackPanel>
+                                    <Button Grid.Column="2" Content="Reintentar" 
+                                            Style="{StaticResource BtnSecondary}" 
+                                            Command="{Binding CheckMotorCommand}"
+                                            Padding="8,4" FontSize="10"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
 
-        <!-- ═══ ACCIONES ══════════════════════════════════════════════════ -->
-        <Border Grid.Row="5" Background="#1A1A1A" Padding="10,8">
-            <StackPanel>
-                <Grid Margin="0,0,0,6">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="6"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <Button Grid.Column="0"
-                            Content="Calcular AEA 90364"
-                            Style="{StaticResource BtnPrimary}"
-                            Command="{Binding CalcularAeaCommand}"
-                            ToolTip="Envía los circuitos al motor AEA-MOTOR y calcula secciones, caída de tensión y cumplimiento normativo."/>
-                    <Button Grid.Column="2"
-                            Content="↺ DWG"
-                            Style="{StaticResource BtnSecondary}"
-                            Command="{Binding RecargarCircuitosCommand}"
-                            Padding="8,5"
-                            ToolTip="Escanea los bloques del dibujo con D=tablero y recarga los circuitos (ADE_RECARGAR)."/>
-                </Grid>
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="6"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <Button Grid.Column="0" Content="Luminarias"
-                            Style="{StaticResource BtnAction}"
-                            Command="{Binding SugerirLuminariasCommand}"
-                            ToolTip="Ejecuta ADE_LUMINARIAS en el dibujo activo."/>
-                    <Button Grid.Column="2" Content="Tomas"
-                            Style="{StaticResource BtnAction}"
-                            Command="{Binding SugerirTomasCommand}"
-                            ToolTip="Ejecuta ADE_TOMAS en el dibujo activo."/>
-                </Grid>
-            </StackPanel>
-        </Border>
+                        <!-- ── COMANDOS RÁPIDOS ────────────────────────────── -->
+                        <Expander Header="REFERENCIA DE COMANDOS" Style="{StaticResource AdeExpander}">
+                            <StackPanel Margin="5,5,0,0">
+                                <TextBlock Foreground="#8A91A1" FontSize="10" Margin="0,0,0,10" TextWrapping="Wrap">
+                                    Comandos nativos para usar desde la consola de AutoCAD:
+                                </TextBlock>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" MinWidth="110"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="ADE_AMBIENTES" Foreground="#55AAFF" FontSize="10" FontFamily="Consolas" Margin="0,0,0,6"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="Etiquetar recinto y carga" Foreground="#8A91A1" FontSize="10"/>
+                                    
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="ADE_PROPUESTA" Foreground="#55AAFF" FontSize="10" FontFamily="Consolas" Margin="0,0,0,6"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="Generar bocas y proyecto" Foreground="#8A91A1" FontSize="10"/>
+                                    
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="ADE_LUMINARIAS" Foreground="#55AAFF" FontSize="10" FontFamily="Consolas" Margin="0,0,0,6"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="Insertar luminaria manual" Foreground="#8A91A1" FontSize="10"/>
+                                    
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="ADE_RECARGAR" Foreground="#55AAFF" FontSize="10" FontFamily="Consolas" Margin="0,0,0,6"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="1" Text="Escanear circuitos DWG" Foreground="#8A91A1" FontSize="10"/>
+                                    
+                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="ADE_PANEL" Foreground="#55AAFF" FontSize="10" FontFamily="Consolas"/>
+                                    <TextBlock Grid.Row="4" Grid.Column="1" Text="Refrescar esta paleta" Foreground="#8A91A1" FontSize="10"/>
+                                </Grid>
+                            </StackPanel>
+                        </Expander>
 
-        <!-- ═══ STATUS BAR ════════════════════════════════════════════════ -->
-        <Border Grid.Row="6" Background="#111" Padding="10,4">
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+        </TabControl>
+
+        <!-- ═══ STATUS BAR ═══════════════════════════════════════════════════ -->
+        <Border Grid.Row="2" Background="#14161b" Padding="10,4"
+                BorderBrush="#343B48" BorderThickness="0,1,0,0">
             <Grid>
                 <TextBlock Text="{Binding StatusMessage}"
-                           Foreground="#888" FontSize="10"
+                           Foreground="#5A6170" FontSize="10"
                            TextTrimming="CharacterEllipsis"
                            VerticalAlignment="Center"/>
-                <!-- Indicador de ocupado -->
-                <TextBlock Text="Calculando..." Foreground="#64B5F6" FontSize="10"
-                           HorizontalAlignment="Right" VerticalAlignment="Center"
-                           Visibility="{Binding IsBusy, Converter={StaticResource BoolVis}}"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                            VerticalAlignment="Center"
+                            Visibility="{Binding IsBusy, Converter={StaticResource BoolVis}}">
+                    <TextBlock Text="●" Foreground="#55AAFF" FontSize="10" Margin="0,0,4,0"/>
+                    <TextBlock Text="Procesando..." Foreground="#55AAFF" FontSize="10"/>
+                </StackPanel>
             </Grid>
         </Border>
+
     </Grid>
 </UserControl>

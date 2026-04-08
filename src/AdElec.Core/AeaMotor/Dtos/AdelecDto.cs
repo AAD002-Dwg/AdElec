@@ -87,6 +87,9 @@ public class SyncEdge
 
     [JsonPropertyName("type")]
     public string Type { get; set; } = "wall";
+
+    [JsonPropertyName("justification")]
+    public string Justification { get; set; } = "center";
 }
 
 public class SyncRecintoMeta
@@ -185,6 +188,9 @@ public class SyncProjectResponse
 
     [JsonPropertyName("name")]
     public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("data_json")]
+    public SyncProjectData DataJson { get; set; } = new();
 }
 
 // ── INPUT: POST /api/v1/adelec/generate_proposal ─────────────────────────────
@@ -284,6 +290,9 @@ public class ProposalRoomUpdate
 
 public class ProposalPoint
 {
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
     [JsonPropertyName("x")]
     public double X { get; set; }
 

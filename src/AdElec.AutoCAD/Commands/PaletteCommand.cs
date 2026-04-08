@@ -52,7 +52,7 @@ namespace AdElec.AutoCAD.Commands
                     // El ViewModel se crea antes del callback para poder referenciar vm.RefreshFromRepo
                     PanelViewModel? vm = null;
 
-                    Action<string> onRecargarCircuitos = (panelName) =>
+                    Action<string>? onRecargarCircuitos = (panelName) =>
                     {
                         // 1. Disparar ADE_RECARGAR en AutoCAD (actualiza XRecord)
                         Application.DocumentManager.MdiActiveDocument
@@ -64,6 +64,10 @@ namespace AdElec.AutoCAD.Commands
                             System.Windows.Application.Current?.Dispatcher.Invoke(() => vm?.RefreshFromRepo(panelName));
                         });
                     };
+
+                    Action onPullFromWeb = () =>
+                        Application.DocumentManager.MdiActiveDocument
+                            ?.SendStringToExecute("ADE_PULL\n", false, false, true);
 
                     var electricoRepo = new DwgElectricoRepository();
 
@@ -78,7 +82,8 @@ namespace AdElec.AutoCAD.Commands
                         onInsertarTablero,
                         ambienteRepo,
                         onRecargarCircuitos,
-                        onGetRoomsConPuntos);
+                        onGetRoomsConPuntos,
+                        onPullFromWeb);
                     _view = new MainPaletteView(vm);
 
                     _ps = new PaletteSet("AD-ELEC", new Guid("23CDA41A-6A3B-4D88-B3EE-9A4B8F67A811"));

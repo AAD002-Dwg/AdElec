@@ -21,6 +21,7 @@ public sealed class PanelViewModel : INotifyPropertyChanged
     private readonly Action<string> _onRecargarCircuitos;
     private readonly Action<string, string>? _onInsertarTablero;
     private readonly Func<string, List<SyncRoom>>? _onGetRoomsConPuntos;
+    private readonly Action? _onPullFromWeb;
 
     // ── Estado ──────────────────────────────────────────────────────────────
 
@@ -29,6 +30,7 @@ public sealed class PanelViewModel : INotifyPropertyChanged
     private bool _isMotorAvailable;
     private bool _isBusy;
     private int _projectId;
+    private string _syncMode = "AXIS";
     private ResultadoProyectoDto? _lastResultado;
 
     public ObservableCollection<Panel> Panels { get; } = [];
@@ -82,6 +84,21 @@ public sealed class PanelViewModel : INotifyPropertyChanged
 
     public bool EstaVinculado => _projectId > 0;
 
+    public string SyncMode
+    {
+        get => _syncMode;
+        set
+        {
+            if (_syncMode == value) return;
+            _syncMode = value;
+            OnPropertyChanged();
+            _projectRepo.SaveSyncMode(value);
+            StatusMessage = value == "INTERIOR" 
+                ? "Modo: Perímetros Interiores (se aplicará unificación de muros)" 
+                : "Modo: Ejes de Muro (estándar)";
+        }
+    }
+
     // ── Nuevo Tablero (inline form) ──────────────────────────────────────────
 
     private bool _showNewPanelForm;
@@ -109,6 +126,7 @@ public sealed class PanelViewModel : INotifyPropertyChanged
     public ICommand CheckMotorCommand { get; }
     public ICommand RecargarCircuitosCommand { get; }
     public ICommand SincronizarCommand { get; }
+    public ICommand PullFromWebCommand { get; }
 
     // ── Constructor ─────────────────────────────────────────────────────────
 
@@ -121,7 +139,8 @@ public sealed class PanelViewModel : INotifyPropertyChanged
         Action<string, string>? onInsertarTablero = null,
         IAmbienteRepository? ambienteRepo = null,
         Action<string>? onRecargarCircuitos = null,
-        Func<string, List<SyncRoom>>? onGetRoomsConPuntos = null)
+        Func<string, List<SyncRoom>>? onGetRoomsConPuntos = null,
+        Action? onPullFromWeb = null)
     {
         _repo = repo;
         _motorClient = motorClient;
@@ -132,6 +151,7 @@ public sealed class PanelViewModel : INotifyPropertyChanged
         _onRecargarCircuitos = onRecargarCircuitos ?? (_ => { });
         _onGetRoomsConPuntos = onGetRoomsConPuntos;
         _projectRepo = projectRepo;
+        _onPullFromWeb = onPullFromWeb;
 
         NuevoTableroCommand = new RelayCommand(() => ShowNewPanelForm = true, () => !ShowNewPanelForm);
         ConfirmarNuevoTableroCommand = new RelayCommand(ConfirmarNuevoTablero, () => !string.IsNullOrWhiteSpace(NewPanelName));
@@ -142,8 +162,10 @@ public sealed class PanelViewModel : INotifyPropertyChanged
         CheckMotorCommand = new RelayCommand(async () => await CheckMotorAsync());
         RecargarCircuitosCommand = new RelayCommand(RecargarCircuitos, () => HasPanel);
         SincronizarCommand = new RelayCommand(async () => await SincronizarAsync(), () => EstaVinculado && IsMotorAvailable && !IsBusy);
+        PullFromWebCommand = new RelayCommand(() => _onPullFromWeb?.Invoke(), () => EstaVinculado && IsMotorAvailable && !IsBusy);
 
         _projectId = _projectRepo.GetProjectId();
+        _syncMode = _projectRepo.GetSyncMode();
         LoadPanels();
         _ = CheckMotorAsync();
     }
@@ -352,7 +374,7 @@ public sealed class PanelViewModel : INotifyPropertyChanged
                 .ToList();
 
             // 5. Grafo planar para el módulo AD-CAD (visualización de muros)
-            var graph = AdElec.Core.Utils.GeometryConverter.BuildGraphFromAmbientes(ambientesDwg);
+            var graph = AdElec.Core.Utils.GeometryConverter.BuildGraphFromAmbientes(ambientesDwg, SyncMode == "INTERIOR");
 
             // 6. Construir request y enviar PUT
             var request = new SyncProjectRequest
@@ -445,6 +467,7 @@ public sealed class PanelViewModel : INotifyPropertyChanged
         ((RelayCommand)RecargarCircuitosCommand).RaiseCanExecuteChanged();
         ((RelayCommand)NuevoTableroCommand).RaiseCanExecuteChanged();
         ((RelayCommand)SincronizarCommand).RaiseCanExecuteChanged();
+        ((RelayCommand)PullFromWebCommand).RaiseCanExecuteChanged();
     }
 
     // ── INotifyPropertyChanged ───────────────────────────────────────────────

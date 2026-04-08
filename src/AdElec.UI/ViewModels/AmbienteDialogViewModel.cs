@@ -21,6 +21,7 @@ public sealed class AmbienteDialogViewModel : INotifyPropertyChanged
     private string _selectedUF;
     private string _planta = "PB";
     private TipoAmbienteInfo _selectedTipo;
+    private double _espesorMuro = 0.15;
 
     public string SelectedUF
     {
@@ -38,6 +39,12 @@ public sealed class AmbienteDialogViewModel : INotifyPropertyChanged
     {
         get => _selectedTipo;
         set { _selectedTipo = value; OnPropertyChanged(); }
+    }
+
+    public double EspesorMuro
+    {
+        get => _espesorMuro;
+        set { _espesorMuro = value; OnPropertyChanged(); }
     }
 
     // ── Resultado ────────────────────────────────────────────────────────────
@@ -81,6 +88,7 @@ public sealed class AmbienteDialogViewModel : INotifyPropertyChanged
             TipoDisplay = SelectedTipo.Nombre,
             TipoApi = SelectedTipo.ApiValue,
             AreaM2 = AreaM2,
+            EspesorMuro = EspesorMuro,
         };
         Confirmed = true;
         _cerrar?.Invoke();

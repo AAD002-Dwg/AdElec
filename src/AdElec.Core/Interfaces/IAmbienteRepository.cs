@@ -18,4 +18,9 @@ public interface IAmbienteRepository
     /// encontradas en los bloques ID_LOCALES del dibujo.
     /// </summary>
     List<string> GetUFsDisponibles();
+
+    /// <summary>
+    /// Devuelve todos los ambientes registrados en el dibujo activo (todos los bloques ID_LOCALES).
+    /// </summary>
+    List<Ambiente> GetAllAmbientes();
 }

@@ -23,4 +23,10 @@ public class Ambiente
 
     /// <summary>Superficie en m² — calculada desde la polilínea o leída del atributo AREA.</summary>
     public double AreaM2 { get; set; }
+
+    /// <summary>Espesor de muro perimetral en metros (ej: 0.15).</summary>
+    public double EspesorMuro { get; set; } = 0.15;
+
+    /// <summary>Vértices de la polilínea que define el perímetro interior del local.</summary>
+    public List<Point2D> PolygonPoints { get; set; } = new();
 }

@@ -10,6 +10,7 @@ using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.Runtime;
 using AdElec.AutoCAD.Managers;
 using AdElec.AutoCAD.Repositories;
+using AdElec.AutoCAD.Helpers;
 using AdElec.Core.AeaMotor;
 using AdElec.Core.AeaMotor.Dtos;
 using AdElec.Core.Models;
@@ -78,28 +79,61 @@ namespace AdElec.AutoCAD.Commands
             string tableroName = panel?.Name ?? uf;
             double slaArea = panel?.SuperficieCubiertaM2 ?? 0;
 
-            // ── 4. Leer ID_LOCALES y polígonos del dibujo ────────────────────
-            ed.WriteMessage($"\nLeyendo recintos de '{uf}'...");
-            var rooms = LeerRoomsConPoligono(db, uf);
+            // ── 4. Determinar Ambientes (Web vs DWG) ─────────────────────────
+            var projectRepo = new DwgProjectRepository();
+            int projectId = projectRepo.GetProjectId();
+            List<ProposalRoomInput> rooms = new();
+
+            if (projectId > 0)
+            {
+                try
+                {
+                    ed.WriteMessage($"\nBuscando ambientes en AEA-MOTOR (Proyecto #{projectId})...");
+                    var webProj = Task.Run(() => motorClient.GetProjectAsync(projectId)).GetAwaiter().GetResult();
+                    if (webProj?.DataJson?.AdElec?.Rooms?.Count > 0)
+                    {
+                        rooms = webProj.DataJson.AdElec.Rooms.Select(sr => new ProposalRoomInput
+                        {
+                            Id = sr.Id,
+                            Name = sr.Name,
+                            Type = sr.Type,
+                            Area = sr.Area,
+                            PolygonPoints = sr.PolygonPoints,
+                            Centroid = sr.Centroid
+                        }).ToList();
+                        ed.WriteMessage($"\n✓ {rooms.Count} ambientes cargados desde AD-CAD (Web).");
+                    }
+                }
+                catch (System.Exception ex)
+                {
+                    ed.WriteMessage($"\n[Aviso] No se pudo leer de la web ({ex.Message}). Usando datos del dibujo...");
+                }
+            }
 
             if (rooms.Count == 0)
             {
-                ed.WriteMessage("\nNo se encontraron recintos con polígono para esa UF. Verificá que los bloques ID_LOCALES estén dentro de polilíneas cerradas.");
+                ed.WriteMessage($"\nLeyendo recintos de '{uf}' desde AutoCAD...");
+                rooms = LeerRoomsConPoligono(db, uf);
+            }
+
+            if (rooms.Count == 0)
+            {
+                ed.WriteMessage("\nNo se encontraron recintos. Asegurate de que existan bloques ID_LOCALES en AutoCAD o ambientes en AD-CAD.");
                 return;
             }
 
             if (slaArea <= 0)
                 slaArea = rooms.Sum(r => r.Area);
 
-            ed.WriteMessage($"\n{rooms.Count} recinto(s) encontrados. SLA total: {slaArea:F1} m²");
+            ed.WriteMessage($"\nProcesando propuesta para {rooms.Count} ambiente(s). SLA total: {slaArea:F1} m²");
 
             // ── 5. Llamar a generate_proposal ────────────────────────────────
-            ed.WriteMessage("\nEnviando a AEA-MOTOR...");
+            ed.WriteMessage("\nGenerando propuesta técnica...");
 
             var input = new ProposalProjectInput
             {
                 ProjectName          = $"{tableroName} — {uf}",
-                ElectrificationLevel = "Mínimo", // el motor recalcula internamente
+                ElectrificationLevel = "Mínimo",
                 SlaArea              = slaArea,
                 Rooms                = rooms,
                 Board                = new ProposalBoardInput
@@ -133,7 +167,7 @@ namespace AdElec.AutoCAD.Commands
             EnsureBlocks(db);
 
             // ── 7. Insertar bocas en el dibujo ───────────────────────────────
-            int iugCount = 0, tugCount = 0, swCount = 0;
+            int iugCount = 0, tugCount = 0, tueCount = 0, swCount = 0;
 
             using (var tr = db.TransactionManager.StartTransaction())
             {
@@ -157,7 +191,7 @@ namespace AdElec.AutoCAD.Commands
                             case "IUE":
                                 if (bt.Has(BLOCK_IUG))
                                 {
-                                    InsertarBoca(tr, space, bt[BLOCK_IUG], pos, new Dictionary<string, string>
+                                    InsertarBoca(tr, space, bt[BLOCK_IUG], pos, pt.Id, new Dictionary<string, string>
                                     {
                                         ["CX"]  = pt.CircuitId ?? "",
                                         ["PX"]  = pt.SwitchId ?? "",
@@ -171,7 +205,7 @@ namespace AdElec.AutoCAD.Commands
                             case "TUG":
                                 if (bt.Has(BLOCK_TUG))
                                 {
-                                    InsertarBoca(tr, space, bt[BLOCK_TUG], pos, new Dictionary<string, string>
+                                    InsertarBoca(tr, space, bt[BLOCK_TUG], pos, pt.Id, new Dictionary<string, string>
                                     {
                                         ["CX"]  = pt.CircuitId ?? "",
                                         ["XT"]  = "",
@@ -185,7 +219,7 @@ namespace AdElec.AutoCAD.Commands
                             case "TUE":
                                 if (bt.Has(BLOCK_TUE))
                                 {
-                                    InsertarBoca(tr, space, bt[BLOCK_TUE], pos, new Dictionary<string, string>
+                                    InsertarBoca(tr, space, bt[BLOCK_TUE], pos, pt.Id, new Dictionary<string, string>
                                     {
                                         ["CX"]    = pt.CircuitId ?? "",
                                         ["XT"]    = "",
@@ -193,14 +227,14 @@ namespace AdElec.AutoCAD.Commands
                                         ["D"]     = tableroName,
                                         ["N°EQ"]  = pt.Label ?? "",
                                     });
-                                    tugCount++;
+                                    tueCount++;
                                 }
                                 break;
 
                             case "SWITCH":
                                 if (bt.Has(BLOCK_SW))
                                 {
-                                    InsertarBoca(tr, space, bt[BLOCK_SW], pos, new Dictionary<string, string>
+                                    InsertarBoca(tr, space, bt[BLOCK_SW], pos, pt.Id, new Dictionary<string, string>
                                     {
                                         ["LLAVE-N°0"] = pt.SwitchId ?? "",
                                         ["LLAVE-N°1"] = "",
@@ -216,13 +250,12 @@ namespace AdElec.AutoCAD.Commands
                 tr.Commit();
             }
 
-            ed.WriteMessage($"\n✓ Insertado: {iugCount} IUG, {tugCount} TUG/TUE, {swCount} llaves — Tablero: {tableroName}");
+            ed.WriteMessage($"\n✓ Insertado: {iugCount} IUG, {tugCount} TUG, {tueCount} TUE, {swCount} llaves — Tablero: {tableroName}");
 
             // ── 8. Actualizar circuitos del panel en el XRecord ──────────────
             ActualizarCircuitosPanel(panel, proposal, panelRepo, tableroName);
 
             // ── 9. Sincronizar con el editor web de AEA-MOTOR ────────────────
-            var projectRepo = new DwgProjectRepository();
             SincronizarConAdelec(motorClient, projectRepo, input, proposal, tableroName, ed);
 
             ed.WriteMessage("\n  Atributo D = tablero. Usá ADE_PANEL → 'Calcular AEA 90364' para obtener secciones y validaciones.");
@@ -464,7 +497,9 @@ namespace AdElec.AutoCAD.Commands
                 string roomTypeName = TipoAmbienteInfo.DesdeNombre(tipoDisplay).ApiValue;
                 string planta = atts.GetValueOrDefault("55", "PB");
 
-                string roomId = $"room_{result.Count + 1:000}";
+                // ID persistente basado en el handle del bloque ID_LOCALES.
+                // Garantiza estabilidad entre llamadas sucesivas (a diferencia de un índice secuencial).
+                string roomId = $"room_{br.Handle}";
 
                 result.Add(new ProposalRoomInput
                 {
@@ -498,11 +533,18 @@ namespace AdElec.AutoCAD.Commands
             BlockTableRecord space,
             ObjectId blockId,
             Point3d position,
+            string webId,
             Dictionary<string, string> valores)
         {
             var br = new BlockReference(position, blockId);
             space.AppendEntity(br);
             tr.AddNewlyCreatedDBObject(br, true);
+
+            // Guardar ID persistente para sincronización bidireccional
+            if (!string.IsNullOrEmpty(webId))
+            {
+                XDataHelper.SetWebId(br, webId, tr);
+            }
 
             var blockDef = (BlockTableRecord)tr.GetObject(blockId, OpenMode.ForRead);
             foreach (ObjectId eid in blockDef)

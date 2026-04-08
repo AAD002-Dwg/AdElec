@@ -118,4 +118,33 @@ public sealed class AeaMotorClient : IAeaMotorClient
             return false;
         }
     }
+
+    /// <inheritdoc/>
+    public async Task<SyncProjectResponse> GetProjectAsync(int id, CancellationToken ct = default)
+    {
+        var response = await _http.GetAsync($"/api/v1/proyectos/{id}", ct);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new InvalidOperationException($"AEA-MOTOR no encontró el proyecto {id}.");
+        }
+
+        var resultado = await response.Content.ReadFromJsonAsync<SyncProjectResponse>(_jsonOptions, ct);
+        return resultado ?? throw new InvalidOperationException($"/proyectos/{id} devolvió vacío.");
+    }
+
+    /// <inheritdoc/>
+    public async Task<SyncProjectResponse> ActualizarProyectoAsync(int id, SyncProjectRequest request, CancellationToken ct = default)
+    {
+        var response = await _http.PutAsJsonAsync($"/api/v1/proyectos/{id}", request, _jsonOptions, ct);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(ct);
+            throw new InvalidOperationException($"Error al actualizar proyecto {id}: {body}");
+        }
+
+        var resultado = await response.Content.ReadFromJsonAsync<SyncProjectResponse>(_jsonOptions, ct);
+        return resultado ?? throw new InvalidOperationException($"PUT /proyectos/{id} devolvió vacío.");
+    }
 }

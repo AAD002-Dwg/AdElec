@@ -34,4 +34,16 @@ public interface IAeaMotorClient
 
     /// <summary>Verifica si el servicio está corriendo y accesible.</summary>
     Task<bool> EstaDisponibleAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Obtiene un proyecto por ID desde la DB de AEA-MOTOR.
+    /// GET /api/v1/proyectos/{id}
+    /// </summary>
+    Task<SyncProjectResponse> GetProjectAsync(int id, CancellationToken ct = default);
+
+    /// <summary>
+    /// Actualiza los datos de un proyecto existente (data_json).
+    /// PUT /api/v1/proyectos/{id}
+    /// </summary>
+    Task<SyncProjectResponse> ActualizarProyectoAsync(int id, SyncProjectRequest request, CancellationToken ct = default);
 }

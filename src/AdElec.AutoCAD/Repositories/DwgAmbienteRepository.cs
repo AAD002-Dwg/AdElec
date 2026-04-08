@@ -36,6 +36,11 @@ namespace AdElec.AutoCAD.Repositories
                 .ToList();
         }
 
+        public List<Ambiente> GetAllAmbientes()
+        {
+            return LeerTodosLosAmbientes();
+        }
+
         private List<Ambiente> LeerTodosLosAmbientes()
         {
             var result = new List<Ambiente>();
@@ -74,7 +79,28 @@ namespace AdElec.AutoCAD.Repositories
                     TipoDisplay = atts.GetValueOrDefault("LOCAL", ""),
                     TipoApi = TipoAmbienteInfo.DesdeNombre(atts.GetValueOrDefault("LOCAL", "")).ApiValue,
                     AreaM2 = ParseArea(atts.GetValueOrDefault("AREA", "0")),
+                    EspesorMuro = ParseDouble(atts.GetValueOrDefault("ESP", "0.15")),
                 };
+
+                // ── Recuperar Poligono vía XData ──────────────────────────────
+                const string APP_ID = "ADE_SYNC_LINK";
+                var xdata = br.GetXDataForApplication(APP_ID);
+                if (xdata != null)
+                {
+                    var values = xdata.AsArray();
+                    if (values.Length > 1 && values[1].TypeCode == (short)DxfCode.ExtendedDataHandle)
+                    {
+                        string handleStr = (string)values[1].Value;
+                        if (db.TryGetObjectId(new Handle(Convert.ToInt64(handleStr, 16)), out ObjectId polyId))
+                        {
+                            var poly = tr.GetObject(polyId, OpenMode.ForRead) as Polyline;
+                            if (poly != null)
+                            {
+                                ambiente.PolygonPoints = ExtractVertices(poly);
+                            }
+                        }
+                    }
+                }
 
                 result.Add(ambiente);
             }
@@ -92,6 +118,24 @@ namespace AdElec.AutoCAD.Repositories
             // Eliminar todo excepto dígitos, punto y coma
             string clean = Regex.Replace(areaText, @"[^\d.,]", "").Replace(',', '.');
             return double.TryParse(clean, NumberStyles.Any, CultureInfo.InvariantCulture, out double v) ? v : 0;
+        }
+
+        private static double ParseDouble(string text)
+        {
+            string clean = text.Replace(',', '.');
+            return double.TryParse(clean, NumberStyles.Any, CultureInfo.InvariantCulture, out double v) ? v : 0.15;
+        }
+
+        private static List<Point2D> ExtractVertices(Polyline poly)
+        {
+            var points = new List<Point2D>();
+            int count = poly.NumberOfVertices;
+            for (int i = 0; i < count; i++)
+            {
+                var p = poly.GetPoint2dAt(i);
+                points.Add(new Point2D(p.X, p.Y));
+            }
+            return points;
         }
     }
 }

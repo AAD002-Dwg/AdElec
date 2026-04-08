@@ -50,11 +50,35 @@ namespace AdElec.AutoCAD.Commands
                 }
 
                 area = poly.Area; // m² si el dibujo está en metros
-                var ext = poly.GeometricExtents;
-                centroid = new Point3d(
-                    (ext.MinPoint.X + ext.MaxPoint.X) / 2,
-                    (ext.MinPoint.Y + ext.MaxPoint.Y) / 2,
-                    0);
+
+                // Centroide real del polígono (fórmula shoelace)
+                // Más preciso que el centro del bounding box para recintos irregulares
+                int n = poly.NumberOfVertices;
+                double cx = 0, cy = 0, signedArea = 0;
+                for (int i = 0; i < n; i++)
+                {
+                    var p0 = poly.GetPoint2dAt(i);
+                    var p1 = poly.GetPoint2dAt((i + 1) % n);
+                    double cross = p0.X * p1.Y - p1.X * p0.Y;
+                    signedArea += cross;
+                    cx += (p0.X + p1.X) * cross;
+                    cy += (p0.Y + p1.Y) * cross;
+                }
+                signedArea /= 2.0;
+                if (Math.Abs(signedArea) < 1e-10)
+                {
+                    // Fallback: promedio de vértices
+                    cx = 0; cy = 0;
+                    for (int i = 0; i < n; i++) { cx += poly.GetPoint2dAt(i).X; cy += poly.GetPoint2dAt(i).Y; }
+                    cx /= n; cy /= n;
+                }
+                else
+                {
+                    double factor = 1.0 / (6.0 * signedArea);
+                    cx *= factor;
+                    cy *= factor;
+                }
+                centroid = new Point3d(cx, cy, 0);
                 tr.Commit();
             }
 
@@ -131,12 +155,32 @@ namespace AdElec.AutoCAD.Commands
                         "55"    => amb.Planta,
                         "LOCAL" => amb.TipoDisplay,
                         "AREA"  => $"{amb.AreaM2:F2}m²",
+                        "ESP"   => $"{amb.EspesorMuro:F2}",
                         _       => attDef.TextString,
                     };
 
                     br.AttributeCollection.AppendAttribute(attRef);
                     tr.AddNewlyCreatedDBObject(attRef, true);
                 }
+
+                // ── Vínculo persistente con la polilínea vía XData ──────────
+                // Registramos la AppID si no existe
+                const string APP_ID = "ADE_SYNC_LINK";
+                var regAppTable = (RegAppTable)tr.GetObject(db.RegAppTableId, OpenMode.ForRead);
+                if (!regAppTable.Has(APP_ID))
+                {
+                    tr.GetObject(db.RegAppTableId, OpenMode.ForWrite);
+                    var rat = new RegAppTableRecord { Name = APP_ID };
+                    regAppTable.UpgradeOpen();
+                    regAppTable.Add(rat);
+                    tr.AddNewlyCreatedDBObject(rat, true);
+                }
+
+                // Guardamos el Handle de la polislinea en el bloque
+                br.XData = new ResultBuffer(
+                    new TypedValue((int)DxfCode.ExtendedDataRegAppName, APP_ID),
+                    new TypedValue((int)DxfCode.ExtendedDataHandle, per.ObjectId.Handle)
+                );
 
                 // Visibilidad "CON NUM" por defecto (muestra el número de UF)
                 if (br.IsDynamicBlock)
