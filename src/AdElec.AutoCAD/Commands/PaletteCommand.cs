@@ -99,9 +99,12 @@ namespace AdElec.AutoCAD.Commands
                     };
                     _ps.Add("Panel Principal", host);
 
-                    // ── Suscribir cambio de documento activo ─────────────────
+                    // ── Suscribir detección de cambio de documento activo ────
+                    // Usamos Application.Idle en lugar de DocumentActivated porque
+                    // en AutoCAD 2025, DocumentActivated no siempre se dispara al
+                    // cambiar entre tabs ya abiertos.
                     _lastActiveDocPath = doc.Name;
-                    Application.DocumentManager.DocumentActivated += OnDocumentActivated;
+                    Application.Idle += OnApplicationIdle;
                 }
 
                 _ps.Visible = true;
@@ -113,26 +116,27 @@ namespace AdElec.AutoCAD.Commands
         }
 
         /// <summary>
-        /// Se dispara cuando el usuario cambia de pestaña de documento en AutoCAD.
-        /// Lee los datos del nuevo documento en el hilo de AutoCAD y los pasa al hilo WPF.
+        /// Se dispara cuando AutoCAD está idle (en el command loop, hilo principal).
+        /// Detecta cambios de documento activo y recarga la paleta con los datos correctos.
+        /// La deduplicación por path garantiza que el trabajo real ocurre solo al cambiar de doc.
         /// </summary>
-        private static void OnDocumentActivated(object sender, DocumentCollectionEventArgs e)
+        private static void OnApplicationIdle(object sender, EventArgs e)
         {
-            if (_vm == null || e.Document == null) return;
+            if (_vm == null) return;
 
-            string docPath = e.Document.Name;
+            var currentDoc = Application.DocumentManager.MdiActiveDocument;
+            if (currentDoc == null) return;
 
-            // AutoCAD dispara el evento varias veces para el mismo documento; filtrar.
-            if (string.Equals(docPath, _lastActiveDocPath, StringComparison.OrdinalIgnoreCase))
+            string currentPath = currentDoc.Name;
+
+            // Mismo documento → nada que hacer
+            if (string.Equals(currentPath, _lastActiveDocPath, StringComparison.OrdinalIgnoreCase))
                 return;
 
-            _lastActiveDocPath = docPath;
-            string dwgName = Path.GetFileNameWithoutExtension(docPath);
+            _lastActiveDocPath = currentPath;
+            string dwgName = Path.GetFileNameWithoutExtension(currentPath);
 
-            // ── Leer datos en el hilo de AutoCAD ─────────────────────────────
-            // IMPORTANTE: Application.DocumentManager.MdiActiveDocument ya apunta al nuevo
-            // documento en este momento (evento se dispara post-switch). Si delegamos la
-            // lectura al hilo WPF (Dispatcher), MdiActiveDocument puede devolver el doc anterior.
+            // ── Leer datos en hilo AutoCAD (contexto correcto) ───────────────
             int    projectId;
             string projectName;
             string syncMode;
@@ -150,11 +154,10 @@ namespace AdElec.AutoCAD.Commands
             }
             catch
             {
-                // Si la lectura falla (ej: doc siendo cerrado), ignorar el evento
                 return;
             }
 
-            // ── Actualizar UI en el hilo WPF con los datos ya leídos ─────────
+            // ── Actualizar UI en hilo WPF con datos ya leídos ───────────────
             System.Windows.Application.Current?.Dispatcher.BeginInvoke(
                 () => _vm?.ReloadWithPreloadedData(dwgName, projectId, projectName, syncMode, panels));
         }
