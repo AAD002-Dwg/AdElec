@@ -40,12 +40,11 @@ namespace AdElec.AutoCAD.Repositories
             var space = (BlockTableRecord)tr.GetObject(db.CurrentSpaceId, OpenMode.ForRead);
 
             // ── 1. Leer todos los bloques ID_LOCALES (rooms) ─────────────────
-            var rooms = new List<(string RoomId, string Name, string Type, double Area,
+            var rooms = new List<(string RoomId, string UF, string Name, string Type, double Area,
                                    List<Dictionary<string, double>> Poly,
                                    Dictionary<string, double> Centroid,
                                    Point2d InsertPt)>();
 
-            int roomIdx = 0;
             foreach (ObjectId entId in space)
             {
                 var ent = tr.GetObject(entId, OpenMode.ForRead);
@@ -77,15 +76,37 @@ namespace AdElec.AutoCAD.Repositories
                             var poly = tr.GetObject(polyId, OpenMode.ForRead) as Polyline;
                             if (poly != null)
                             {
-                                double sx = 0, sy = 0;
                                 int n = poly.NumberOfVertices;
                                 for (int i = 0; i < n; i++)
                                 {
                                     var v = poly.GetPoint2dAt(i);
-                                    polyPoints.Add(new Dictionary<string, double> { ["x"] = v.X, ["y"] = v.Y });
-                                    sx += v.X; sy += v.Y;
+                                    polyPoints.Add(new Dictionary<string, double>
+                                        { ["x"] = Math.Round(v.X, 3), ["y"] = Math.Round(v.Y, 3) });
                                 }
-                                if (n > 0) { cx = sx / n; cy = sy / n; }
+
+                                // Centroide shoelace (igual que AmbientesCommand)
+                                double scx = 0, scy = 0, signedArea = 0;
+                                for (int i = 0; i < n; i++)
+                                {
+                                    var p0 = poly.GetPoint2dAt(i);
+                                    var p1 = poly.GetPoint2dAt((i + 1) % n);
+                                    double cross = p0.X * p1.Y - p1.X * p0.Y;
+                                    signedArea += cross;
+                                    scx += (p0.X + p1.X) * cross;
+                                    scy += (p0.Y + p1.Y) * cross;
+                                }
+                                signedArea /= 2.0;
+                                if (Math.Abs(signedArea) > 1e-10)
+                                {
+                                    double factor = 1.0 / (6.0 * signedArea);
+                                    cx = scx * factor;
+                                    cy = scy * factor;
+                                }
+                                else if (n > 0)
+                                {
+                                    cx = polyPoints.Average(p => p["x"]);
+                                    cy = polyPoints.Average(p => p["y"]);
+                                }
                             }
                         }
                     }
@@ -94,14 +115,18 @@ namespace AdElec.AutoCAD.Repositories
                 string tipoDisplay = atts.GetValueOrDefault("LOCAL", "Otro");
                 string roomTypeName = AdElec.Core.Models.TipoAmbienteInfo.DesdeNombre(tipoDisplay).ApiValue;
                 double area = ParseDouble(atts.GetValueOrDefault("AREA", "0"));
+                string uf = atts.GetValueOrDefault("01", "");
+                string planta = atts.GetValueOrDefault("55", "PB");
 
                 rooms.Add((
-                    RoomId: $"room_{roomIdx++:000}",
-                    Name: $"{tipoDisplay} — {atts.GetValueOrDefault("55", "PB")}",
+                    RoomId: $"room_{br.Handle}",    // ID estable basado en Handle del bloque
+                    UF: uf,
+                    Name: $"{tipoDisplay} — {planta}",
                     Type: roomTypeName,
                     Area: area,
                     Poly: polyPoints,
-                    Centroid: new Dictionary<string, double> { ["x"] = cx, ["y"] = cy },
+                    Centroid: new Dictionary<string, double>
+                        { ["x"] = Math.Round(cx, 3), ["y"] = Math.Round(cy, 3) },
                     InsertPt: insertPt
                 ));
             }
@@ -170,13 +195,13 @@ namespace AdElec.AutoCAD.Repositories
             // ── 4. Construir SyncRoom list ────────────────────────────────────
             return rooms.Select(r => new SyncRoom
             {
-                Id       = r.RoomId,
-                Name     = r.Name,
-                Type     = r.Type,
-                Area     = r.Area,
+                Id            = r.RoomId,
+                Name          = r.Name,
+                Type          = r.Type,
+                Area          = r.Area,
                 PolygonPoints = r.Poly,
-                Centroid = r.Centroid,
-                Points   = roomPuntos[r.RoomId],
+                Centroid      = r.Centroid,
+                Points        = roomPuntos[r.RoomId],
             }).ToList();
         }
 

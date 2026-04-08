@@ -74,11 +74,12 @@ namespace AdElec.AutoCAD.Repositories
 
                 var ambiente = new Ambiente
                 {
-                    UF = atts.GetValueOrDefault("01", ""),
-                    Planta = atts.GetValueOrDefault("55", "PB"),
+                    Handle     = br.Handle.ToString(),
+                    UF         = atts.GetValueOrDefault("01", ""),
+                    Planta     = atts.GetValueOrDefault("55", "PB"),
                     TipoDisplay = atts.GetValueOrDefault("LOCAL", ""),
-                    TipoApi = TipoAmbienteInfo.DesdeNombre(atts.GetValueOrDefault("LOCAL", "")).ApiValue,
-                    AreaM2 = ParseArea(atts.GetValueOrDefault("AREA", "0")),
+                    TipoApi    = TipoAmbienteInfo.DesdeNombre(atts.GetValueOrDefault("LOCAL", "")).ApiValue,
+                    AreaM2     = ParseArea(atts.GetValueOrDefault("AREA", "0")),
                     EspesorMuro = ParseDouble(atts.GetValueOrDefault("ESP", "0.15")),
                 };
 

@@ -29,4 +29,10 @@ public class Ambiente
 
     /// <summary>Vértices de la polilínea que define el perímetro interior del local.</summary>
     public List<Point2D> PolygonPoints { get; set; } = new();
+
+    /// <summary>
+    /// Handle del bloque ID_LOCALES en AutoCAD (hex string).
+    /// Usado para generar IDs estables de room: "room_{Handle}".
+    /// </summary>
+    public string Handle { get; set; } = "";
 }
