@@ -2,6 +2,93 @@ using System.Text.Json.Serialization;
 
 namespace AdElec.Core.AeaMotor.Dtos;
 
+// ── SYNC: POST /proyectos  ────────────────────────────────────────────────────
+
+/// <summary>Payload para crear/actualizar un proyecto en el editor web de AEA-MOTOR.</summary>
+public class SyncProjectRequest
+{
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("data_json")]
+    public SyncProjectData DataJson { get; set; } = new();
+}
+
+public class SyncProjectData
+{
+    [JsonPropertyName("rooms")]
+    public List<SyncRoom> Rooms { get; set; } = [];
+
+    [JsonPropertyName("board")]
+    public SyncBoard Board { get; set; } = new();
+}
+
+public class SyncRoom
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("type")]
+    public string Type { get; set; } = "OTHER";
+
+    [JsonPropertyName("area")]
+    public double Area { get; set; }
+
+    [JsonPropertyName("polygon_points")]
+    public List<Dictionary<string, double>> PolygonPoints { get; set; } = [];
+
+    [JsonPropertyName("centroid")]
+    public Dictionary<string, double> Centroid { get; set; } = new();
+
+    [JsonPropertyName("points")]
+    public List<ProposalPoint> Points { get; set; } = [];
+
+    [JsonPropertyName("openings")]
+    public List<object> Openings { get; set; } = [];
+}
+
+public class SyncBoard
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "board_001";
+
+    [JsonPropertyName("main_switch")]
+    public string MainSwitch { get; set; } = "TM 32A";
+
+    [JsonPropertyName("rcd")]
+    public string Rcd { get; set; } = "ID 40A/30mA";
+
+    [JsonPropertyName("circuits")]
+    public List<SyncCircuit> Circuits { get; set; } = [];
+}
+
+public class SyncCircuit
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("amperage")]
+    public int Amperage { get; set; }
+
+    [JsonPropertyName("protection")]
+    public string Protection { get; set; } = string.Empty;
+}
+
+public class SyncProjectResponse
+{
+    [JsonPropertyName("id")]
+    public int Id { get; set; }
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+}
+
 // ── INPUT: POST /api/v1/adelec/generate_proposal ─────────────────────────────
 
 public class ProposalProjectInput

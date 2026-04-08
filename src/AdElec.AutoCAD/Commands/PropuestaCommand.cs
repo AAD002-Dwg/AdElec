@@ -217,7 +217,138 @@ namespace AdElec.AutoCAD.Commands
             }
 
             ed.WriteMessage($"\n✓ Insertado: {iugCount} IUG, {tugCount} TUG/TUE, {swCount} llaves — Tablero: {tableroName}");
+
+            // ── 8. Actualizar circuitos del panel en el XRecord ──────────────
+            ActualizarCircuitosPanel(panel, proposal, panelRepo, tableroName);
+
+            // ── 9. Sincronizar con el editor web de AEA-MOTOR ────────────────
+            SincronizarConAdelec(motorClient, input, proposal, tableroName, ed);
+
             ed.WriteMessage("\n  Atributo D = tablero. Usá ADE_PANEL → 'Calcular AEA 90364' para obtener secciones y validaciones.");
+        }
+
+        /// <summary>
+        /// Extrae los circuitos únicos de la respuesta del motor y los guarda
+        /// en el XRecord del panel para que "Calcular AEA 90364" los encuentre.
+        /// </summary>
+        private static void ActualizarCircuitosPanel(
+            AdElec.Core.Models.Panel? panel,
+            ProposalResponse proposal,
+            DwgPanelRepository panelRepo,
+            string tableroName)
+        {
+            if (panel is null) return;
+
+            // Agrupar puntos por circuit_id
+            var circuitMap = new Dictionary<string, List<ProposalPoint>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var room in proposal.RoomsUpdate)
+                foreach (var pt in room.Points.Where(p => !string.IsNullOrEmpty(p.CircuitId)))
+                {
+                    if (!circuitMap.ContainsKey(pt.CircuitId!))
+                        circuitMap[pt.CircuitId!] = new List<ProposalPoint>();
+                    circuitMap[pt.CircuitId!].Add(pt);
+                }
+
+            var circuits = circuitMap
+                .OrderBy(kvp => kvp.Key)
+                .Select(kvp =>
+                {
+                    bool esLuz = kvp.Value.Any(p => p.Type == "IUG" || p.Type == "IUE");
+                    string tipo = esLuz ? "IUG" : "TUG";
+                    return new AdElec.Core.Models.Circuit
+                    {
+                        Name       = kvp.Key,
+                        Type       = tipo,
+                        BreakerAmps    = esLuz ? 10 : 16,
+                        WireSectionMm2 = esLuz ? 1.5 : 2.5,
+                    };
+                })
+                .ToList();
+
+            panel.Circuits = new System.Collections.ObjectModel.ObservableCollection<AdElec.Core.Models.Circuit>(circuits);
+            panelRepo.SavePanel(panel);
+        }
+
+        /// <summary>
+        /// Crea (o actualiza) el proyecto en el editor web de AEA-MOTOR
+        /// para poder visualizarlo en el canvas adelec del frontend.
+        /// Fire-and-forget: si falla, solo se loggea sin abortar el comando.
+        /// </summary>
+        private static void SincronizarConAdelec(
+            AeaMotorClient motorClient,
+            ProposalProjectInput input,
+            ProposalResponse proposal,
+            string tableroName,
+            Editor ed)
+        {
+            try
+            {
+                // Construir mapa room_id → puntos del motor
+                var ptMap = proposal.RoomsUpdate.ToDictionary(r => r.Id, r => r.Points);
+
+                // Construir rooms para el canvas
+                var syncRooms = input.Rooms.Select(r =>
+                {
+                    ptMap.TryGetValue(r.Id, out var pts);
+                    return new SyncRoom
+                    {
+                        Id            = r.Id,
+                        Name          = r.Name,
+                        Type          = r.Type,
+                        Area          = r.Area,
+                        PolygonPoints = r.PolygonPoints,
+                        Centroid      = r.Centroid,
+                        Points        = pts ?? [],
+                    };
+                }).ToList();
+
+                // Derivar circuitos únicos para el tablero canvas
+                var circuitIds = proposal.RoomsUpdate
+                    .SelectMany(r => r.Points)
+                    .Where(p => !string.IsNullOrEmpty(p.CircuitId))
+                    .Select(p => p.CircuitId!)
+                    .Distinct()
+                    .OrderBy(c => c);
+
+                var syncCircuits = circuitIds.Select(cid =>
+                {
+                    bool esLuz = proposal.RoomsUpdate
+                        .SelectMany(r => r.Points)
+                        .Any(p => p.CircuitId == cid && (p.Type == "IUG" || p.Type == "IUE"));
+                    return new SyncCircuit
+                    {
+                        Id         = cid,
+                        Name       = esLuz ? $"Iluminación {cid}" : $"Tomacorrientes {cid}",
+                        Amperage   = esLuz ? 10 : 16,
+                        Protection = esLuz ? "TM 10A" : "TM 16A",
+                    };
+                }).ToList();
+
+                var syncReq = new SyncProjectRequest
+                {
+                    Name = input.ProjectName,
+                    DataJson = new SyncProjectData
+                    {
+                        Rooms = syncRooms,
+                        Board = new SyncBoard
+                        {
+                            Id         = tableroName,
+                            MainSwitch = input.Board.MainSwitch,
+                            Rcd        = input.Board.Rcd,
+                            Circuits   = syncCircuits,
+                        },
+                    },
+                };
+
+                var syncResult = Task.Run(() => motorClient.SincronizarProyectoAsync(syncReq))
+                                     .GetAwaiter().GetResult();
+
+                ed.WriteMessage($"\n  Proyecto sincronizado con AEA-MOTOR (ID #{syncResult.Id}) — abrí el editor web para visualizarlo.");
+            }
+            catch (System.Exception ex)
+            {
+                ed.WriteMessage($"\n  [Aviso] No se pudo sincronizar con el editor web: {ex.Message}");
+            }
         }
 
         // ── Helpers ──────────────────────────────────────────────────────────

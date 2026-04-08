@@ -26,6 +26,12 @@ public interface IAeaMotorClient
     /// </summary>
     Task<ProposalResponse> GenerarPropuestaAsync(ProposalProjectInput input, CancellationToken ct = default);
 
+    /// <summary>
+    /// Crea un proyecto en el editor web de AEA-MOTOR para visualización en el canvas adelec.
+    /// POST /proyectos
+    /// </summary>
+    Task<SyncProjectResponse> SincronizarProyectoAsync(SyncProjectRequest request, CancellationToken ct = default);
+
     /// <summary>Verifica si el servicio está corriendo y accesible.</summary>
     Task<bool> EstaDisponibleAsync(CancellationToken ct = default);
 }

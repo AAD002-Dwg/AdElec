@@ -89,6 +89,22 @@ public sealed class AeaMotorClient : IAeaMotorClient
     }
 
     /// <inheritdoc/>
+    public async Task<SyncProjectResponse> SincronizarProyectoAsync(SyncProjectRequest request, CancellationToken ct = default)
+    {
+        var response = await _http.PostAsJsonAsync("/proyectos", request, _jsonOptions, ct);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            string error = await response.Content.ReadAsStringAsync(ct);
+            throw new InvalidOperationException(
+                $"AEA-MOTOR /proyectos error {(int)response.StatusCode}: {error}");
+        }
+
+        var resultado = await response.Content.ReadFromJsonAsync<SyncProjectResponse>(_jsonOptions, ct);
+        return resultado ?? throw new InvalidOperationException("/proyectos devolvió vacío.");
+    }
+
+    /// <inheritdoc/>
     public async Task<bool> EstaDisponibleAsync(CancellationToken ct = default)
     {
         try
