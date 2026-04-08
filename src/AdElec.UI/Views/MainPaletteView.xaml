@@ -351,21 +351,26 @@
         </Grid.RowDefinitions>
 
         <!-- ═══ HEADER ══════════════════════════════════════════════════════ -->
-        <Border Grid.Row="0" Background="#14161b" Padding="12,8"
+        <Border Grid.Row="0" Background="#14161b" Padding="12,6"
                 BorderBrush="#343B48" BorderThickness="0,0,0,1">
             <Grid>
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Fila 1: título + estado motor -->
+                <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Text="AD-ELEC" Foreground="#55AAFF"
                                FontSize="14" FontWeight="Bold"/>
                 </StackPanel>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right"
                             VerticalAlignment="Center">
                     <Button Style="{StaticResource BtnSecondary}"
                             Content="⟳" Padding="6,3" FontSize="12"
                             Command="{Binding CheckMotorCommand}"
                             ToolTip="Verificar conexión con AEA-MOTOR"/>
-                    <Ellipse Width="8" Height="8" Margin="8,0,0,0"
-                             VerticalAlignment="Center">
+                    <Ellipse Width="8" Height="8" Margin="8,0,0,0" VerticalAlignment="Center">
                         <Ellipse.Style>
                             <Style TargetType="Ellipse">
                                 <Setter Property="Fill" Value="#F44336"/>
@@ -380,6 +385,25 @@
                     <TextBlock Foreground="#8A91A1" FontSize="10" Margin="5,0,0,0"
                                VerticalAlignment="Center" Text="AEA-MOTOR"/>
                 </StackPanel>
+
+                <!-- Fila 2: DWG activo + botón reload -->
+                <Grid Grid.Row="1" Margin="0,4,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="📄 " Foreground="#8A91A1" FontSize="10" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding ActiveDwgLabel}" Foreground="#8A91A1"
+                                   FontSize="10" VerticalAlignment="Center"
+                                   ToolTip="DWG activo en la paleta. Ejecutá ADE_PANEL para sincronizar."/>
+                    </StackPanel>
+                    <Button Grid.Column="1" Content="↺ Recargar DWG"
+                            Style="{StaticResource BtnSecondary}"
+                            Command="{Binding RecargarDocumentoCommand}"
+                            Padding="7,3" FontSize="10"
+                            ToolTip="Recarga la paleta desde el documento activo en AutoCAD"/>
+                </Grid>
             </Grid>
         </Border>
 

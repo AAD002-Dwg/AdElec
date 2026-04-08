@@ -22,6 +22,7 @@ public sealed class PanelViewModel : INotifyPropertyChanged
     private readonly Action<string, string>? _onInsertarTablero;
     private readonly Func<string, List<SyncRoom>>? _onGetRoomsConPuntos;
     private readonly Action? _onPullFromWeb;
+    private readonly Action? _onRecargarDocumento;
 
     // ── Estado ──────────────────────────────────────────────────────────────
 
@@ -99,6 +100,15 @@ public sealed class PanelViewModel : INotifyPropertyChanged
     public bool EstaVinculado => _projectId > 0;
     public bool HasCircuits => Circuits.Count > 0;
 
+    private string _activeDwgName = "";
+    /// <summary>Nombre del DWG activo mostrado en el header de la paleta.</summary>
+    public string ActiveDwgName
+    {
+        get => _activeDwgName;
+        private set { _activeDwgName = value; OnPropertyChanged(); OnPropertyChanged(nameof(ActiveDwgLabel)); }
+    }
+    public string ActiveDwgLabel => string.IsNullOrWhiteSpace(_activeDwgName) ? "Sin documento" : _activeDwgName;
+
     public string SyncMode
     {
         get => _syncMode;
@@ -142,6 +152,7 @@ public sealed class PanelViewModel : INotifyPropertyChanged
     public ICommand RecargarCircuitosCommand { get; }
     public ICommand SincronizarCommand { get; }
     public ICommand PullFromWebCommand { get; }
+    public ICommand RecargarDocumentoCommand { get; }
 
     // ── Constructor ─────────────────────────────────────────────────────────
 
@@ -155,7 +166,8 @@ public sealed class PanelViewModel : INotifyPropertyChanged
         IAmbienteRepository? ambienteRepo = null,
         Action<string>? onRecargarCircuitos = null,
         Func<string, List<SyncRoom>>? onGetRoomsConPuntos = null,
-        Action? onPullFromWeb = null)
+        Action? onPullFromWeb = null,
+        Action? onRecargarDocumento = null)
     {
         _repo = repo;
         _motorClient = motorClient;
@@ -167,6 +179,7 @@ public sealed class PanelViewModel : INotifyPropertyChanged
         _onGetRoomsConPuntos = onGetRoomsConPuntos;
         _projectRepo = projectRepo;
         _onPullFromWeb = onPullFromWeb;
+        _onRecargarDocumento = onRecargarDocumento;
 
         NuevoTableroCommand = new RelayCommand(() => ShowNewPanelForm = true, () => !ShowNewPanelForm);
         ConfirmarNuevoTableroCommand = new RelayCommand(ConfirmarNuevoTablero, () => !string.IsNullOrWhiteSpace(NewPanelName));
@@ -178,6 +191,7 @@ public sealed class PanelViewModel : INotifyPropertyChanged
         RecargarCircuitosCommand = new RelayCommand(RecargarCircuitos, () => HasPanel);
         SincronizarCommand = new RelayCommand(async () => await SincronizarAsync(), () => EstaVinculado && IsMotorAvailable && !IsBusy);
         PullFromWebCommand = new RelayCommand(() => _onPullFromWeb?.Invoke(), () => EstaVinculado && IsMotorAvailable && !IsBusy);
+        RecargarDocumentoCommand = new RelayCommand(() => _onRecargarDocumento?.Invoke(), () => !IsBusy);
 
         _projectId = _projectRepo.GetProjectId();
         _projectName = _projectRepo.GetProjectName();
@@ -246,6 +260,9 @@ public sealed class PanelViewModel : INotifyPropertyChanged
 
     private void ApplyDocumentSwitch(string? dwgName, List<AdElec.Core.Models.Panel>? preloadedPanels = null)
     {
+        if (!string.IsNullOrWhiteSpace(dwgName))
+            ActiveDwgName = dwgName;
+
         // Limpiar resultado de cálculo anterior (pertenecía al otro documento)
         _lastResultado = null;
         OnPropertyChanged(nameof(LastGrado));
@@ -633,6 +650,7 @@ public sealed class PanelViewModel : INotifyPropertyChanged
         ((RelayCommand)NuevoTableroCommand).RaiseCanExecuteChanged();
         ((RelayCommand)SincronizarCommand).RaiseCanExecuteChanged();
         ((RelayCommand)PullFromWebCommand).RaiseCanExecuteChanged();
+        ((RelayCommand)RecargarDocumentoCommand).RaiseCanExecuteChanged();
     }
 
     // ── INotifyPropertyChanged ───────────────────────────────────────────────

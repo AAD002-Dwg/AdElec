@@ -70,6 +70,11 @@ namespace AdElec.AutoCAD.Commands
                         Application.DocumentManager.MdiActiveDocument
                             ?.SendStringToExecute("ADE_PULL\n", false, false, true);
 
+                    // Recarga forzada desde el documento activo (callback del botón ↺)
+                    Action onRecargarDocumento = () =>
+                        Application.DocumentManager.MdiActiveDocument
+                            ?.SendStringToExecute("ADE_PANEL\n", false, false, true);
+
                     var electricoRepo = new DwgElectricoRepository();
                     Func<string, List<AdElec.Core.AeaMotor.Dtos.SyncRoom>> onGetRoomsConPuntos =
                         (tableroName) => electricoRepo.GetRoomsConPuntos(tableroName);
@@ -80,7 +85,7 @@ namespace AdElec.AutoCAD.Commands
                         onLuminarias, onTomas,
                         onInsertarTablero, ambienteRepo,
                         onRecargarCircuitos, onGetRoomsConPuntos,
-                        onPullFromWeb);
+                        onPullFromWeb, onRecargarDocumento);
 
                     _view = new MainPaletteView(_vm);
 
@@ -99,12 +104,15 @@ namespace AdElec.AutoCAD.Commands
                     };
                     _ps.Add("Panel Principal", host);
 
-                    // ── Suscribir detección de cambio de documento activo ────
-                    // Usamos Application.Idle en lugar de DocumentActivated porque
-                    // en AutoCAD 2025, DocumentActivated no siempre se dispara al
-                    // cambiar entre tabs ya abiertos.
+                    // ── Suscribir detección de cambio de documento (mejor esfuerzo) ─
                     _lastActiveDocPath = doc.Name;
                     Application.Idle += OnApplicationIdle;
+                }
+                else if (!string.Equals(doc.Name, _lastActiveDocPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    // ADE_PANEL ejecutado en un documento diferente al que tiene la paleta:
+                    // recargar datos desde el doc activo (contexto garantizadamente correcto aquí).
+                    ReloadFromCurrentDoc(doc);
                 }
 
                 _ps.Visible = true;
@@ -113,6 +121,31 @@ namespace AdElec.AutoCAD.Commands
             {
                 doc.Editor.WriteMessage($"\nError al cargar la paleta: {ex.Message}\n");
             }
+        }
+
+        /// <summary>
+        /// Recarga la paleta con los datos del documento pasado como argumento.
+        /// Debe llamarse desde el hilo de AutoCAD para garantizar contexto correcto.
+        /// </summary>
+        private static void ReloadFromCurrentDoc(Document doc)
+        {
+            _lastActiveDocPath = doc.Name;
+            string dwgName = Path.GetFileNameWithoutExtension(doc.Name);
+
+            try
+            {
+                var projectRepo = new DwgProjectRepository();
+                int    projectId   = projectRepo.GetProjectId();
+                string projectName = projectRepo.GetProjectName();
+                string syncMode    = projectRepo.GetSyncMode();
+
+                var panelRepo = new DwgPanelRepository();
+                var panels    = panelRepo.GetAllPanels();
+
+                System.Windows.Application.Current?.Dispatcher.BeginInvoke(
+                    () => _vm?.ReloadWithPreloadedData(dwgName, projectId, projectName, syncMode, panels));
+            }
+            catch { /* ignorar si el doc no está listo */ }
         }
 
         /// <summary>
@@ -127,39 +160,11 @@ namespace AdElec.AutoCAD.Commands
             var currentDoc = Application.DocumentManager.MdiActiveDocument;
             if (currentDoc == null) return;
 
-            string currentPath = currentDoc.Name;
-
             // Mismo documento → nada que hacer
-            if (string.Equals(currentPath, _lastActiveDocPath, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(currentDoc.Name, _lastActiveDocPath, StringComparison.OrdinalIgnoreCase))
                 return;
 
-            _lastActiveDocPath = currentPath;
-            string dwgName = Path.GetFileNameWithoutExtension(currentPath);
-
-            // ── Leer datos en hilo AutoCAD (contexto correcto) ───────────────
-            int    projectId;
-            string projectName;
-            string syncMode;
-            List<AdElec.Core.Models.Panel> panels;
-
-            try
-            {
-                var projectRepo = new DwgProjectRepository();
-                projectId   = projectRepo.GetProjectId();
-                projectName = projectRepo.GetProjectName();
-                syncMode    = projectRepo.GetSyncMode();
-
-                var panelRepo = new DwgPanelRepository();
-                panels = panelRepo.GetAllPanels();
-            }
-            catch
-            {
-                return;
-            }
-
-            // ── Actualizar UI en hilo WPF con datos ya leídos ───────────────
-            System.Windows.Application.Current?.Dispatcher.BeginInvoke(
-                () => _vm?.ReloadWithPreloadedData(dwgName, projectId, projectName, syncMode, panels));
+            ReloadFromCurrentDoc(currentDoc);
         }
     }
 }
