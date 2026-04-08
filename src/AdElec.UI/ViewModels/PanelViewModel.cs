@@ -324,7 +324,7 @@ public sealed class PanelViewModel : INotifyPropertyChanged
                 {
                     Id   = $"room_{ambientesDwg.IndexOf(a):000}",
                     Name = $"{a.TipoDisplay} — {a.Planta}",
-                    Type = AdElec.Core.Models.TipoAmbienteInfo.DesdeNombre(a.TipoDisplay).RoomTypeName,
+                    Type = AdElec.Core.Models.TipoAmbienteInfo.DesdeNombre(a.TipoDisplay).ApiValue,
                     Area = a.AreaM2,
                     WallThickness = a.EspesorMuro,
                     PolygonPoints = a.PolygonPoints

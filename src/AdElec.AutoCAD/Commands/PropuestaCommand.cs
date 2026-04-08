@@ -424,7 +424,7 @@ namespace AdElec.AutoCAD.Commands
                 if (area <= 0) area = container.Area;
 
                 string tipoDisplay = atts.GetValueOrDefault("LOCAL", "Otro");
-                string roomTypeName = TipoAmbienteInfo.DesdeNombre(tipoDisplay).RoomTypeName;
+                string roomTypeName = TipoAmbienteInfo.DesdeNombre(tipoDisplay).ApiValue;
                 string planta = atts.GetValueOrDefault("55", "PB");
 
                 string roomId = $"room_{result.Count + 1:000}";

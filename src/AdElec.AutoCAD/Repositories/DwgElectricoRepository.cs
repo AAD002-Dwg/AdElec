@@ -92,7 +92,7 @@ namespace AdElec.AutoCAD.Repositories
                 }
 
                 string tipoDisplay = atts.GetValueOrDefault("LOCAL", "Otro");
-                string roomTypeName = AdElec.Core.Models.TipoAmbienteInfo.DesdeNombre(tipoDisplay).RoomTypeName;
+                string roomTypeName = AdElec.Core.Models.TipoAmbienteInfo.DesdeNombre(tipoDisplay).ApiValue;
                 double area = ParseDouble(atts.GetValueOrDefault("AREA", "0"));
 
                 rooms.Add((
