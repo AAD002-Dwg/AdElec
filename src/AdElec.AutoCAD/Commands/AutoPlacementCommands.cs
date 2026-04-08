@@ -82,26 +82,27 @@ namespace AdElec.AutoCAD.Commands
             int initialCols = Math.Max(1, (int)Math.Round(width / 2.5));
             int initialRows = Math.Max(1, (int)Math.Round(length / 2.5));
 
-            var jig = new LuminariasJig(minPt, width, length, initialCols, initialRows);
+            var interactive = new LuminariasInteractive(minPt, width, length, initialCols, initialRows);
 
             ed.WriteMessage("\n──────────────────────────────────────────────");
             ed.WriteMessage("\n  MODO INTERACTIVO - Distribución de Luminarias");
-            ed.WriteMessage("\n  Mouse: mueva el cursor para ajustar la densidad.");
-            ed.WriteMessage("\n  Teclado: W(+fila) S(-fila) A(+col) D(-col)");
-            ed.WriteMessage("\n  Click o Enter: confirmar distribución.");
-            ed.WriteMessage("\n  Escape: cancelar.");
+            ed.WriteMessage("\n  Teclado: ");
+            ed.WriteMessage("\n    [W] +fila  [S] -fila");
+            ed.WriteMessage("\n    [A] +col   [D] -col");
+            ed.WriteMessage("\n    [Enter] o [R] para confirmar.");
+            ed.WriteMessage("\n    [Esc] para cancelar.");
             ed.WriteMessage("\n──────────────────────────────────────────────\n");
 
-            PromptResult jigResult = ed.Drag(jig);
+            interactive.Run();
 
-            if (jig.Cancelled || jigResult.Status == PromptStatus.Cancel)
+            if (!interactive.Confirmed)
             {
                 ed.WriteMessage("\nOperación cancelada por el usuario.");
                 return;
             }
 
-            int finalCols = jig.FinalColumns;
-            int finalRows = jig.FinalRows;
+            int finalCols = interactive.FinalColumns;
+            int finalRows = interactive.FinalRows;
 
             // ──────────────────────────────────────────────────
             // 6. Insertar los bloques definitivos con atributos

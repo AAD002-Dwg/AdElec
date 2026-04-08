@@ -22,7 +22,7 @@ namespace AdElec.AutoCAD.Repositories
             if (document == null) return;
 
             var db = document.Database;
-            
+
             // Read all existing to update this one
             var panels = GetAllPanels();
             var existing = panels.FirstOrDefault(p => p.Name == panel.Name);
@@ -31,9 +31,11 @@ namespace AdElec.AutoCAD.Repositories
                 panels.Remove(existing);
             }
             panels.Add(panel);
-            
+
             string json = JsonSerializer.Serialize(panels);
 
+            // LockDocument es obligatorio para escrituras fuera de un comando AutoCAD activo
+            using (document.LockDocument())
             using (var tr = db.TransactionManager.StartTransaction())
             {
                 var nod = (DBDictionary)tr.GetObject(db.NamedObjectsDictionaryId, OpenMode.ForWrite);
@@ -103,7 +105,9 @@ namespace AdElec.AutoCAD.Repositories
         private void SaveEmpty()
         {
             var document = Application.DocumentManager.MdiActiveDocument;
+            if (document == null) return;
             var db = document.Database;
+            using (document.LockDocument())
             using (var tr = db.TransactionManager.StartTransaction())
             {
                 var nod = (DBDictionary)tr.GetObject(db.NamedObjectsDictionaryId, OpenMode.ForWrite);

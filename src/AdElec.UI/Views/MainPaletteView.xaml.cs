@@ -1,12 +1,13 @@
 using System.Windows.Controls;
+using AdElec.UI.ViewModels;
 
-namespace AdElec.UI.Views
+namespace AdElec.UI.Views;
+
+public partial class MainPaletteView : UserControl
 {
-    public partial class MainPaletteView : UserControl
+    public MainPaletteView(PanelViewModel viewModel)
     {
-        public MainPaletteView()
-        {
-            InitializeComponent();
-        }
+        InitializeComponent();
+        DataContext = viewModel;
     }
 }

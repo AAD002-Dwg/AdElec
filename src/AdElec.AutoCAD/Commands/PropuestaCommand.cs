@@ -1,0 +1,398 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
+using Autodesk.AutoCAD.ApplicationServices;
+using Autodesk.AutoCAD.DatabaseServices;
+using Autodesk.AutoCAD.EditorInput;
+using Autodesk.AutoCAD.Geometry;
+using Autodesk.AutoCAD.Runtime;
+using AdElec.AutoCAD.Managers;
+using AdElec.AutoCAD.Repositories;
+using AdElec.Core.AeaMotor;
+using AdElec.Core.AeaMotor.Dtos;
+using AdElec.Core.Models;
+using Application = Autodesk.AutoCAD.ApplicationServices.Application;
+
+namespace AdElec.AutoCAD.Commands
+{
+    public class PropuestaCommand
+    {
+        // Bloques a insertar según tipo de punto
+        private const string BLOCK_IUG  = "I.E-AD-07";   // Bocas de iluminación
+        private const string BLOCK_TUG  = "I.E-AD-09";   // Tomas generales
+        private const string BLOCK_TUE  = "I.E-AD-09.02"; // Tomas especiales
+        private const string BLOCK_SW   = "I.E-AD-01";   // Llaves / interruptores
+
+        private const string FILE_IUG  = "Bloques_CAD\\I.E-AD-07.dwg";
+        private const string FILE_TUG  = "Bloques_CAD\\I.E-AD-09.dwg";
+        private const string FILE_TUE  = "Bloques_CAD\\I.E-AD-09.02.dwg";
+        private const string FILE_SW   = "Bloques_CAD\\I.E-AD-01.dwg";
+
+        [CommandMethod("ADE_PROPUESTA")]
+        public void GenerarPropuesta()
+        {
+            var doc = Application.DocumentManager.MdiActiveDocument;
+            var ed  = doc.Editor;
+            var db  = doc.Database;
+
+            var panelRepo   = new DwgPanelRepository();
+            var ambienteRepo = new DwgAmbienteRepository();
+            var motorClient  = new AeaMotorClient();
+
+            // ── 1. Verificar motor ────────────────────────────────────────────
+            bool motorOk = Task.Run(() => motorClient.EstaDisponibleAsync()).GetAwaiter().GetResult();
+            if (!motorOk)
+            {
+                ed.WriteMessage("\n[AD-ELEC] AEA-MOTOR no está corriendo. Iniciá Iniciar_Proyecto.bat primero.");
+                return;
+            }
+
+            // ── 2. Seleccionar UF ─────────────────────────────────────────────
+            var ufsDisponibles = ambienteRepo.GetUFsDisponibles();
+            if (ufsDisponibles.Count == 0)
+            {
+                ed.WriteMessage("\nNo hay recintos cargados. Usá ADE_AMBIENTES primero.");
+                return;
+            }
+
+            string uf;
+            if (ufsDisponibles.Count == 1)
+            {
+                uf = ufsDisponibles[0];
+                ed.WriteMessage($"\nUsando UF: {uf}");
+            }
+            else
+            {
+                var pso = new PromptStringOptions($"\nUnidades disponibles: {string.Join(", ", ufsDisponibles)}\nIngresá la UF a procesar: ");
+                pso.AllowSpaces = true;
+                var res = ed.GetString(pso);
+                if (res.Status != PromptStatus.OK) return;
+                uf = res.StringResult.Trim();
+            }
+
+            // ── 3. Obtener tablero asociado a esa UF ──────────────────────────
+            var panel = panelRepo.GetAllPanels()
+                .FirstOrDefault(p => string.Equals(p.Location, uf, StringComparison.OrdinalIgnoreCase));
+            string tableroName = panel?.Name ?? uf;
+            double slaArea = panel?.SuperficieCubiertaM2 ?? 0;
+
+            // ── 4. Leer ID_LOCALES y polígonos del dibujo ────────────────────
+            ed.WriteMessage($"\nLeyendo recintos de '{uf}'...");
+            var rooms = LeerRoomsConPoligono(db, uf);
+
+            if (rooms.Count == 0)
+            {
+                ed.WriteMessage("\nNo se encontraron recintos con polígono para esa UF. Verificá que los bloques ID_LOCALES estén dentro de polilíneas cerradas.");
+                return;
+            }
+
+            if (slaArea <= 0)
+                slaArea = rooms.Sum(r => r.Area);
+
+            ed.WriteMessage($"\n{rooms.Count} recinto(s) encontrados. SLA total: {slaArea:F1} m²");
+
+            // ── 5. Llamar a generate_proposal ────────────────────────────────
+            ed.WriteMessage("\nEnviando a AEA-MOTOR...");
+
+            var input = new ProposalProjectInput
+            {
+                ProjectName          = $"{tableroName} — {uf}",
+                ElectrificationLevel = "Mínimo", // el motor recalcula internamente
+                SlaArea              = slaArea,
+                Rooms                = rooms,
+                Board                = new ProposalBoardInput
+                {
+                    Id         = tableroName,
+                    MainSwitch = $"TM {panel?.MainBreakerAmps ?? 32}A",
+                    Rcd        = "ID 40A/30mA",
+                },
+            };
+
+            ProposalResponse proposal;
+            try
+            {
+                proposal = Task.Run(() => motorClient.GenerarPropuestaAsync(input)).GetAwaiter().GetResult();
+            }
+            catch (System.Exception ex)
+            {
+                ed.WriteMessage($"\n[Error] generate_proposal: {ex.Message}");
+                return;
+            }
+
+            if (proposal.RoomsUpdate.Count == 0)
+            {
+                ed.WriteMessage("\nAEA-MOTOR no devolvió puntos. Verificá los recintos.");
+                return;
+            }
+
+            ed.WriteMessage($"\n✓ Propuesta recibida. {proposal.Message}");
+
+            // ── 6. Cargar bloques necesarios ─────────────────────────────────
+            EnsureBlocks(db);
+
+            // ── 7. Insertar bocas en el dibujo ───────────────────────────────
+            int iugCount = 0, tugCount = 0, swCount = 0;
+
+            using (var tr = db.TransactionManager.StartTransaction())
+            {
+                var bt    = (BlockTable)tr.GetObject(db.BlockTableId, OpenMode.ForRead);
+                var space = (BlockTableRecord)tr.GetObject(db.CurrentSpaceId, OpenMode.ForWrite);
+
+                // Construir un mapa room_id → ProposalRoomUpdate
+                var roomMap = proposal.RoomsUpdate.ToDictionary(r => r.Id, r => r);
+                // Construir mapa room_id → RoomInput (para obtener coordenadas de los points)
+                var inputMap = input.Rooms.ToDictionary(r => r.Id, r => r);
+
+                foreach (var roomUpdate in proposal.RoomsUpdate)
+                {
+                    foreach (var pt in roomUpdate.Points)
+                    {
+                        var pos = new Point3d(pt.X, pt.Y, 0);
+
+                        switch (pt.Type)
+                        {
+                            case "IUG":
+                            case "IUE":
+                                if (bt.Has(BLOCK_IUG))
+                                {
+                                    InsertarBoca(tr, space, bt[BLOCK_IUG], pos, new Dictionary<string, string>
+                                    {
+                                        ["CX"]  = pt.CircuitId ?? "",
+                                        ["PX"]  = pt.SwitchId ?? "",
+                                        ["POT"] = pt.PowerVa > 0 ? pt.PowerVa.ToString("F0") : "0",
+                                        ["D"]   = tableroName,   // ← Designación = tablero
+                                    });
+                                    iugCount++;
+                                }
+                                break;
+
+                            case "TUG":
+                                if (bt.Has(BLOCK_TUG))
+                                {
+                                    InsertarBoca(tr, space, bt[BLOCK_TUG], pos, new Dictionary<string, string>
+                                    {
+                                        ["CX"]  = pt.CircuitId ?? "",
+                                        ["XT"]  = "",
+                                        ["POT"] = pt.PowerVa > 0 ? pt.PowerVa.ToString("F0") : "0",
+                                        ["D"]   = tableroName,
+                                    });
+                                    tugCount++;
+                                }
+                                break;
+
+                            case "TUE":
+                                if (bt.Has(BLOCK_TUE))
+                                {
+                                    InsertarBoca(tr, space, bt[BLOCK_TUE], pos, new Dictionary<string, string>
+                                    {
+                                        ["CX"]    = pt.CircuitId ?? "",
+                                        ["XT"]    = "",
+                                        ["POT"]   = pt.PowerVa > 0 ? pt.PowerVa.ToString("F0") : "0",
+                                        ["D"]     = tableroName,
+                                        ["N°EQ"]  = pt.Label ?? "",
+                                    });
+                                    tugCount++;
+                                }
+                                break;
+
+                            case "SWITCH":
+                                if (bt.Has(BLOCK_SW))
+                                {
+                                    InsertarBoca(tr, space, bt[BLOCK_SW], pos, new Dictionary<string, string>
+                                    {
+                                        ["LLAVE-N°0"] = pt.SwitchId ?? "",
+                                        ["LLAVE-N°1"] = "",
+                                        ["LLAVE-N°2"] = "",
+                                    });
+                                    swCount++;
+                                }
+                                break;
+                        }
+                    }
+                }
+
+                tr.Commit();
+            }
+
+            ed.WriteMessage($"\n✓ Insertado: {iugCount} IUG, {tugCount} TUG/TUE, {swCount} llaves — Tablero: {tableroName}");
+            ed.WriteMessage("\n  Atributo D = tablero. Usá ADE_PANEL → 'Calcular AEA 90364' para obtener secciones y validaciones.");
+        }
+
+        // ── Helpers ──────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Escanea el dibujo buscando todos los bloques ID_LOCALES de la UF indicada,
+        /// y para cada uno encuentra la polilínea cerrada que lo contiene.
+        /// Devuelve la lista de RoomInput lista para enviar a generate_proposal.
+        /// </summary>
+        private static List<ProposalRoomInput> LeerRoomsConPoligono(Database db, string uf)
+        {
+            var result = new List<ProposalRoomInput>();
+
+            using var tr = db.TransactionManager.StartOpenCloseTransaction();
+            var space = (BlockTableRecord)tr.GetObject(db.CurrentSpaceId, OpenMode.ForRead);
+
+            // Recopilar todas las polilíneas cerradas del espacio
+            var polylines = new List<Polyline>();
+            foreach (ObjectId entId in space)
+            {
+                var ent = tr.GetObject(entId, OpenMode.ForRead);
+                if (ent is Polyline poly && poly.Closed && poly.NumberOfVertices >= 3)
+                    polylines.Add(poly);
+            }
+
+            // Iterar bloques ID_LOCALES
+            foreach (ObjectId entId in space)
+            {
+                var ent = tr.GetObject(entId, OpenMode.ForRead);
+                if (ent is not BlockReference br) continue;
+
+                string blockName = br.IsDynamicBlock
+                    ? ((BlockTableRecord)tr.GetObject(br.DynamicBlockTableRecord, OpenMode.ForRead)).Name
+                    : ((BlockTableRecord)tr.GetObject(br.BlockTableRecord, OpenMode.ForRead)).Name;
+
+                if (!string.Equals(blockName, "ID_LOCALES", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                // Leer atributos
+                var atts = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                foreach (ObjectId attId in br.AttributeCollection)
+                {
+                    var a = (AttributeReference)tr.GetObject(attId, OpenMode.ForRead);
+                    atts[a.Tag] = a.TextString?.Trim() ?? "";
+                }
+
+                if (!string.Equals(atts.GetValueOrDefault("01", ""), uf, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var insertPt = new Point2d(br.Position.X, br.Position.Y);
+
+                // Buscar polilínea contenedora
+                Polyline? container = polylines.FirstOrDefault(p => IsPointInPolyline(p, insertPt));
+                if (container is null) continue;
+
+                // Extraer vértices y calcular centroide
+                var polyPts = new List<Dictionary<string, double>>();
+                double cx = 0, cy = 0;
+                int n = container.NumberOfVertices;
+                for (int i = 0; i < n; i++)
+                {
+                    var v = container.GetPoint2dAt(i);
+                    polyPts.Add(new Dictionary<string, double> { ["x"] = v.X, ["y"] = v.Y });
+                    cx += v.X; cy += v.Y;
+                }
+                cx /= n; cy /= n;
+
+                // Parsear área del atributo AREA
+                double area = ParseArea(atts.GetValueOrDefault("AREA", ""));
+                if (area <= 0) area = container.Area;
+
+                string tipoDisplay = atts.GetValueOrDefault("LOCAL", "Otro");
+                string roomTypeName = TipoAmbienteInfo.DesdeNombre(tipoDisplay).RoomTypeName;
+                string planta = atts.GetValueOrDefault("55", "PB");
+
+                string roomId = $"room_{result.Count + 1:000}";
+
+                result.Add(new ProposalRoomInput
+                {
+                    Id    = roomId,
+                    Name  = $"{tipoDisplay} — {planta}",
+                    Type  = roomTypeName,
+                    Area  = area,
+                    PolygonPoints = polyPts,
+                    Centroid = new Dictionary<string, double> { ["x"] = cx, ["y"] = cy },
+                });
+            }
+
+            tr.Commit();
+            return result;
+        }
+
+        /// <summary>Carga los bloques necesarios en el DWG si no existen aún.</summary>
+        private static void EnsureBlocks(Database db)
+        {
+            BlockManager.EnsureBlockExists(BLOCK_IUG, ResolveBlockPath(db, FILE_IUG));
+            BlockManager.EnsureBlockExists(BLOCK_TUG, ResolveBlockPath(db, FILE_TUG));
+            BlockManager.EnsureBlockExists(BLOCK_TUE, ResolveBlockPath(db, FILE_TUE));
+            BlockManager.EnsureBlockExists(BLOCK_SW,  ResolveBlockPath(db, FILE_SW));
+        }
+
+        /// <summary>
+        /// Inserta un BlockReference con sus atributos completados desde el diccionario tag→valor.
+        /// </summary>
+        private static void InsertarBoca(
+            Transaction tr,
+            BlockTableRecord space,
+            ObjectId blockId,
+            Point3d position,
+            Dictionary<string, string> valores)
+        {
+            var br = new BlockReference(position, blockId);
+            space.AppendEntity(br);
+            tr.AddNewlyCreatedDBObject(br, true);
+
+            var blockDef = (BlockTableRecord)tr.GetObject(blockId, OpenMode.ForRead);
+            foreach (ObjectId eid in blockDef)
+            {
+                var ent = tr.GetObject(eid, OpenMode.ForRead);
+                if (ent is not AttributeDefinition attDef || attDef.Constant) continue;
+
+                var attRef = new AttributeReference();
+                attRef.SetAttributeFromBlock(attDef, br.BlockTransform);
+                attRef.Position = attDef.Position.TransformBy(br.BlockTransform);
+                attRef.TextString = valores.TryGetValue(attDef.Tag, out string? val) ? val : attDef.TextString;
+
+                br.AttributeCollection.AppendAttribute(attRef);
+                tr.AddNewlyCreatedDBObject(attRef, true);
+            }
+        }
+
+        /// <summary>Ray casting para saber si un punto está dentro de una polilínea cerrada.</summary>
+        private static bool IsPointInPolyline(Polyline poly, Point2d pt)
+        {
+            int n = poly.NumberOfVertices;
+            bool inside = false;
+            for (int i = 0, j = n - 1; i < n; j = i++)
+            {
+                var pi = poly.GetPoint2dAt(i);
+                var pj = poly.GetPoint2dAt(j);
+                if ((pi.Y > pt.Y) != (pj.Y > pt.Y) &&
+                    pt.X < (pj.X - pi.X) * (pt.Y - pi.Y) / (pj.Y - pi.Y) + pi.X)
+                    inside = !inside;
+            }
+            return inside;
+        }
+
+        private static double ParseArea(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return 0;
+            var clean = System.Text.RegularExpressions.Regex.Replace(text, @"[^\d.,]", "").Replace(',', '.');
+            return double.TryParse(clean, System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out double v) ? v : 0;
+        }
+
+        private static string ResolveBlockPath(Database db, string rel)
+        {
+            string dwgDir = Path.GetDirectoryName(db.Filename) ?? "";
+            if (!string.IsNullOrEmpty(dwgDir))
+            {
+                string c = Path.Combine(dwgDir, rel);
+                if (File.Exists(c)) return c;
+            }
+            string asmDir = Path.GetDirectoryName(
+                System.Reflection.Assembly.GetExecutingAssembly().Location) ?? "";
+            string dir = asmDir;
+            for (int i = 0; i < 6; i++)
+            {
+                string c = Path.Combine(dir, rel);
+                if (File.Exists(c)) return c;
+                string? parent = Path.GetDirectoryName(dir);
+                if (parent is null || parent == dir) break;
+                dir = parent;
+            }
+            return Path.Combine(asmDir, rel);
+        }
+    }
+}

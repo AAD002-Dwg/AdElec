@@ -1,0 +1,262 @@
+using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
+using System.Windows.Input;
+using AdElec.Core.AeaMotor;
+using AdElec.Core.AeaMotor.Dtos;
+using AdElec.Core.Interfaces;
+using AdElec.Core.Models;
+using System.Linq;
+
+namespace AdElec.UI.ViewModels;
+
+public sealed class PanelViewModel : INotifyPropertyChanged
+{
+    private readonly IPanelRepository _repo;
+    private readonly IAeaMotorClient _motorClient;
+    private readonly IAmbienteRepository? _ambienteRepo;
+    private readonly Action _onSugerirLuminarias;
+    private readonly Action _onSugerirTomas;
+    private readonly Action<string, string>? _onInsertarTablero;
+
+    // ── Estado ──────────────────────────────────────────────────────────────
+
+    private Panel? _selectedPanel;
+    private string _statusMessage = "Listo";
+    private bool _isMotorAvailable;
+    private bool _isBusy;
+    private ResultadoProyectoDto? _lastResultado;
+
+    public ObservableCollection<Panel> Panels { get; } = [];
+    public ObservableCollection<Circuit> Circuits { get; } = [];
+
+    public Panel? SelectedPanel
+    {
+        get => _selectedPanel;
+        set
+        {
+            if (_selectedPanel == value) return;
+            _selectedPanel = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasPanel));
+            OnPropertyChanged(nameof(TotalLoadVA));
+            OnPropertyChanged(nameof(TotalLoadKVA));
+            RefreshCircuits();
+            RaiseAllCommandsCanExecuteChanged();
+        }
+    }
+
+    public bool HasPanel => _selectedPanel is not null;
+    public bool IsBusy { get => _isBusy; private set { _isBusy = value; OnPropertyChanged(); RaiseAllCommandsCanExecuteChanged(); } }
+
+    public string StatusMessage { get => _statusMessage; private set { _statusMessage = value; OnPropertyChanged(); } }
+    public bool IsMotorAvailable { get => _isMotorAvailable; private set { _isMotorAvailable = value; OnPropertyChanged(); OnPropertyChanged(nameof(MotorStatusText)); OnPropertyChanged(nameof(MotorStatusColor)); } }
+
+    public string MotorStatusText => IsMotorAvailable ? "AEA-MOTOR ●" : "AEA-MOTOR ○";
+    public string MotorStatusColor => IsMotorAvailable ? "#4CAF50" : "#F44336";
+
+    public double TotalLoadVA => _selectedPanel?.TotalLoadVA() ?? 0;
+    public double TotalLoadKVA => Math.Round(TotalLoadVA / 1000.0, 2);
+
+    public string? LastGrado => _lastResultado?.Grado?.Grado;
+    public bool? CumpleNorma => _lastResultado?.CumpleNorma;
+    public string CumpleNormaText => _lastResultado is null ? "" : (CumpleNorma == true ? "✓ CUMPLE" : "✗ NO CUMPLE");
+    public string CumpleNormaColor => CumpleNorma == true ? "#4CAF50" : "#F44336";
+
+    // ── Nuevo Tablero (inline form) ──────────────────────────────────────────
+
+    private bool _showNewPanelForm;
+    private string _newPanelName = "TD1";
+    private string _newPanelLocation = "";
+    private int _newPanelPhaseCount = 1;
+    private string _newPanelTipo = "Tablero Seccional";
+    private double _newPanelSuperficie = 0;
+
+    public bool ShowNewPanelForm { get => _showNewPanelForm; set { _showNewPanelForm = value; OnPropertyChanged(); } }
+    public string NewPanelName { get => _newPanelName; set { _newPanelName = value; OnPropertyChanged(); } }
+    public string NewPanelLocation { get => _newPanelLocation; set { _newPanelLocation = value; OnPropertyChanged(); } }
+    public int NewPanelPhaseCount { get => _newPanelPhaseCount; set { _newPanelPhaseCount = value; OnPropertyChanged(); } }
+    public string NewPanelTipo { get => _newPanelTipo; set { _newPanelTipo = value; OnPropertyChanged(); } }
+    public double NewPanelSuperficie { get => _newPanelSuperficie; set { _newPanelSuperficie = value; OnPropertyChanged(); } }
+
+    // ── Comandos ────────────────────────────────────────────────────────────
+
+    public ICommand NuevoTableroCommand { get; }
+    public ICommand ConfirmarNuevoTableroCommand { get; }
+    public ICommand CancelarNuevoTableroCommand { get; }
+    public ICommand CalcularAeaCommand { get; }
+    public ICommand SugerirLuminariasCommand { get; }
+    public ICommand SugerirTomasCommand { get; }
+    public ICommand CheckMotorCommand { get; }
+
+    // ── Constructor ─────────────────────────────────────────────────────────
+
+    public PanelViewModel(
+        IPanelRepository repo,
+        IAeaMotorClient motorClient,
+        Action onSugerirLuminarias,
+        Action onSugerirTomas,
+        Action<string, string>? onInsertarTablero = null,
+        IAmbienteRepository? ambienteRepo = null)
+    {
+        _repo = repo;
+        _motorClient = motorClient;
+        _ambienteRepo = ambienteRepo;
+        _onSugerirLuminarias = onSugerirLuminarias;
+        _onSugerirTomas = onSugerirTomas;
+        _onInsertarTablero = onInsertarTablero;
+
+        NuevoTableroCommand = new RelayCommand(() => ShowNewPanelForm = true, () => !ShowNewPanelForm);
+        ConfirmarNuevoTableroCommand = new RelayCommand(ConfirmarNuevoTablero, () => !string.IsNullOrWhiteSpace(NewPanelName));
+        CancelarNuevoTableroCommand = new RelayCommand(() => ShowNewPanelForm = false);
+        CalcularAeaCommand = new RelayCommand(async () => await CalcularAeaAsync(), () => HasPanel && IsMotorAvailable && !IsBusy);
+        SugerirLuminariasCommand = new RelayCommand(_onSugerirLuminarias, () => HasPanel);
+        SugerirTomasCommand = new RelayCommand(_onSugerirTomas, () => HasPanel);
+        CheckMotorCommand = new RelayCommand(async () => await CheckMotorAsync());
+
+        LoadPanels();
+        _ = CheckMotorAsync();
+    }
+
+    // ── Lógica ──────────────────────────────────────────────────────────────
+
+    private void LoadPanels()
+    {
+        Panels.Clear();
+        try
+        {
+            var panels = _repo.GetAllPanels();
+            foreach (var p in panels)
+                Panels.Add(p);
+
+            SelectedPanel = Panels.FirstOrDefault();
+            StatusMessage = Panels.Count == 0 ? "Sin tableros. Creá uno nuevo." : $"{Panels.Count} tablero(s) cargados.";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error al cargar tableros: {ex.Message}";
+        }
+    }
+
+    private void RefreshCircuits()
+    {
+        Circuits.Clear();
+        if (_selectedPanel is null) return;
+        foreach (var c in _selectedPanel.Circuits)
+            Circuits.Add(c);
+        OnPropertyChanged(nameof(TotalLoadVA));
+        OnPropertyChanged(nameof(TotalLoadKVA));
+    }
+
+    private void ConfirmarNuevoTablero()
+    {
+        var panel = new Panel
+        {
+            Name = NewPanelName.Trim().ToUpper(),
+            Location = NewPanelLocation.Trim(),
+            PhaseCount = NewPanelPhaseCount,
+            SuperficieCubiertaM2 = NewPanelSuperficie,
+        };
+
+        try
+        {
+            _repo.SavePanel(panel);
+            Panels.Add(panel);
+            SelectedPanel = panel;
+            ShowNewPanelForm = false;
+
+            string nombre = panel.Name;
+            string vis = NewPanelTipo;
+
+            NewPanelName = "TD1";
+            NewPanelLocation = "";
+            NewPanelTipo = "Tablero Seccional";
+            NewPanelSuperficie = 0;
+
+            StatusMessage = $"Tablero '{nombre}' guardado. Ubicalo en el plano.";
+
+            // Disparar inserción del bloque I.E-AD-04 en el dibujo
+            _onInsertarTablero?.Invoke(nombre, vis);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error al guardar tablero: {ex.Message}";
+        }
+    }
+
+    private async Task CalcularAeaAsync()
+    {
+        if (_selectedPanel is null) return;
+        IsBusy = true;
+        StatusMessage = "Calculando con AEA-MOTOR...";
+
+        try
+        {
+            // Leer ambientes del DWG para la UF del tablero seleccionado
+            List<AmbienteDto>? ambientesDto = null;
+            double superficie = _selectedPanel.SuperficieCubiertaM2;
+
+            if (_ambienteRepo is not null && !string.IsNullOrWhiteSpace(_selectedPanel.Location))
+            {
+                var ambientes = _ambienteRepo.GetAmbientesParaUF(_selectedPanel.Location);
+                if (ambientes.Count > 0)
+                {
+                    ambientesDto = ambientes.Select(a => a.ToAmbienteDto()).ToList();
+                    // Superficie = suma de áreas de todos los recintos si no fue ingresada manualmente
+                    if (superficie <= 0)
+                        superficie = ambientes.Sum(a => a.AreaM2);
+                    StatusMessage = $"Calculando — {ambientes.Count} recintos para '{_selectedPanel.Location}'...";
+                }
+            }
+
+            var proyecto = _selectedPanel.ToProyectoDto(superficieCubiertaM2: superficie, ambientes: ambientesDto);
+            _lastResultado = await _motorClient.CalcularAsync(proyecto);
+            _selectedPanel.AplicarResultados(_lastResultado);
+
+            RefreshCircuits();
+            OnPropertyChanged(nameof(LastGrado));
+            OnPropertyChanged(nameof(CumpleNorma));
+            OnPropertyChanged(nameof(CumpleNormaText));
+            OnPropertyChanged(nameof(CumpleNormaColor));
+
+            string grado = _lastResultado?.Grado?.Grado ?? "—";
+            int nCirc = _lastResultado?.Circuitos?.Count ?? 0;
+            StatusMessage = $"Grado {grado} · {nCirc} circuitos · {CumpleNormaText}";
+        }
+        catch (Exception ex) when (ex is InvalidOperationException || ex.GetType().Name == "HttpRequestException")
+        {
+            StatusMessage = "AEA-MOTOR no responde. ¿Está corriendo?";
+            IsMotorAvailable = false;
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task CheckMotorAsync()
+    {
+        IsMotorAvailable = await _motorClient.EstaDisponibleAsync();
+        StatusMessage = IsMotorAvailable
+            ? "AEA-MOTOR conectado."
+            : "AEA-MOTOR no disponible (iniciá Iniciar_Proyecto.bat).";
+    }
+
+    private void RaiseAllCommandsCanExecuteChanged()
+    {
+        ((RelayCommand)CalcularAeaCommand).RaiseCanExecuteChanged();
+        ((RelayCommand)SugerirLuminariasCommand).RaiseCanExecuteChanged();
+        ((RelayCommand)SugerirTomasCommand).RaiseCanExecuteChanged();
+        ((RelayCommand)NuevoTableroCommand).RaiseCanExecuteChanged();
+    }
+
+    // ── INotifyPropertyChanged ───────────────────────────────────────────────
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+    private void OnPropertyChanged([CallerMemberName] string? name = null) =>
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+}

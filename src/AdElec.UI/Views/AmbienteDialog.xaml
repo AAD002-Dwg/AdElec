@@ -1,0 +1,114 @@
+<Window x:Class="AdElec.UI.Views.AmbienteDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="AD-ELEC — Definir Recinto"
+        Width="340" SizeToContent="Height"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        Background="#2D2D2D"
+        Foreground="White">
+
+    <Window.Resources>
+        <Style x:Key="Label" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#AAAAAA"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Margin" Value="0,8,0,3"/>
+        </Style>
+        <Style x:Key="DarkInput" TargetType="TextBox">
+            <Setter Property="Background" Value="#3C3C3C"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#555"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="6,4"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="CaretBrush" Value="White"/>
+        </Style>
+        <Style x:Key="DarkCombo" TargetType="ComboBox">
+            <Setter Property="Background" Value="#3C3C3C"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#555"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="6,4"/>
+            <Setter Property="FontSize" Value="13"/>
+        </Style>
+        <Style x:Key="BtnPrimary" TargetType="Button">
+            <Setter Property="Background" Value="#0078D4"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="20,7"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="3"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#005A9E"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Background" Value="#555"/>
+                                <Setter Property="Foreground" Value="#888"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="BtnSecondary" TargetType="Button" BasedOn="{StaticResource BtnPrimary}">
+            <Setter Property="Background" Value="#444"/>
+        </Style>
+    </Window.Resources>
+
+    <StackPanel Margin="20">
+
+        <!-- Título y área calculada -->
+        <Border Background="#1A1A1A" CornerRadius="4" Padding="12,8" Margin="0,0,0,16">
+            <Grid>
+                <TextBlock Text="Nuevo Recinto" Foreground="White" FontSize="15" FontWeight="Bold"/>
+                <StackPanel HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <TextBlock Text="Área calculada" Foreground="#AAAAAA" FontSize="10" HorizontalAlignment="Right"/>
+                    <TextBlock Text="{Binding AreaDisplay}" Foreground="#4CAF50"
+                               FontSize="18" FontWeight="Bold" HorizontalAlignment="Right"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Tipo de ambiente -->
+        <TextBlock Text="Tipo de ambiente" Style="{StaticResource Label}"/>
+        <ComboBox Style="{StaticResource DarkCombo}"
+                  ItemsSource="{Binding TiposLocal}"
+                  SelectedItem="{Binding SelectedTipo, Mode=TwoWay}"
+                  DisplayMemberPath="Nombre"/>
+
+        <!-- Unidad Funcional -->
+        <TextBlock Text="Unidad Funcional (UF)" Style="{StaticResource Label}"/>
+        <ComboBox Style="{StaticResource DarkCombo}"
+                  ItemsSource="{Binding UfOptions}"
+                  SelectedItem="{Binding SelectedUF, Mode=TwoWay}"
+                  IsEditable="True"
+                  Text="{Binding SelectedUF, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+        <TextBlock Text="Coincide con la 'Ubicación' del tablero (ej: DEPTO-1)"
+                   Foreground="#666" FontSize="10" Margin="0,2,0,0"/>
+
+        <!-- Planta -->
+        <TextBlock Text="Planta" Style="{StaticResource Label}"/>
+        <ComboBox Style="{StaticResource DarkCombo}"
+                  ItemsSource="{Binding PlantaOptions}"
+                  SelectedItem="{Binding Planta, Mode=TwoWay}"
+                  IsEditable="True"
+                  Text="{Binding Planta, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+        <!-- Botones -->
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+            <Button Content="Cancelar" Style="{StaticResource BtnSecondary}"
+                    Command="{Binding CancelarCommand}" Margin="0,0,8,0"/>
+            <Button Content="Insertar en plano" Style="{StaticResource BtnPrimary}"
+                    Command="{Binding ConfirmarCommand}" IsDefault="True"/>
+        </StackPanel>
+
+    </StackPanel>
+</Window>

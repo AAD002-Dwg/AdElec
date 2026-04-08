@@ -1,35 +1,60 @@
 # AD-ELEC (AutoCAD Electrical Plugin)
 
-Este repositorio contiene el código fuente de AD-ELEC, un complemento (plugin) nativo para AutoCAD 2025 que automatiza tareas de diseño eléctrico como la ubicación de luminarias, enrutamiento automático de cañerías, gestión de cargas de tableros y generación de diagramas unifilares.
+Este repositorio contiene el código fuente de **AD-ELEC**, un complemento (plugin) nativo para AutoCAD 2025 que automatiza tareas de diseño eléctrico extremo a extremo: desde la ubicación inteligente de bocas hasta el cálculo de potencias y generación de documentación técnica.
 
-## Estructura del Proyecto
+## 🚀 Características Principales
 
-El proyecto se divide en tres módulos principales para garantizar una arquitectura limpia (Clean Architecture) y facilitar el mantenimiento continuo:
+- **Distribución Inteligente**: Algoritmos para ubicación de luminarias y tomas.
+- **Enrutamiento Automático**: Generación de cañerías y cableado basada en lógica de circuitos.
+- **Gestión de Cargas**: Cálculo automático de potencias y balanceo de fases en tableros.
+- **Inspección Técnica**: Herramientas integradas para auditoría de bloques y atributos.
 
-### 1. `AdElec.Core` (Lógica de Negocio y Datos)
-Este módulo se encarga puramente de la lógica y *no tiene dependencias* a las librerías de interfaz de usuario de AutoCAD. Es testeable por separado.
-- **Modelos**: Tableros (`Panel`), Circuitos (`Circuit`), Cargas (`Load`), Cables.
-- **Algoritmos**: Algoritmo de distribución de puntos (luminarias), pathfinding básico (enrutamiento de caños).
+## 📂 Estructura del Proyecto
 
-### 2. `AdElec.UI` (Interfaz Gráfica - WPF)
-Contiene todo el entorno visual.
-- **Dockable Palette**: El panel lateral ("PaletteSet") que siempre permanece visible en AutoCAD.
-- **Views & ViewModels (MVVM)**: Diálogos para configurar la asignación de circuitos, selección de secciones de cables, etc.
-- *Nota*: Referencia y usa los modelos de `AdElec.Core`.
+El proyecto sigue los principios de **Clean Architecture**:
 
-### 3. `AdElec.AutoCAD` (Interacción con el motor de dibujo DWG)
-La "capa externa" que conecta el programa con AutoCAD.
-- **Comandos (`CommandMethods`)**: Los comandos que escribes en la barra de AutoCAD (ej. `ADE_AUTORUTA`).
-- **Base de Datos DWG (`TransactionManager`)**: Métodos para leer atributos de bloques, dibujar polilíneas, MLeaders, etc.
-- **Persistencia (`XRecords / Extension Dictionaries`)**: Guarda de forma "oculta" la información de los tableros y circuitos directamente dentro del `.dwg`.
+### 1. `AdElec.Core` (Lógica de Negocio)
+- **Modelos**: `Panel`, `Circuit`, `Load`, `BlockDefinition`.
+- **Motor de Cálculo**: Sumatoria de cargas, secciones de cables y caída de tensión.
 
-## Flujo de Desarrollo (Git Commit)
-Para evitar pérdidas de datos, realizaremos Commits de Git con mensajes descriptivos. Se recomienda hacer PUSH a Github (o tu plataforma de preferencia) periódicamente usando:
-```bash
-git add .
-git commit -m "Descripción de lo avanzado"
-git push origin master
+### 2. `AdElec.UI` (Interfaz WPF)
+- **Paleta Lateral**: Interfaz nativa de AutoCAD para gestión de proyectos en tiempo real.
+- **MVVM**: Separación estricta entre vista y lógica de interfaz.
+
+### 3. `AdElec.AutoCAD` (Motor de Dibujo)
+- **Comandos**: 
+  - `ADE_PANEL`: Abre la interfaz principal.
+  - `ADE_INSPECT`: Herramienta de diagnóstico que exporta atributos y estados de visibilidad a JSON.
+- **Geometría**: Extensiones para manipulación de `BlockReference`, `Polyline` y Diccionarios de Extensión.
+
+## 🏗️ Gestión de Bloques CAD
+
+Los bloques son el núcleo del sistema. Se encuentran en [Bloques_CAD](file:///g:/AD-ELEC/Bloques_CAD).
+La documentación técnica detallada de cada bloque, incluyendo sus atributos reales y modos de visibilidad, se encuentra en:
+👉 **[Bloques_CAD/Bloques.md](file:///g:/AD-ELEC/Bloques_CAD/Bloques.md)**
+
+## 🛠️ Desarrollo y Compilación
+
+### Prerrequisitos
+- **.NET 8 SDK**
+- **AutoCAD 2025 SDK** (AutoCAD.NET / AutoCAD.NET.Model)
+- **Visual Studio 2022**
+
+### Compilación rápida
+Para compilar el plugin desde la terminal:
+```powershell
+dotnet build AdElec.sln
 ```
 
-## Prerrequisitos de Desarrollo
-Debido a que este plugin es para AutoCAD 2025+, requiere del **.NET 8 SDK** o **Visual Studio 2022**. Si la terminal arroja que no tienes los SDK de .NET instalados, deberás instalar el workload "Desarrollo de escritorio de .NET".
+### Carga en AutoCAD
+1. Abrir AutoCAD 2025.
+2. Ejecutar comando `NETLOAD`.
+3. Seleccionar la DLL en: `src\AdElec.AutoCAD\bin\Debug\net8.0-windows\AdElec.AutoCAD.dll`.
+
+## 🔄 Flujo de Git
+Mantener el repositorio actualizado:
+```bash
+git add .
+git commit -m "Descripción de avance"
+git push origin master
+```
