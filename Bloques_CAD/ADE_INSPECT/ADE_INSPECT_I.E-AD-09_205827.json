@@ -1,0 +1,120 @@
+{
+  "BlockName": "I.E-AD-09",
+  "Layer": "0",
+  "Attributes": [
+    {
+      "Tag": "POT",
+      "Value": "220"
+    },
+    {
+      "Tag": "CX",
+      "Value": "C1"
+    },
+    {
+      "Tag": "XT",
+      "Value": ""
+    },
+    {
+      "Tag": "D",
+      "Value": ""
+    }
+  ],
+  "DynamicProperties": [
+    {
+      "PropertyName": "Visibilidad1",
+      "Value": "Toma de Uso Gral.",
+      "AllowedValues": [
+        "Toma de Uso Gral.",
+        "Toma de Uso Gral. (capsulado)",
+        "Extractor",
+        "Todo-edit-bq"
+      ],
+      "Description": "",
+      "ReadOnly": false
+    },
+    {
+      "PropertyName": "ROT1",
+      "Value": "0",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": false
+    },
+    {
+      "PropertyName": "Origin",
+      "Value": "(0,-0.04999999999984084,0)",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": true
+    },
+    {
+      "PropertyName": "Posici\u00F3n3 X",
+      "Value": "-0.3000000000000909",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": false
+    },
+    {
+      "PropertyName": "Posici\u00F3n3 Y",
+      "Value": "-0.09999999999984083",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": false
+    },
+    {
+      "PropertyName": "Posici\u00F3n1 X",
+      "Value": "-0.15000000000009095",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": false
+    },
+    {
+      "PropertyName": "Posici\u00F3n1 Y",
+      "Value": "0.14500000000015917",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": false
+    },
+    {
+      "PropertyName": "Posici\u00F3n2 X",
+      "Value": "0.15000000000009095",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": false
+    },
+    {
+      "PropertyName": "Posici\u00F3n2 Y",
+      "Value": "0.14500000000015917",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": false
+    },
+    {
+      "PropertyName": "A X",
+      "Value": "-0.01999999999998181",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": false
+    },
+    {
+      "PropertyName": "A Y",
+      "Value": "-0.09999999999979536",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": false
+    },
+    {
+      "PropertyName": "B X",
+      "Value": "0.01999999999998181",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": false
+    },
+    {
+      "PropertyName": "B Y",
+      "Value": "-0.09999999999979536",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": false
+    }
+  ]
+}

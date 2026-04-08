@@ -1,0 +1,51 @@
+{
+  "BlockName": "I.E-AD-Nomenclatura_Cables",
+  "Layer": "0",
+  "Attributes": [
+    {
+      "Tag": "CABLES",
+      "Value": "2x1,5\u002BT"
+    },
+    {
+      "Tag": "CA\u00D1ERIA",
+      "Value": "RS"
+    }
+  ],
+  "DynamicProperties": [
+    {
+      "PropertyName": "Tabla de bloque1",
+      "Value": "0",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": false
+    },
+    {
+      "PropertyName": "Posici\u00F3n1 X",
+      "Value": "0.35",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": false
+    },
+    {
+      "PropertyName": "Posici\u00F3n1 Y",
+      "Value": "0.12499999999999999",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": false
+    },
+    {
+      "PropertyName": "Posici\u00F3n2 X",
+      "Value": "0.35",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": false
+    },
+    {
+      "PropertyName": "Posici\u00F3n2 Y",
+      "Value": "-0.12499999999999999",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": false
+    }
+  ]
+}

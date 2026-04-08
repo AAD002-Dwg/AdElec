@@ -1,0 +1,48 @@
+{
+  "BlockName": "ID_LOCALES",
+  "Layer": "0",
+  "Attributes": [
+    {
+      "Tag": "01",
+      "Value": ""
+    },
+    {
+      "Tag": "55",
+      "Value": "PB"
+    },
+    {
+      "Tag": "LOCAL",
+      "Value": "LOCAL"
+    },
+    {
+      "Tag": "AREA",
+      "Value": "X.XXm\u00B2"
+    }
+  ],
+  "DynamicProperties": [
+    {
+      "PropertyName": "Visibilidad1",
+      "Value": "CON NUM",
+      "AllowedValues": [
+        "CON NUM",
+        "SIN NUM"
+      ],
+      "Description": "",
+      "ReadOnly": false
+    },
+    {
+      "PropertyName": "Posici\u00F3n1 X",
+      "Value": "0",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": false
+    },
+    {
+      "PropertyName": "Posici\u00F3n1 Y",
+      "Value": "-0.5159618008185589",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": false
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "BlockName": "I.E-AD-04",
+  "Layer": "0",
+  "Attributes": [
+    {
+      "Tag": "TX-X",
+      "Value": ""
+    }
+  ],
+  "DynamicProperties": [
+    {
+      "PropertyName": "Posici\u00F3n1 X",
+      "Value": "-0.19499999999993634",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": false
+    },
+    {
+      "PropertyName": "Posici\u00F3n1 Y",
+      "Value": "0.15000000000023622",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": false
+    },
+    {
+      "PropertyName": "Visibilidad1",
+      "Value": "Tablero Seccional",
+      "AllowedValues": [
+        "Tablero Seccional",
+        "Tablero Principal",
+        "Tablero Seccional Chico",
+        "Todo-edit-bq"
+      ],
+      "Description": "",
+      "ReadOnly": false
+    },
+    {
+      "PropertyName": "\u00C1ngulo1",
+      "Value": "0",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": false
+    },
+    {
+      "PropertyName": "Origin",
+      "Value": "(0,0,0)",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": true
+    }
+  ]
+}

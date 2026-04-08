@@ -1,0 +1,112 @@
+{
+  "BlockName": "I.E-AD-07",
+  "Layer": "0",
+  "Attributes": [
+    {
+      "Tag": "CX",
+      "Value": "C1"
+    },
+    {
+      "Tag": "PX",
+      "Value": "A"
+    },
+    {
+      "Tag": "POT",
+      "Value": "50"
+    },
+    {
+      "Tag": "D",
+      "Value": ""
+    }
+  ],
+  "DynamicProperties": [
+    {
+      "PropertyName": "Visibilidad1",
+      "Value": "Boca de techo",
+      "AllowedValues": [
+        "Boca de techo",
+        "Boca de techo FC",
+        "Boca de techo chica",
+        "Boca de techo colgante",
+        "Boca de techo plafon",
+        "Boca de techo Rec plafon",
+        "Boca de pared",
+        "Boca de pared FC",
+        "Reflector",
+        "Todo-edit-bq"
+      ],
+      "Description": "",
+      "ReadOnly": false
+    },
+    {
+      "PropertyName": "Posici\u00F3n1 X",
+      "Value": "-0.20000000000009094",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": false
+    },
+    {
+      "PropertyName": "Posici\u00F3n1 Y",
+      "Value": "0.14999999999997726",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": false
+    },
+    {
+      "PropertyName": "Posici\u00F3n2 X",
+      "Value": "0.15000000000009095",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": false
+    },
+    {
+      "PropertyName": "Posici\u00F3n2 Y",
+      "Value": "0.14999999999997726",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": false
+    },
+    {
+      "PropertyName": "Posici\u00F3n3 X",
+      "Value": "-0.15000000000009095",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": false
+    },
+    {
+      "PropertyName": "Posici\u00F3n3 Y",
+      "Value": "-0.1499999999999773",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": false
+    },
+    {
+      "PropertyName": "Posici\u00F3n4 X",
+      "Value": "0",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": false
+    },
+    {
+      "PropertyName": "Posici\u00F3n4 Y",
+      "Value": "-0.0008771929825016275",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": false
+    },
+    {
+      "PropertyName": "\u00C1ngulo1",
+      "Value": "0",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": false
+    },
+    {
+      "PropertyName": "Origin",
+      "Value": "(0,-0.0008771929825016275,0)",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": true
+    }
+  ]
+}

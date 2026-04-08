@@ -1,0 +1,90 @@
+{
+  "BlockName": "I.E-AD-01",
+  "Layer": "0",
+  "Attributes": [
+    {
+      "Tag": "LLAVE-N\u00B00",
+      "Value": ""
+    },
+    {
+      "Tag": "LLAVE-N\u00B01",
+      "Value": ""
+    },
+    {
+      "Tag": "LLAVE-N\u00B02",
+      "Value": ""
+    }
+  ],
+  "DynamicProperties": [
+    {
+      "PropertyName": "Visibilidad1",
+      "Value": "llave combinaci\u00F3n",
+      "AllowedValues": [
+        "llave combinaci\u00F3n",
+        "llave 1 efecto",
+        "llave 2 efecto",
+        "llave 3 efecto",
+        "Pulsador",
+        "Todo-edit-bq"
+      ],
+      "Description": "",
+      "ReadOnly": false
+    },
+    {
+      "PropertyName": "\u00C1ngulo1",
+      "Value": "6.283185307179023",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": false
+    },
+    {
+      "PropertyName": "Origin",
+      "Value": "(-2.5746418885752576E-13,1.0981146547628384E-13,0)",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": true
+    },
+    {
+      "PropertyName": "Posici\u00F3n1 X",
+      "Value": "-0.09174068217561938",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": false
+    },
+    {
+      "PropertyName": "Posici\u00F3n1 Y",
+      "Value": "0.27500000000030533",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": false
+    },
+    {
+      "PropertyName": "Posici\u00F3n2 X",
+      "Value": "-0.09174068217566855",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": false
+    },
+    {
+      "PropertyName": "Posici\u00F3n2 Y",
+      "Value": "0.1850000000001728",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": false
+    },
+    {
+      "PropertyName": "Posici\u00F3n3 X",
+      "Value": "-0.09174068217581328",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": false
+    },
+    {
+      "PropertyName": "Posici\u00F3n3 Y",
+      "Value": "0.0950000000001843",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": false
+    }
+  ]
+}
