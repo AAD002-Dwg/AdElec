@@ -208,13 +208,44 @@ public sealed class PanelViewModel : INotifyPropertyChanged
 
     /// <summary>
     /// Recarga todo el estado dependiente del documento activo.
-    /// Llamar cuando AutoCAD cambia de documento activo (DocumentActivated).
+    /// Llamar solo cuando los datos ya fueron leídos en el hilo de AutoCAD.
     /// </summary>
     public void ReloadFromActiveDocument(string? dwgName = null)
     {
         // Silenciar: si una operación está en curso, no recargar
         if (IsBusy) return;
 
+        // Recargar metadatos del proyecto desde el nuevo DWG (llamado en hilo AutoCAD → WPF vía Dispatcher)
+        _projectId   = _projectRepo.GetProjectId();
+        _projectName = _projectRepo.GetProjectName();
+        _syncMode    = _projectRepo.GetSyncMode();
+
+        ApplyDocumentSwitch(dwgName);
+    }
+
+    /// <summary>
+    /// Recarga el ViewModel con datos pre-leídos en el hilo de AutoCAD.
+    /// Usar este método cuando la lectura de repos ya ocurrió fuera del hilo WPF
+    /// para evitar que Application.DocumentManager.MdiActiveDocument devuelva el doc incorrecto.
+    /// </summary>
+    public void ReloadWithPreloadedData(
+        string dwgName,
+        int projectId,
+        string projectName,
+        string syncMode,
+        List<AdElec.Core.Models.Panel> panels)
+    {
+        if (IsBusy) return;
+
+        _projectId   = projectId;
+        _projectName = projectName;
+        _syncMode    = syncMode;
+
+        ApplyDocumentSwitch(dwgName, panels);
+    }
+
+    private void ApplyDocumentSwitch(string? dwgName, List<AdElec.Core.Models.Panel>? preloadedPanels = null)
+    {
         // Limpiar resultado de cálculo anterior (pertenecía al otro documento)
         _lastResultado = null;
         OnPropertyChanged(nameof(LastGrado));
@@ -222,23 +253,31 @@ public sealed class PanelViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(CumpleNormaText));
         OnPropertyChanged(nameof(CumpleNormaColor));
 
-        // Recargar metadatos del proyecto desde el nuevo DWG
-        _projectId   = _projectRepo.GetProjectId();
-        _projectName = _projectRepo.GetProjectName();
-        _syncMode    = _projectRepo.GetSyncMode();
-
         OnPropertyChanged(nameof(ProjectId));
         OnPropertyChanged(nameof(ProjectName));
         OnPropertyChanged(nameof(SyncMode));
         OnPropertyChanged(nameof(EstaVinculado));
 
-        // Recargar tableros y circuitos
         ShowNewPanelForm = false;
-        LoadPanels();
+
+        if (preloadedPanels != null)
+            LoadPanelsFromData(preloadedPanels);
+        else
+            LoadPanels();
+
         RaiseAllCommandsCanExecuteChanged();
 
         string docLabel = string.IsNullOrWhiteSpace(dwgName) ? "nuevo documento" : dwgName;
         StatusMessage = $"Documento activo: {docLabel}";
+    }
+
+    private void LoadPanelsFromData(List<AdElec.Core.Models.Panel> panels)
+    {
+        Panels.Clear();
+        foreach (var p in panels)
+            Panels.Add(p);
+        SelectedPanel = Panels.FirstOrDefault();
+        StatusMessage = Panels.Count == 0 ? "Sin tableros. Creá uno nuevo." : $"{Panels.Count} tablero(s) cargados.";
     }
 
     private void RefreshCircuits()

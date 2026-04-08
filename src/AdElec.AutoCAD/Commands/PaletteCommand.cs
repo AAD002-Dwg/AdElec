@@ -114,7 +114,7 @@ namespace AdElec.AutoCAD.Commands
 
         /// <summary>
         /// Se dispara cuando el usuario cambia de pestaña de documento en AutoCAD.
-        /// Recarga la paleta con los datos del nuevo documento activo.
+        /// Lee los datos del nuevo documento en el hilo de AutoCAD y los pasa al hilo WPF.
         /// </summary>
         private static void OnDocumentActivated(object sender, DocumentCollectionEventArgs e)
         {
@@ -129,9 +129,34 @@ namespace AdElec.AutoCAD.Commands
             _lastActiveDocPath = docPath;
             string dwgName = Path.GetFileNameWithoutExtension(docPath);
 
-            // Recargar en el hilo de UI (la paleta es WPF)
-            System.Windows.Application.Current?.Dispatcher.Invoke(
-                () => _vm.ReloadFromActiveDocument(dwgName));
+            // ── Leer datos en el hilo de AutoCAD ─────────────────────────────
+            // IMPORTANTE: Application.DocumentManager.MdiActiveDocument ya apunta al nuevo
+            // documento en este momento (evento se dispara post-switch). Si delegamos la
+            // lectura al hilo WPF (Dispatcher), MdiActiveDocument puede devolver el doc anterior.
+            int    projectId;
+            string projectName;
+            string syncMode;
+            List<AdElec.Core.Models.Panel> panels;
+
+            try
+            {
+                var projectRepo = new DwgProjectRepository();
+                projectId   = projectRepo.GetProjectId();
+                projectName = projectRepo.GetProjectName();
+                syncMode    = projectRepo.GetSyncMode();
+
+                var panelRepo = new DwgPanelRepository();
+                panels = panelRepo.GetAllPanels();
+            }
+            catch
+            {
+                // Si la lectura falla (ej: doc siendo cerrado), ignorar el evento
+                return;
+            }
+
+            // ── Actualizar UI en el hilo WPF con los datos ya leídos ─────────
+            System.Windows.Application.Current?.Dispatcher.BeginInvoke(
+                () => _vm?.ReloadWithPreloadedData(dwgName, projectId, projectName, syncMode, panels));
         }
     }
 }
