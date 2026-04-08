@@ -30,6 +30,7 @@ public sealed class PanelViewModel : INotifyPropertyChanged
     private bool _isMotorAvailable;
     private bool _isBusy;
     private int _projectId;
+    private string _projectName = "";
     private string _syncMode = "AXIS";
     private ResultadoProyectoDto? _lastResultado;
 
@@ -77,12 +78,26 @@ public sealed class PanelViewModel : INotifyPropertyChanged
             if (_projectId == value) return;
             _projectId = value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(EstaVinculado));
             _projectRepo.SaveProjectId(value);
             RaiseAllCommandsCanExecuteChanged();
         }
     }
 
+    public string ProjectName
+    {
+        get => _projectName;
+        set
+        {
+            if (_projectName == value) return;
+            _projectName = value;
+            OnPropertyChanged();
+            _projectRepo.SaveProjectName(value);
+        }
+    }
+
     public bool EstaVinculado => _projectId > 0;
+    public bool HasCircuits => Circuits.Count > 0;
 
     public string SyncMode
     {
@@ -165,6 +180,7 @@ public sealed class PanelViewModel : INotifyPropertyChanged
         PullFromWebCommand = new RelayCommand(() => _onPullFromWeb?.Invoke(), () => EstaVinculado && IsMotorAvailable && !IsBusy);
 
         _projectId = _projectRepo.GetProjectId();
+        _projectName = _projectRepo.GetProjectName();
         _syncMode = _projectRepo.GetSyncMode();
         LoadPanels();
         _ = CheckMotorAsync();
@@ -198,6 +214,7 @@ public sealed class PanelViewModel : INotifyPropertyChanged
             Circuits.Add(c);
         OnPropertyChanged(nameof(TotalLoadVA));
         OnPropertyChanged(nameof(TotalLoadKVA));
+        OnPropertyChanged(nameof(HasCircuits));
     }
 
     private void ConfirmarNuevoTablero()
@@ -265,6 +282,10 @@ public sealed class PanelViewModel : INotifyPropertyChanged
             _lastResultado = await _motorClient.CalcularAsync(proyecto);
             _selectedPanel.AplicarResultados(_lastResultado);
 
+            // Persistir el grado en el XRecord para que ADE_PROPUESTA lo lea en futuras sesiones
+            _selectedPanel.LastGrado = _lastResultado?.Grado?.Grado;
+            _repo.SavePanel(_selectedPanel);
+
             RefreshCircuits();
             OnPropertyChanged(nameof(LastGrado));
             OnPropertyChanged(nameof(CumpleNorma));
@@ -306,8 +327,20 @@ public sealed class PanelViewModel : INotifyPropertyChanged
 
         try
         {
-            // 1. Obtener datos del proyecto en el servidor
-            var currentProject = await _motorClient.GetProjectAsync(_projectId);
+            // 1. Verificar que el proyecto sigue existiendo en el servidor
+            string projectNameOnServer;
+            try
+            {
+                var currentProject = await _motorClient.GetProjectAsync(_projectId);
+                projectNameOnServer = currentProject.Name;
+            }
+            catch
+            {
+                // El proyecto fue borrado del servidor → resetear ID y crear uno nuevo al final
+                StatusMessage = $"Proyecto #{_projectId} no encontrado en AEA-MOTOR. Se creará uno nuevo...";
+                _projectId = 0;
+                projectNameOnServer = "";
+            }
 
             if (_ambienteRepo == null)
                 throw new InvalidOperationException("No se pudo acceder al repositorio de ambientes.");
@@ -376,10 +409,29 @@ public sealed class PanelViewModel : INotifyPropertyChanged
             // 5. Grafo planar para el módulo AD-CAD (visualización de muros)
             var graph = AdElec.Core.Utils.GeometryConverter.BuildGraphFromAmbientes(ambientesDwg, SyncMode == "INTERIOR");
 
-            // 6. Construir request y enviar PUT
+            // 5b. Unidades Funcionales → AD-CAD puede agrupar recintos por departamento/UF
+            var ufGroups = ambientesDwg
+                .GroupBy(a => a.UF, StringComparer.OrdinalIgnoreCase)
+                .Select(g => new SyncUnidadFuncional
+                {
+                    Id      = g.Key,
+                    Nombre  = g.Key,
+                    RoomIds = syncRooms
+                        .Where(sr => g.Any(a => sr.Name.StartsWith(a.TipoDisplay, StringComparison.OrdinalIgnoreCase)))
+                        .Select(sr => sr.Id)
+                        .ToList(),
+                })
+                .ToList();
+
+            // 6. Nombre del proyecto: preferir el nombre guardado en el DWG, fallback al del servidor
+            string finalProjectName = !string.IsNullOrWhiteSpace(_projectName)
+                ? _projectName
+                : (!string.IsNullOrWhiteSpace(projectNameOnServer) ? projectNameOnServer : "Proyecto AD-ELEC");
+
+            // 7. Construir request
             var request = new SyncProjectRequest
             {
-                Name = currentProject.Name,
+                Name = finalProjectName,
                 DataJson = new SyncProjectData
                 {
                     AdElec = new SyncProjectCanvas
@@ -402,7 +454,6 @@ public sealed class PanelViewModel : INotifyPropertyChanged
                                 Id     = "PL1",
                                 Nombre = "Planta Baja",
                                 Graph  = graph,
-                                // Metadata de recintos: tipo por centroide (AD-CAD hace point-in-polygon)
                                 RecintosMeta = ambientesDwg.Select(a => new SyncRecintoMeta
                                 {
                                     FaceKey = "",
@@ -416,13 +467,28 @@ public sealed class PanelViewModel : INotifyPropertyChanged
                                           }
                                         : null,
                                 }).ToList(),
+                                UnidadesFuncionales = ufGroups,
                             }
                         ]
                     }
                 }
             };
 
-            await _motorClient.ActualizarProyectoAsync(_projectId, request);
+            // 8. PUT si el proyecto existe, POST si fue borrado o nunca se creó
+            SyncProjectResponse syncResult;
+            if (_projectId > 0)
+            {
+                syncResult = await _motorClient.ActualizarProyectoAsync(_projectId, request);
+            }
+            else
+            {
+                syncResult = await _motorClient.SincronizarProyectoAsync(request);
+                _projectId = syncResult.Id;
+                _projectRepo.SaveProjectId(_projectId);
+                OnPropertyChanged(nameof(ProjectId));
+                OnPropertyChanged(nameof(EstaVinculado));
+                RaiseAllCommandsCanExecuteChanged();
+            }
 
             int totalPuntos = syncRooms.Sum(r => r.Points.Count);
             StatusMessage = $"✓ Sync OK — {syncRooms.Count} recintos, {syncCircuits.Count} circuitos, {totalPuntos} bocas → Proyecto #{_projectId}";

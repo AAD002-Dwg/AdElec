@@ -80,8 +80,16 @@ namespace AdElec.AutoCAD.Commands
             double slaArea = panel?.SuperficieCubiertaM2 ?? 0;
 
             // ── 4. Determinar Ambientes (Web vs DWG) ─────────────────────────
-            var projectRepo = new DwgProjectRepository();
-            int projectId = projectRepo.GetProjectId();
+            var projectRepo  = new DwgProjectRepository();
+            int    projectId    = projectRepo.GetProjectId();
+            string projectName  = projectRepo.GetProjectName();
+            string dwgFileName  = Path.GetFileNameWithoutExtension(db.Filename);
+
+            // Nombre del proyecto: usuario → nombre del DWG → fallback genérico
+            string resolvedProjectName = !string.IsNullOrWhiteSpace(projectName)
+                ? projectName
+                : (!string.IsNullOrWhiteSpace(dwgFileName) ? dwgFileName : "Proyecto AD-ELEC");
+
             List<ProposalRoomInput> rooms = new();
 
             if (projectId > 0)
@@ -130,10 +138,20 @@ namespace AdElec.AutoCAD.Commands
             // ── 5. Llamar a generate_proposal ────────────────────────────────
             ed.WriteMessage("\nGenerando propuesta técnica...");
 
+            // Nivel de electrificación: derivado del grado AEA del tablero si ya fue calculado
+            string electrificationLevel = panel?.LastGrado switch
+            {
+                "1" => "Mínimo",
+                "2" => "Medio",
+                "3" => "Elevado",
+                "4" => "Superior",
+                _   => "Mínimo",
+            };
+
             var input = new ProposalProjectInput
             {
-                ProjectName          = $"{tableroName} — {uf}",
-                ElectrificationLevel = "Mínimo",
+                ProjectName          = $"{resolvedProjectName} [{dwgFileName}] — {tableroName}",
+                ElectrificationLevel = electrificationLevel,
                 SlaArea              = slaArea,
                 Rooms                = rooms,
                 Board                = new ProposalBoardInput
@@ -165,6 +183,11 @@ namespace AdElec.AutoCAD.Commands
 
             // ── 6. Cargar bloques necesarios ─────────────────────────────────
             EnsureBlocks(db);
+
+            // ── 6b. Limpiar bocas previas de este tablero ─────────────────────
+            // Evita duplicados al re-ejecutar ADE_PROPUESTA sobre el mismo tablero.
+            // Se eliminan los bloques eléctricos cuyo atributo D coincida con tableroName.
+            EliminarBocasPrevias(db, tableroName, ed);
 
             // ── 7. Insertar bocas en el dibujo ───────────────────────────────
             int iugCount = 0, tugCount = 0, tueCount = 0, swCount = 0;
@@ -514,6 +537,63 @@ namespace AdElec.AutoCAD.Commands
 
             tr.Commit();
             return result;
+        }
+
+        /// <summary>
+        /// Elimina del espacio actual todos los bloques eléctricos (IUG, TUG, TUE, SWITCH)
+        /// cuyo atributo "D" coincida con el tablero indicado.
+        /// También acepta bloques que tengan un WebId asignado (inserción previa de ADE_PROPUESTA).
+        /// </summary>
+        private static void EliminarBocasPrevias(Database db, string tableroName, Editor ed)
+        {
+            var electricoBlocks = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                { BLOCK_IUG, BLOCK_TUG, BLOCK_TUE, BLOCK_SW };
+
+            var toDelete = new List<ObjectId>();
+
+            using (var tr = db.TransactionManager.StartOpenCloseTransaction())
+            {
+                var space = (BlockTableRecord)tr.GetObject(db.CurrentSpaceId, OpenMode.ForRead);
+
+                foreach (ObjectId entId in space)
+                {
+                    var ent = tr.GetObject(entId, OpenMode.ForRead);
+                    if (ent is not BlockReference br) continue;
+
+                    string blockName = br.IsDynamicBlock
+                        ? ((BlockTableRecord)tr.GetObject(br.DynamicBlockTableRecord, OpenMode.ForRead)).Name
+                        : ((BlockTableRecord)tr.GetObject(br.BlockTableRecord, OpenMode.ForRead)).Name;
+
+                    if (!electricoBlocks.Contains(blockName)) continue;
+
+                    // Verificar si el atributo D coincide con el tablero
+                    foreach (ObjectId attId in br.AttributeCollection)
+                    {
+                        var att = (AttributeReference)tr.GetObject(attId, OpenMode.ForRead);
+                        if (string.Equals(att.Tag, "D", StringComparison.OrdinalIgnoreCase) &&
+                            string.Equals(att.TextString?.Trim(), tableroName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            toDelete.Add(entId);
+                            break;
+                        }
+                    }
+                }
+                tr.Commit();
+            }
+
+            if (toDelete.Count == 0) return;
+
+            using (var tr = db.TransactionManager.StartTransaction())
+            {
+                foreach (var id in toDelete)
+                {
+                    var ent = tr.GetObject(id, OpenMode.ForWrite);
+                    ent.Erase();
+                }
+                tr.Commit();
+            }
+
+            ed.WriteMessage($"\n  Eliminadas {toDelete.Count} bocas previas del tablero '{tableroName}'.");
         }
 
         /// <summary>Carga los bloques necesarios en el DWG si no existen aún.</summary>

@@ -48,6 +48,28 @@ public class SyncPlanta
 
     [JsonPropertyName("recintosMeta")]
     public List<SyncRecintoMeta> RecintosMeta { get; set; } = [];
+
+    /// <summary>
+    /// Agrupación de recintos por Unidad Funcional (departamento, local, etc.).
+    /// AD-CAD usa esta lista para colorear y filtrar recintos por UF.
+    /// </summary>
+    [JsonPropertyName("unidades_funcionales")]
+    public List<SyncUnidadFuncional> UnidadesFuncionales { get; set; } = [];
+}
+
+public class SyncUnidadFuncional
+{
+    /// <summary>Identificador de la UF (ej: "UF1", "DEPTO-A", "OFICINA 1").</summary>
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
+    /// <summary>Nombre visible en AD-CAD.</summary>
+    [JsonPropertyName("nombre")]
+    public string Nombre { get; set; } = string.Empty;
+
+    /// <summary>IDs de los SyncRoom que pertenecen a esta UF.</summary>
+    [JsonPropertyName("room_ids")]
+    public List<string> RoomIds { get; set; } = [];
 }
 
 public class SyncGraph

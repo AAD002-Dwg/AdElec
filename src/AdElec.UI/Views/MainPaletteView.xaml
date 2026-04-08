@@ -643,7 +643,15 @@
                         <Border Style="{StaticResource AdeCard}">
                             <StackPanel>
                                 <TextBlock Text="PROYECTO EN AEA-MOTOR" Style="{StaticResource SectionLabel}"/>
-                                
+
+                                <!-- Nombre del proyecto -->
+                                <StackPanel Margin="0,0,0,10">
+                                    <TextBlock Text="Nombre del Proyecto" Foreground="#8A91A1" FontSize="9" Margin="0,0,0,4"/>
+                                    <TextBox Style="{StaticResource DarkInput}"
+                                             Text="{Binding ProjectName, UpdateSourceTrigger=LostFocus}"
+                                             ToolTip="Nombre que aparecerá en AEA-MOTOR (ej: Edificio Belgrano)"/>
+                                </StackPanel>
+
                                 <Grid Margin="0,0,0,12">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
@@ -651,10 +659,10 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0">
-                                        <TextBlock Text="ID del Proyecto" Foreground="#8A91A1" FontSize="9" Margin="0,0,0,4"/>
+                                        <TextBlock Text="ID del Proyecto (asignado por AEA-MOTOR)" Foreground="#8A91A1" FontSize="9" Margin="0,0,0,4"/>
                                         <TextBox Style="{StaticResource DarkInput}"
                                                  Text="{Binding ProjectId, UpdateSourceTrigger=PropertyChanged}"
-                                                 ToolTip="ID asignado en la nube"/>
+                                                 ToolTip="ID asignado en la nube. Se asigna automáticamente al sincronizar."/>
                                     </StackPanel>
                                     <Button Grid.Column="2" Content="Sincronizar"
                                             VerticalAlignment="Bottom"

@@ -75,14 +75,35 @@ namespace AdElec.AutoCAD.Commands
 
                         if (cadBlocks.TryGetValue(pt.Id, out var existingBlockId))
                         {
-                            // ACTUALIZAR EXISTENTE
+                            // ACTUALIZAR EXISTENTE: posición y atributos
                             var br = (BlockReference)tr.GetObject(existingBlockId, OpenMode.ForWrite);
+                            bool changed = false;
+
                             if (br.Position.DistanceTo(pos) > 0.001)
                             {
                                 br.Position = pos;
-                                updated++;
+                                changed = true;
                             }
-                            // Aquí se podrían actualizar también los atributos (CX, etc) si vienen en el DTO
+
+                            // Actualizar atributos CX (circuito), POT (potencia), LLAVE-N°0 (switch id)
+                            foreach (ObjectId attId in br.AttributeCollection)
+                            {
+                                var att = (AttributeReference)tr.GetObject(attId, OpenMode.ForWrite);
+                                string newVal = att.Tag.ToUpperInvariant() switch
+                                {
+                                    "CX"       => pt.CircuitId ?? att.TextString,
+                                    "POT"      => pt.PowerVa > 0 ? pt.PowerVa.ToString("F0") : att.TextString,
+                                    "LLAVE-N°0"=> pt.Type == "SWITCH" ? (pt.SwitchId ?? att.TextString) : att.TextString,
+                                    _          => att.TextString,
+                                };
+                                if (newVal != att.TextString)
+                                {
+                                    att.TextString = newVal;
+                                    changed = true;
+                                }
+                            }
+
+                            if (changed) updated++;
                         }
                         else
                         {

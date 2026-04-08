@@ -8,146 +8,101 @@ namespace AdElec.AutoCAD.Repositories
 {
     public class DwgProjectRepository : IProjectRepository
     {
-        private const string DICT_NAME = "ADE_CORE_DICT";
-        private const string RECORD_NAME = "PROJECT_ID";
-        private const string MODE_RECORD_NAME = "SYNC_MODE";
+        private const string DICT_NAME        = "ADE_CORE_DICT";
+        private const string KEY_PROJECT_ID   = "PROJECT_ID";
+        private const string KEY_PROJECT_NAME = "PROJECT_NAME";
+        private const string KEY_SYNC_MODE    = "SYNC_MODE";
+
+        // ── Lectura ──────────────────────────────────────────────────────────
 
         public int GetProjectId()
         {
-            var document = Application.DocumentManager.MdiActiveDocument;
-            if (document == null) return 0;
-            
-            var db = document.Database;
-
-            using (var tr = db.TransactionManager.StartTransaction())
+            int value = 0;
+            ReadXRecord(KEY_PROJECT_ID, tv =>
             {
-                var nod = (DBDictionary)tr.GetObject(db.NamedObjectsDictionaryId, OpenMode.ForRead);
-                if (!nod.Contains(DICT_NAME))
-                    return 0;
-
-                var dictId = nod.GetAt(DICT_NAME);
-                var dict = (DBDictionary)tr.GetObject(dictId, OpenMode.ForRead);
-
-                if (!dict.Contains(RECORD_NAME))
-                    return 0;
-
-                var recordId = dict.GetAt(RECORD_NAME);
-                var record = (Xrecord)tr.GetObject(recordId, OpenMode.ForRead);
-
-                if (record.Data == null)
-                    return 0;
-
-                // El ID se guarda como un entero
-                int projectId = 0;
-                foreach (TypedValue tv in record.Data)
-                {
-                    if (tv.TypeCode == (short)DxfCode.Int32)
-                    {
-                        projectId = (int)tv.Value;
-                        break;
-                    }
-                }
-
-                tr.Commit();
-                return projectId;
-            }
+                if (tv.TypeCode == (short)DxfCode.Int32)
+                    value = (int)tv.Value;
+            });
+            return value;
         }
 
-        public void SaveProjectId(int id)
+        public string GetProjectName()
         {
-            var document = Application.DocumentManager.MdiActiveDocument;
-            if (document == null) return;
-
-            var db = document.Database;
-
-            // LockDocument es vital para escrituras fuera de un comando nativo síncrono
-            using (document.LockDocument())
-            using (var tr = db.TransactionManager.StartTransaction())
+            string value = "";
+            ReadXRecord(KEY_PROJECT_NAME, tv =>
             {
-                var nod = (DBDictionary)tr.GetObject(db.NamedObjectsDictionaryId, OpenMode.ForWrite);
-                DBDictionary dict;
-
-                if (!nod.Contains(DICT_NAME))
-                {
-                    dict = new DBDictionary();
-                    nod.SetAt(DICT_NAME, dict);
-                    tr.AddNewlyCreatedDBObject(dict, true);
-                }
-                else
-                {
-                    var dictId = nod.GetAt(DICT_NAME);
-                    dict = (DBDictionary)tr.GetObject(dictId, OpenMode.ForWrite);
-                }
-
-                Xrecord record;
-                if (dict.Contains(RECORD_NAME))
-                {
-                    var recId = dict.GetAt(RECORD_NAME);
-                    record = (Xrecord)tr.GetObject(recId, OpenMode.ForWrite);
-                }
-                else
-                {
-                    record = new Xrecord();
-                    dict.SetAt(RECORD_NAME, record);
-                    tr.AddNewlyCreatedDBObject(record, true);
-                }
-
-                ResultBuffer rb = new ResultBuffer();
-                rb.Add(new TypedValue((short)DxfCode.Int32, id));
-                
-                record.Data = rb;
-                tr.Commit();
-            }
+                if (tv.TypeCode == (short)DxfCode.Text)
+                    value = (string)tv.Value;
+            });
+            return value;
         }
+
         public string GetSyncMode()
         {
-            var document = Application.DocumentManager.MdiActiveDocument;
-            if (document == null) return "AXIS";
-
-            var db = document.Database;
-
-            using (var tr = db.TransactionManager.StartTransaction())
+            string value = "AXIS";
+            ReadXRecord(KEY_SYNC_MODE, tv =>
             {
-                var nod = (DBDictionary)tr.GetObject(db.NamedObjectsDictionaryId, OpenMode.ForRead);
-                if (!nod.Contains(DICT_NAME)) return "AXIS";
-
-                var dictId = nod.GetAt(DICT_NAME);
-                var dict = (DBDictionary)tr.GetObject(dictId, OpenMode.ForRead);
-
-                if (!dict.Contains(MODE_RECORD_NAME)) return "AXIS";
-
-                var recordId = dict.GetAt(MODE_RECORD_NAME);
-                var record = (Xrecord)tr.GetObject(recordId, OpenMode.ForRead);
-
-                if (record.Data == null) return "AXIS";
-
-                string syncMode = "AXIS";
-                foreach (TypedValue tv in record.Data)
-                {
-                    if (tv.TypeCode == (short)DxfCode.Text)
-                    {
-                        syncMode = (string)tv.Value;
-                        break;
-                    }
-                }
-                tr.Commit();
-                return syncMode;
-            }
+                if (tv.TypeCode == (short)DxfCode.Text)
+                    value = (string)tv.Value;
+            });
+            return value;
         }
 
-        public void SaveSyncMode(string mode)
+        // ── Escritura ────────────────────────────────────────────────────────
+
+        public void SaveProjectId(int id) =>
+            WriteXRecord(KEY_PROJECT_ID, rb => rb.Add(new TypedValue((short)DxfCode.Int32, id)));
+
+        public void SaveProjectName(string name) =>
+            WriteXRecord(KEY_PROJECT_NAME, rb => rb.Add(new TypedValue((short)DxfCode.Text, name ?? "")));
+
+        public void SaveSyncMode(string mode) =>
+            WriteXRecord(KEY_SYNC_MODE, rb => rb.Add(new TypedValue((short)DxfCode.Text, mode ?? "AXIS")));
+
+        // ── Helpers privados ─────────────────────────────────────────────────
+
+        /// <summary>
+        /// Lee el primer TypedValue del XRecord indicado y lo pasa al callback.
+        /// No hace nada si el diccionario o el registro no existen.
+        /// </summary>
+        private static void ReadXRecord(string key, Action<TypedValue> onValue)
         {
-            var document = Application.DocumentManager.MdiActiveDocument;
-            if (document == null) return;
+            var doc = Application.DocumentManager.MdiActiveDocument;
+            if (doc == null) return;
 
-            var db = document.Database;
+            using var tr = doc.Database.TransactionManager.StartTransaction();
+            var nod = (DBDictionary)tr.GetObject(doc.Database.NamedObjectsDictionaryId, OpenMode.ForRead);
+            if (!nod.Contains(DICT_NAME)) { tr.Commit(); return; }
 
-            using (document.LockDocument())
-            using (var tr = db.TransactionManager.StartTransaction())
+            var dict = (DBDictionary)tr.GetObject(nod.GetAt(DICT_NAME), OpenMode.ForRead);
+            if (!dict.Contains(key)) { tr.Commit(); return; }
+
+            var record = (Xrecord)tr.GetObject(dict.GetAt(key), OpenMode.ForRead);
+            if (record.Data == null) { tr.Commit(); return; }
+
+            foreach (TypedValue tv in record.Data)
             {
-                var nod = (DBDictionary)tr.GetObject(db.NamedObjectsDictionaryId, OpenMode.ForWrite);
-                DBDictionary dict;
+                onValue(tv);
+                break; // solo el primero
+            }
+            tr.Commit();
+        }
 
+        /// <summary>
+        /// Crea o sobreescribe el XRecord indicado usando el ResultBuffer construido por el callback.
+        /// Crea el diccionario ADE_CORE_DICT si no existe.
+        /// </summary>
+        private static void WriteXRecord(string key, Action<ResultBuffer> buildBuffer)
+        {
+            var doc = Application.DocumentManager.MdiActiveDocument;
+            if (doc == null) return;
+
+            using (doc.LockDocument())
+            using (var tr = doc.Database.TransactionManager.StartTransaction())
+            {
+                var nod = (DBDictionary)tr.GetObject(doc.Database.NamedObjectsDictionaryId, OpenMode.ForWrite);
+
+                DBDictionary dict;
                 if (!nod.Contains(DICT_NAME))
                 {
                     dict = new DBDictionary();
@@ -156,26 +111,23 @@ namespace AdElec.AutoCAD.Repositories
                 }
                 else
                 {
-                    var dictId = nod.GetAt(DICT_NAME);
-                    dict = (DBDictionary)tr.GetObject(dictId, OpenMode.ForWrite);
+                    dict = (DBDictionary)tr.GetObject(nod.GetAt(DICT_NAME), OpenMode.ForWrite);
                 }
 
                 Xrecord record;
-                if (dict.Contains(MODE_RECORD_NAME))
+                if (dict.Contains(key))
                 {
-                    var recId = dict.GetAt(MODE_RECORD_NAME);
-                    record = (Xrecord)tr.GetObject(recId, OpenMode.ForWrite);
+                    record = (Xrecord)tr.GetObject(dict.GetAt(key), OpenMode.ForWrite);
                 }
                 else
                 {
                     record = new Xrecord();
-                    dict.SetAt(MODE_RECORD_NAME, record);
+                    dict.SetAt(key, record);
                     tr.AddNewlyCreatedDBObject(record, true);
                 }
 
-                ResultBuffer rb = new ResultBuffer();
-                rb.Add(new TypedValue((short)DxfCode.Text, mode));
-
+                var rb = new ResultBuffer();
+                buildBuffer(rb);
                 record.Data = rb;
                 tr.Commit();
             }
