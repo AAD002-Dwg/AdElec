@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using Autodesk.AutoCAD.Runtime;
 using Autodesk.AutoCAD.Windows;
 using AdElec.UI.Views;
@@ -15,6 +16,10 @@ namespace AdElec.AutoCAD.Commands
     {
         private static PaletteSet? _ps;
         private static MainPaletteView? _view;
+        private static PanelViewModel? _vm;
+        // Último documento notificado: evita disparar el reload si el evento
+        // se repite para el mismo documento (AutoCAD lo dispara varias veces).
+        private static string? _lastActiveDocPath;
 
         [CommandMethod("ADE_PANEL")]
         public void ShowPanel()
@@ -26,13 +31,13 @@ namespace AdElec.AutoCAD.Commands
             {
                 if (_ps == null)
                 {
-                    // Dependencias
-                    var repo = new DwgPanelRepository();
+                    // ── Dependencias ────────────────────────────────────────
+                    var repo         = new DwgPanelRepository();
                     var ambienteRepo = new DwgAmbienteRepository();
-                    var projectRepo = new DwgProjectRepository();
-                    var motorClient = new AeaMotorClient(); // localhost:8000
+                    var projectRepo  = new DwgProjectRepository();
+                    var motorClient  = new AeaMotorClient();
 
-                    // Callbacks que ejecutan los comandos de AutoCAD desde la UI
+                    // ── Callbacks hacia AutoCAD ──────────────────────────────
                     Action onLuminarias = () =>
                         Application.DocumentManager.MdiActiveDocument
                             ?.SendStringToExecute("ADE_LUMINARIAS\n", false, false, true);
@@ -43,25 +48,21 @@ namespace AdElec.AutoCAD.Commands
 
                     Action<string, string> onInsertarTablero = (panelName, visibilidad) =>
                     {
-                        InsertarTableroCommand.PendingPanelName = panelName;
-                        InsertarTableroCommand.PendingVisibilidad = visibilidad;
+                        InsertarTableroCommand.PendingPanelName    = panelName;
+                        InsertarTableroCommand.PendingVisibilidad  = visibilidad;
                         Application.DocumentManager.MdiActiveDocument
                             ?.SendStringToExecute("ADE_INSERTAR_TABLERO\n", false, false, true);
                     };
 
-                    // El ViewModel se crea antes del callback para poder referenciar vm.RefreshFromRepo
-                    PanelViewModel? vm = null;
-
-                    Action<string>? onRecargarCircuitos = (panelName) =>
+                    Action<string> onRecargarCircuitos = (panelName) =>
                     {
-                        // 1. Disparar ADE_RECARGAR en AutoCAD (actualiza XRecord)
                         Application.DocumentManager.MdiActiveDocument
                             ?.SendStringToExecute($"ADE_RECARGAR\n{panelName}\n", false, false, true);
 
-                        // 2. Refrescar la paleta tras 900ms (tiempo para que AutoCAD procese el comando)
                         System.Threading.Tasks.Task.Delay(900).ContinueWith(_ =>
                         {
-                            System.Windows.Application.Current?.Dispatcher.Invoke(() => vm?.RefreshFromRepo(panelName));
+                            System.Windows.Application.Current?.Dispatcher.Invoke(
+                                () => _vm?.RefreshFromRepo(panelName));
                         });
                     };
 
@@ -70,22 +71,20 @@ namespace AdElec.AutoCAD.Commands
                             ?.SendStringToExecute("ADE_PULL\n", false, false, true);
 
                     var electricoRepo = new DwgElectricoRepository();
-
                     Func<string, List<AdElec.Core.AeaMotor.Dtos.SyncRoom>> onGetRoomsConPuntos =
                         (tableroName) => electricoRepo.GetRoomsConPuntos(tableroName);
 
-                    vm = new PanelViewModel(
-                        repo,
-                        motorClient,
-                        projectRepo,
+                    // ── Crear ViewModel y Vista ──────────────────────────────
+                    _vm = new PanelViewModel(
+                        repo, motorClient, projectRepo,
                         onLuminarias, onTomas,
-                        onInsertarTablero,
-                        ambienteRepo,
-                        onRecargarCircuitos,
-                        onGetRoomsConPuntos,
+                        onInsertarTablero, ambienteRepo,
+                        onRecargarCircuitos, onGetRoomsConPuntos,
                         onPullFromWeb);
-                    _view = new MainPaletteView(vm);
 
+                    _view = new MainPaletteView(_vm);
+
+                    // ── Crear PaletteSet ─────────────────────────────────────
                     _ps = new PaletteSet("AD-ELEC", new Guid("23CDA41A-6A3B-4D88-B3EE-9A4B8F67A811"));
                     _ps.Style = PaletteSetStyles.ShowPropertiesMenu |
                                 PaletteSetStyles.ShowAutoHideButton |
@@ -95,11 +94,14 @@ namespace AdElec.AutoCAD.Commands
                     var host = new System.Windows.Forms.Integration.ElementHost
                     {
                         AutoSize = true,
-                        Dock = System.Windows.Forms.DockStyle.Fill,
-                        Child = _view
+                        Dock    = System.Windows.Forms.DockStyle.Fill,
+                        Child   = _view,
                     };
-
                     _ps.Add("Panel Principal", host);
+
+                    // ── Suscribir cambio de documento activo ─────────────────
+                    _lastActiveDocPath = doc.Name;
+                    Application.DocumentManager.DocumentActivated += OnDocumentActivated;
                 }
 
                 _ps.Visible = true;
@@ -109,5 +111,28 @@ namespace AdElec.AutoCAD.Commands
                 doc.Editor.WriteMessage($"\nError al cargar la paleta: {ex.Message}\n");
             }
         }
+
+        /// <summary>
+        /// Se dispara cuando el usuario cambia de pestaña de documento en AutoCAD.
+        /// Recarga la paleta con los datos del nuevo documento activo.
+        /// </summary>
+        private static void OnDocumentActivated(object sender, DocumentCollectionEventArgs e)
+        {
+            if (_vm == null || e.Document == null) return;
+
+            string docPath = e.Document.Name;
+
+            // AutoCAD dispara el evento varias veces para el mismo documento; filtrar.
+            if (string.Equals(docPath, _lastActiveDocPath, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            _lastActiveDocPath = docPath;
+            string dwgName = Path.GetFileNameWithoutExtension(docPath);
+
+            // Recargar en el hilo de UI (la paleta es WPF)
+            System.Windows.Application.Current?.Dispatcher.Invoke(
+                () => _vm.ReloadFromActiveDocument(dwgName));
+        }
     }
 }
+

@@ -206,6 +206,41 @@ public sealed class PanelViewModel : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    /// Recarga todo el estado dependiente del documento activo.
+    /// Llamar cuando AutoCAD cambia de documento activo (DocumentActivated).
+    /// </summary>
+    public void ReloadFromActiveDocument(string? dwgName = null)
+    {
+        // Silenciar: si una operación está en curso, no recargar
+        if (IsBusy) return;
+
+        // Limpiar resultado de cálculo anterior (pertenecía al otro documento)
+        _lastResultado = null;
+        OnPropertyChanged(nameof(LastGrado));
+        OnPropertyChanged(nameof(CumpleNorma));
+        OnPropertyChanged(nameof(CumpleNormaText));
+        OnPropertyChanged(nameof(CumpleNormaColor));
+
+        // Recargar metadatos del proyecto desde el nuevo DWG
+        _projectId   = _projectRepo.GetProjectId();
+        _projectName = _projectRepo.GetProjectName();
+        _syncMode    = _projectRepo.GetSyncMode();
+
+        OnPropertyChanged(nameof(ProjectId));
+        OnPropertyChanged(nameof(ProjectName));
+        OnPropertyChanged(nameof(SyncMode));
+        OnPropertyChanged(nameof(EstaVinculado));
+
+        // Recargar tableros y circuitos
+        ShowNewPanelForm = false;
+        LoadPanels();
+        RaiseAllCommandsCanExecuteChanged();
+
+        string docLabel = string.IsNullOrWhiteSpace(dwgName) ? "nuevo documento" : dwgName;
+        StatusMessage = $"Documento activo: {docLabel}";
+    }
+
     private void RefreshCircuits()
     {
         Circuits.Clear();
