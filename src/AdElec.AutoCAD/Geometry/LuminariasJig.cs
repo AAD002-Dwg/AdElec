@@ -12,189 +12,167 @@ namespace AdElec.AutoCAD.Geometry
 {
     /// <summary>
     /// Motor de previsualización interactiva para distribución de luminarias.
-    /// Usa TransientManager (gráficos temporales) + bucle de Keywords.
-    /// 
+    /// Usa TransientManager (gráficos temporales) + bucle con AllowArbitraryInput.
+    ///
     /// Controles:
-    ///   W / S  → Aumentar / Disminuir filas
-    ///   A / D  → Aumentar / Disminuir columnas
-    ///   Enter o "confirmaR" → Aceptar la distribución
-    ///   Escape → Cancelar
+    ///   W → +fila   S → -fila
+    ///   A → +col    D → -col
+    ///   Enter        → confirmar
+    ///   Escape       → cancelar
     /// </summary>
     public class LuminariasInteractive
     {
-        private readonly Point3d _minPt;
-        private readonly double _width;
-        private readonly double _length;
+        private readonly Point3d           _minPt;
+        private readonly double            _width;
+        private readonly double            _length;
+        private readonly IList<GridPoint>  _polygon;   // vértices del recinto para filtro
         private int _columns;
         private int _rows;
 
-        // Lista de entidades temporales (fantasmas) dibujadas
-        private readonly List<DBObject> _transients = new List<DBObject>();
+        private readonly List<DBObject> _transients = new();
 
-        public int FinalColumns => _columns;
-        public int FinalRows => _rows;
-        public bool Confirmed { get; private set; }
+        public int  FinalColumns => _columns;
+        public int  FinalRows    => _rows;
+        public bool Confirmed    { get; private set; }
 
-        public LuminariasInteractive(Point3d minPt, double width, double length, int initialCols, int initialRows)
+        /// <param name="polygon">
+        /// Vértices en coordenadas mundo del contorno del recinto.
+        /// Si está vacío no se aplica filtro punto-en-polígono.
+        /// </param>
+        public LuminariasInteractive(
+            Point3d minPt, double width, double length,
+            int initialCols, int initialRows,
+            IList<GridPoint>? polygon = null)
         {
-            _minPt = minPt;
-            _width = width;
-            _length = length;
+            _minPt   = minPt;
+            _width   = width;
+            _length  = length;
             _columns = Math.Max(1, initialCols);
-            _rows = Math.Max(1, initialRows);
-            Confirmed = false;
+            _rows    = Math.Max(1, initialRows);
+            _polygon = polygon ?? Array.Empty<GridPoint>();
         }
 
-        /// <summary>
-        /// Ejecuta el bucle interactivo. Dibuja fantasmas y espera input del teclado.
-        /// </summary>
+        /// <summary>Ejecuta el bucle interactivo.</summary>
         public void Run()
         {
-            var doc = Application.DocumentManager.MdiActiveDocument;
-            var ed = doc.Editor;
+            var ed = Application.DocumentManager.MdiActiveDocument.Editor;
 
             try
             {
-                // Dibujar la previsualización inicial
                 UpdateGhostGraphics();
 
                 while (true)
                 {
-                    // Mostrar prompt con opciones de teclado
-                    PromptKeywordOptions pko = new PromptKeywordOptions(
-                        $"\nLuminarias: {_columns}x{_rows} = {_columns * _rows} | " +
-                        $"[W +fila / S -fila / A +col / D -col / confirmaR]: ");
+                    int visible = CountVisible();
+                    var pko = new PromptKeywordOptions(
+                        $"\nLuminarias: {_columns}x{_rows} = {visible} | " +
+                        "[W +fila][S -fila][A +col][D -col][confirmaR]: ");
 
+                    // AllowArbitraryInput = true: la tecla se acepta sin necesitar Enter
+                    pko.AllowArbitraryInput = true;
+                    pko.AllowNone           = true;   // Enter vacío = confirmar
                     pko.Keywords.Add("W");
                     pko.Keywords.Add("S");
                     pko.Keywords.Add("A");
                     pko.Keywords.Add("D");
                     pko.Keywords.Add("confirmaR");
 
-                    // Enter sin escribir nada = confirmar
-                    pko.AllowNone = true;
-                    pko.AllowArbitraryInput = false;
+                    var pr = ed.GetKeywords(pko);
 
-                    PromptResult pr = ed.GetKeywords(pko);
+                    if (pr.Status == PromptStatus.None)          // Enter
+                    { Confirmed = true; break; }
 
-                    // Enter vacío → Confirmar
-                    if (pr.Status == PromptStatus.None)
+                    if (pr.Status == PromptStatus.Cancel)        // Esc
+                    { Confirmed = false; break; }
+
+                    if (pr.Status != PromptStatus.OK) continue;
+
+                    switch (pr.StringResult.ToUpperInvariant())
                     {
-                        Confirmed = true;
-                        break;
+                        case "W":        _rows    = Math.Min(_rows    + 1, 30); break;
+                        case "S":        _rows    = Math.Max(_rows    - 1,  1); break;
+                        case "A":        _columns = Math.Min(_columns + 1, 30); break;
+                        case "D":        _columns = Math.Max(_columns - 1,  1); break;
+                        case "CONFIRMAR": Confirmed = true; break;
                     }
 
-                    // Escape → Cancelar
-                    if (pr.Status == PromptStatus.Cancel)
-                    {
-                        Confirmed = false;
-                        break;
-                    }
-
-                    if (pr.Status == PromptStatus.OK)
-                    {
-                        string kw = pr.StringResult.ToUpper();
-                        switch (kw)
-                        {
-                            case "W":
-                                _rows = Math.Min(_rows + 1, 30);
-                                break;
-                            case "S":
-                                _rows = Math.Max(_rows - 1, 1);
-                                break;
-                            case "A":
-                                _columns = Math.Min(_columns + 1, 30);
-                                break;
-                            case "D":
-                                _columns = Math.Max(_columns - 1, 1);
-                                break;
-                            case "CONFIRMAR":
-                                Confirmed = true;
-                                break;
-                        }
-
-                        if (Confirmed) break;
-
-                        // Redibujar los fantasmas con la nueva cantidad
-                        UpdateGhostGraphics();
-                    }
+                    if (Confirmed) break;
+                    UpdateGhostGraphics();
                 }
             }
             finally
             {
-                // Siempre limpiar los gráficos temporales al salir
                 ClearGhostGraphics();
             }
         }
 
-        /// <summary>
-        /// Recalcula y redibuja los círculos fantasma usando TransientManager.
-        /// </summary>
+        // ── Helpers ──────────────────────────────────────────────────────────
+
+        /// <summary>Cuenta cuántos puntos de la grilla pasan el filtro polígono.</summary>
+        private int CountVisible()
+        {
+            if (_polygon.Count < 3) return _columns * _rows;
+
+            int count = 0;
+            foreach (var gPt in GridCalculator.CalculateUniformGrid(_width, _length, _columns, _rows))
+            {
+                double wx = _minPt.X + gPt.X;
+                double wy = _minPt.Y + gPt.Y;
+                if (GridCalculator.IsPointInPolygon(wx, wy, _polygon)) count++;
+            }
+            return count;
+        }
+
         private void UpdateGhostGraphics()
         {
-            // Limpiar los fantasmas anteriores
             ClearGhostGraphics();
 
-            // Calcular las nuevas posiciones de grilla
             var gridPoints = GridCalculator.CalculateUniformGrid(_width, _length, _columns, _rows);
+            bool filterPoly = _polygon.Count >= 3;
 
             foreach (var gPt in gridPoints)
             {
-                Point3d pt = new Point3d(_minPt.X + gPt.X, _minPt.Y + gPt.Y, 0);
+                double wx = _minPt.X + gPt.X;
+                double wy = _minPt.Y + gPt.Y;
 
-                // Crear un círculo fantasma (radio 0.15m, amarillo)
-                Circle ghost = new Circle(pt, Vector3d.ZAxis, 0.15);
-                ghost.ColorIndex = 2; // Amarillo
+                // Si hay polígono definido, omitir puntos fuera del recinto
+                if (filterPoly && !GridCalculator.IsPointInPolygon(wx, wy, _polygon))
+                    continue;
 
-                // Crear las líneas de la cruz central (+)
-                double cs = 0.08;
-                Line crossH = new Line(
-                    new Point3d(pt.X - cs, pt.Y, 0),
-                    new Point3d(pt.X + cs, pt.Y, 0));
-                crossH.ColorIndex = 2;
-
-                Line crossV = new Line(
-                    new Point3d(pt.X, pt.Y - cs, 0),
-                    new Point3d(pt.X, pt.Y + cs, 0));
-                crossV.ColorIndex = 2;
-
-                // Agregar al TransientManager
-                TransientManager.CurrentTransientManager.AddTransient(
-                    ghost, TransientDrawingMode.DirectShortTerm,
-                    128, new IntegerCollection());
-
-                TransientManager.CurrentTransientManager.AddTransient(
-                    crossH, TransientDrawingMode.DirectShortTerm,
-                    128, new IntegerCollection());
-
-                TransientManager.CurrentTransientManager.AddTransient(
-                    crossV, TransientDrawingMode.DirectShortTerm,
-                    128, new IntegerCollection());
-
-                _transients.Add(ghost);
-                _transients.Add(crossH);
-                _transients.Add(crossV);
+                AddGhostAt(new Point3d(wx, wy, 0), colorIndex: 2 /* amarillo */);
             }
 
-            // Forzar un refresco de la vista
-            var doc = Application.DocumentManager.MdiActiveDocument;
-            doc?.Editor.UpdateScreen();
+            Application.DocumentManager.MdiActiveDocument?.Editor.UpdateScreen();
         }
 
-        /// <summary>
-        /// Elimina todos los gráficos temporales de la pantalla.
-        /// </summary>
+        private void AddGhostAt(Point3d pt, short colorIndex)
+        {
+            const double R  = 0.15;
+            const double cs = 0.08;
+
+            var circle = new Circle(pt, Vector3d.ZAxis, R) { ColorIndex = colorIndex };
+            var crossH = new Line(new Point3d(pt.X - cs, pt.Y, 0), new Point3d(pt.X + cs, pt.Y, 0)) { ColorIndex = colorIndex };
+            var crossV = new Line(new Point3d(pt.X, pt.Y - cs, 0), new Point3d(pt.X, pt.Y + cs, 0)) { ColorIndex = colorIndex };
+
+            var tm = TransientManager.CurrentTransientManager;
+            var ic = new IntegerCollection();
+
+            tm.AddTransient(circle, TransientDrawingMode.DirectShortTerm, 128, ic);
+            tm.AddTransient(crossH, TransientDrawingMode.DirectShortTerm, 128, ic);
+            tm.AddTransient(crossV, TransientDrawingMode.DirectShortTerm, 128, ic);
+
+            _transients.Add(circle);
+            _transients.Add(crossH);
+            _transients.Add(crossV);
+        }
+
         private void ClearGhostGraphics()
         {
+            var tm = TransientManager.CurrentTransientManager;
+            var ic = new IntegerCollection();
             foreach (var obj in _transients)
             {
-                try
-                {
-                    TransientManager.CurrentTransientManager.EraseTransient(
-                        obj, new IntegerCollection());
-                    obj.Dispose();
-                }
-                catch { /* Ignorar si ya fue eliminado */ }
+                try { tm.EraseTransient(obj, ic); obj.Dispose(); } catch { }
             }
             _transients.Clear();
         }
