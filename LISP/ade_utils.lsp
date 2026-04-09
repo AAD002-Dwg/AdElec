@@ -75,17 +75,15 @@
 )
 
 ;; ── Extraer vértices de una polilínea como lista '(x y) ─────
-(defun ade:poly-vertices (ent / vla n i vpt result)
-  (setq vla    (vlax-ename->vla-object ent)
-        n      (vla-get-NumberOfVertices vla)
-        i      0
+;; Usa entget con grupo 10 (válido para LWPOLYLINE sin VLA)
+(defun ade:poly-vertices (ent / ed result pair)
+  (setq ed     (entget ent)
         result '())
-  (repeat n
-    (setq vpt (vlax-invoke vla 'GetPoint i))
-    (setq result (append result
-                   (list (list (vlax-safearray-get-element vpt 0)
-                               (vlax-safearray-get-element vpt 1)))))
-    (setq i (1+ i))
+  (foreach pair ed
+    (if (= (car pair) 10)
+      (setq result (append result
+                     (list (list (cadr pair) (caddr pair)))))
+    )
   )
   result
 )

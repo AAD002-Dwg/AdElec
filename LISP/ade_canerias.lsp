@@ -97,17 +97,42 @@
 ;; Usa el comando nativo ARC de AutoCAD:
 ;;   ARC pt1 Segunda_dir pt2 con ángulo de arco ~45°
 ;; Equivalente al LISP original: (command "_.ARC" pt1 "F" pt2 "U" "45")
-(defun ade:draw-arc-45 (p1 p2 layer / p1-3d p2-3d old-layer)
-  (setq old-layer (getvar "CLAYER"))
+;; ── Dibujar arco de 45° entre dos puntos ────────────────────
+;; Calcula el centro geométrico para un arco de ángulo central 45°
+;; y dibuja usando la forma Centro-Inicio-Fin del comando ARC.
+(defun ade:draw-arc-45 (p1 p2 layer /
+                         x1 y1 x2 y2
+                         mx my dx dy
+                         half-chord d-center
+                         cx cy
+                         old-layer)
+  (setq x1 (car  p1) y1 (cadr p1)
+        x2 (car  p2) y2 (cadr p2)
+        ;; Punto medio de la cuerda
+        mx (/ (+ x1 x2) 2.0)
+        my (/ (+ y1 y2) 2.0)
+        ;; Vector perpendicular a la cuerda (normalizado)
+        dx (- x2 x1)  dy (- y2 y1)
+        ;; half-chord = |cuerda|/2
+        half-chord (/ (sqrt (+ (* dx dx) (* dy dy))) 2.0)
+        ;; Para arco de 45°: radio = half-chord / sin(22.5°)
+        ;; sin(22.5°) ≈ 0.38268
+        ;; distancia centro→midcord = radio * cos(22.5°), cos≈0.92388
+        ;; d-center = half-chord * cos(22.5°) / sin(22.5°) = half-chord / tan(22.5°)
+        ;; tan(22.5°) ≈ 0.41421
+        d-center (/ half-chord 0.41421)
+        ;; Perpendicular unitaria (rotar cuerda 90°)
+        ;; Normalizar: longitud = 2*half-chord
+        cx (- mx (* d-center (/ (- dy) (* 2.0 half-chord))))
+        cy (- my (* d-center (/ dx      (* 2.0 half-chord))))
+        old-layer (getvar "CLAYER"))
+
   (setvar "CLAYER" layer)
-  ;; El comando ARC con opción "U" (ángulo incluido) dibuja el arco
-  ;; pasando por p1, con dirección tangente, hasta p2 con 45° de abertura
   (command "_.ARC"
-           (list (car p1) (cadr p1) 0.0)
-           "_F"
-           (list (car p2) (cadr p2) 0.0)
-           "_U"
-           "45")
+           "_C"
+           (list cx cy 0.0)
+           (list x1 y1 0.0)
+           (list x2 y2 0.0))
   (setvar "CLAYER" old-layer)
 )
 
