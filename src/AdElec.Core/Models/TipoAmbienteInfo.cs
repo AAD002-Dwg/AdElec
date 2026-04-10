@@ -12,15 +12,15 @@ public sealed record TipoAmbienteInfo(string Nombre, string ApiValue, string Roo
     /// </summary>
     public static readonly IReadOnlyList<TipoAmbienteInfo> Todos =
     [
-        new("Estar / Living / Comedor", "sala_estar",  "LIVING_DINING"),
+        new("Estar / Comedor / Living", "sala_estar",  "LIVING_DINING"),
         new("Dormitorio",               "dormitorio",  "BEDROOM"),
         new("Cocina",                   "cocina",      "KITCHEN"),
-        new("Baño",                     "baño",        "BATHROOM"),
-        new("Pasillo / Hall",           "pasillo",     "HALLWAY"),
+        new("Baño / Toilette",          "baño",        "BATHROOM"),
+        new("Pasillo / Balcón / Hall",  "pasillo",     "HALLWAY"),
         new("Escritorio / Estudio",     "escritorio",  "STUDY"),
         new("Lavadero",                 "lavadero",    "LAUNDRY"),
-        new("Garaje",                   "garaje",      "GARAGE"),
-        new("Otro",                     "otro",        "OTHER"),
+        new("Cochera / Garaje",         "garaje",      "GARAGE"),
+        new("Otro / Depósito",          "otro",        "OTHER"),
     ];
 
     /// <summary>Busca por ApiValue, devuelve "Otro" como fallback.</summary>
@@ -31,5 +31,11 @@ public sealed record TipoAmbienteInfo(string Nombre, string ApiValue, string Roo
     public static TipoAmbienteInfo DesdeNombre(string nombre) =>
         Todos.FirstOrDefault(t =>
             string.Equals(t.Nombre, nombre, StringComparison.OrdinalIgnoreCase))
+        ?? Todos[^1];
+
+    /// <summary>Busca por RoomTypeName (e.g. "BEDROOM"), devuelve "Otro" como fallback.</summary>
+    public static TipoAmbienteInfo DesdeRoomTypeName(string roomTypeName) =>
+        Todos.FirstOrDefault(t =>
+            string.Equals(t.RoomTypeName, roomTypeName, StringComparison.OrdinalIgnoreCase))
         ?? Todos[^1];
 }

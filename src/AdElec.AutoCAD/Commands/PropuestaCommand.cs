@@ -102,9 +102,10 @@ namespace AdElec.AutoCAD.Commands
                     {
                         rooms = webProj.DataJson.AdElec.Rooms.Select(sr => new ProposalRoomInput
                         {
-                            Id = sr.Id,
+                            Id   = sr.Id,
                             Name = sr.Name,
-                            Type = sr.Type,
+                            // sr.Type es ApiValue ("cocina"); generate_proposal necesita RoomTypeName ("KITCHEN")
+                            Type = AdElec.Core.Models.TipoAmbienteInfo.DesdaApiValue(sr.Type).RoomTypeName,
                             Area = sr.Area,
                             PolygonPoints = sr.PolygonPoints,
                             Centroid = sr.Centroid
@@ -279,7 +280,7 @@ namespace AdElec.AutoCAD.Commands
             ActualizarCircuitosPanel(panel, proposal, panelRepo, tableroName);
 
             // ── 9. Sincronizar con el editor web de AEA-MOTOR ────────────────
-            SincronizarConAdelec(motorClient, projectRepo, input, proposal, tableroName, ed);
+            SincronizarConAdelec(motorClient, projectRepo, input, proposal, tableroName, uf, ed);
 
             ed.WriteMessage("\n  Atributo D = tablero. Usá ADE_PANEL → 'Calcular AEA 90364' para obtener secciones y validaciones.");
         }
@@ -337,35 +338,75 @@ namespace AdElec.AutoCAD.Commands
             ProposalProjectInput input,
             ProposalResponse proposal,
             string tableroName,
+            string uf,
             Editor ed)
         {
             try
             {
+                // ── POST si es nuevo, PUT si el DWG ya tiene un ID vinculado ──
+                int existingId = projectRepo.GetProjectId();
+
+                // ── Construir grafo y calcular faceKey por room ──────────────
+                // En V2, el id del room = faceKey = IDs de aristas del borde unidas por "|".
+                // Lo calculamos nosotros para no depender de que AD-CAD lo asigne manualmente.
+                var graph = AdElec.Core.Utils.GeometryConverter.BuildGraphFromPolygons(
+                    input.Rooms.Select(r => r.PolygonPoints));
+
+                var faceKeyMap = input.Rooms.ToDictionary(
+                    r => r.Id,
+                    r => AdElec.Core.Utils.GeometryConverter.ComputeFaceKey(r.PolygonPoints, graph));
+
                 // ── Rooms para el canvas adelec ──────────────────────────────
+                // ptMap keyed by ProposalRoomInput.Id (room_HANDLE) → necesita remapeo a faceKey
                 var ptMap = proposal.RoomsUpdate.ToDictionary(r => r.Id, r => r.Points);
 
-                var syncRooms = input.Rooms.Select(r =>
-                {
-                    ptMap.TryGetValue(r.Id, out var pts);
-                    return new SyncRoom
+                var syncRooms = input.Rooms
+                    .Where(r => !string.IsNullOrEmpty(faceKeyMap.GetValueOrDefault(r.Id)))
+                    .Select(r =>
                     {
-                        Id            = r.Id,
-                        Name          = r.Name,
-                        Type          = r.Type,
-                        Area          = r.Area,
-                        PolygonPoints = r.PolygonPoints,
-                        Centroid      = r.Centroid,
-                        Points        = pts ?? [],
-                    };
-                }).ToList();
+                        string faceKey = faceKeyMap[r.Id];
+                        ptMap.TryGetValue(r.Id, out var pts);
+                        // Type para ad_elec: ApiValue ("cocina", "dormitorio", etc.)
+                        string apiValue = AdElec.Core.Models.TipoAmbienteInfo
+                            .DesdeRoomTypeName(r.Type).ApiValue;
 
-                // ── recintosMeta para AD-CAD (tipo por centroide) ────────────
-                // AD-CAD matchea por coord (punto dentro del polígono) cuando no tiene faceKey
+                        // Enriquecer cada punto con los campos que V2 necesita para asociación 3D
+                        var enrichedPts = (pts ?? []).Select(p => new AdElec.Core.AeaMotor.Dtos.ProposalPoint
+                        {
+                            Id         = p.Id,
+                            X          = p.X,
+                            Y          = p.Y,
+                            Type       = p.Type,
+                            CircuitId  = p.CircuitId,
+                            SwitchId   = p.SwitchId,
+                            PowerVa    = p.PowerVa,
+                            Label      = p.Label,
+                            IsFixed    = p.IsFixed,
+                            RoomId     = faceKey,
+                            RoomZ      = 0,
+                            PlantaId   = "PL1",
+                        }).ToList();
+
+                        return new SyncRoom
+                        {
+                            Id            = faceKey,   // V2 usa faceKey como id del room
+                            Name          = r.Name,
+                            Type          = apiValue,
+                            Area          = r.Area,
+                            PolygonPoints = r.PolygonPoints,
+                            Centroid      = r.Centroid,
+                            Points        = enrichedPts,
+                            PlantaId      = "PL1",
+                            UfId          = uf,
+                        };
+                    }).ToList();
+
+                // ── recintosMeta para AD-CAD ─────────────────────────────────
                 var recintosMeta = input.Rooms.Select(r => new SyncRecintoMeta
                 {
-                    FaceKey = "",    // vacío → AD-CAD usa coord para matchear
+                    FaceKey = faceKeyMap.GetValueOrDefault(r.Id, ""),
                     Nombre  = r.Name,
-                    Tipo    = r.Type, // "sala_estar", "dormitorio", etc.
+                    Tipo    = AdElec.Core.Models.TipoAmbienteInfo.DesdeRoomTypeName(r.Type).ApiValue,
                     Coord   = r.Centroid,
                 }).ToList();
 
@@ -389,6 +430,22 @@ namespace AdElec.AutoCAD.Commands
                     };
                 }).ToList();
 
+                // Enviar siempre el grafo que construimos nosotros (cuyos IDs de aristas
+                // son los mismos que usamos para calcular los faceKeys de los rooms).
+                var adCad = new SyncAdCadData
+                {
+                    Plantas =
+                    [
+                        new SyncPlanta
+                        {
+                            Id           = "PL1",
+                            Nombre       = "Planta Baja",
+                            Graph        = graph,
+                            RecintosMeta = recintosMeta,
+                        }
+                    ]
+                };
+
                 var syncData = new SyncProjectData
                 {
                     AdElec = new SyncProjectCanvas
@@ -402,18 +459,7 @@ namespace AdElec.AutoCAD.Commands
                             Circuits   = syncCircuits,
                         },
                     },
-                    AdCad = new SyncAdCadData
-                    {
-                        Plantas =
-                        [
-                            new SyncPlanta
-                            {
-                                Id            = "PL1",
-                                Nombre        = "Planta Baja",
-                                RecintosMeta  = recintosMeta,
-                            }
-                        ]
-                    },
+                    AdCad = adCad,
                 };
 
                 var syncReq = new SyncProjectRequest
@@ -421,9 +467,6 @@ namespace AdElec.AutoCAD.Commands
                     Name     = input.ProjectName,
                     DataJson = syncData,
                 };
-
-                // ── POST si es nuevo, PUT si el DWG ya tiene un ID vinculado ──
-                int existingId = projectRepo.GetProjectId();
                 SyncProjectResponse syncResult;
 
                 if (existingId > 0)
@@ -517,7 +560,7 @@ namespace AdElec.AutoCAD.Commands
                 if (area <= 0) area = container.Area;
 
                 string tipoDisplay = atts.GetValueOrDefault("LOCAL", "Otro");
-                string roomTypeName = TipoAmbienteInfo.DesdeNombre(tipoDisplay).ApiValue;
+                string roomTypeName = TipoAmbienteInfo.DesdeNombre(tipoDisplay).RoomTypeName;
                 string planta = atts.GetValueOrDefault("55", "PB");
 
                 // ID persistente basado en el handle del bloque ID_LOCALES.

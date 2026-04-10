@@ -132,6 +132,7 @@ public sealed class PanelViewModel : INotifyPropertyChanged
     private int _newPanelPhaseCount = 1;
     private string _newPanelTipo = "Tablero Seccional";
     private double _newPanelSuperficie = 0;
+    private double _newPanelMainBreakerAmps = 32;
 
     public bool ShowNewPanelForm { get => _showNewPanelForm; set { _showNewPanelForm = value; OnPropertyChanged(); } }
     public string NewPanelName { get => _newPanelName; set { _newPanelName = value; OnPropertyChanged(); } }
@@ -139,6 +140,7 @@ public sealed class PanelViewModel : INotifyPropertyChanged
     public int NewPanelPhaseCount { get => _newPanelPhaseCount; set { _newPanelPhaseCount = value; OnPropertyChanged(); } }
     public string NewPanelTipo { get => _newPanelTipo; set { _newPanelTipo = value; OnPropertyChanged(); } }
     public double NewPanelSuperficie { get => _newPanelSuperficie; set { _newPanelSuperficie = value; OnPropertyChanged(); } }
+    public double NewPanelMainBreakerAmps { get => _newPanelMainBreakerAmps; set { _newPanelMainBreakerAmps = value; OnPropertyChanged(); } }
 
     // ── Comandos ────────────────────────────────────────────────────────────
 
@@ -316,6 +318,7 @@ public sealed class PanelViewModel : INotifyPropertyChanged
             Location = NewPanelLocation.Trim(),
             PhaseCount = NewPanelPhaseCount,
             SuperficieCubiertaM2 = NewPanelSuperficie,
+            MainBreakerAmps = NewPanelMainBreakerAmps > 0 ? NewPanelMainBreakerAmps : 32,
         };
 
         try
@@ -332,6 +335,7 @@ public sealed class PanelViewModel : INotifyPropertyChanged
             NewPanelLocation = "";
             NewPanelTipo = "Tablero Seccional";
             NewPanelSuperficie = 0;
+            NewPanelMainBreakerAmps = 32;
 
             StatusMessage = $"Tablero '{nombre}' guardado. Ubicalo en el plano.";
 
@@ -443,51 +447,6 @@ public sealed class PanelViewModel : INotifyPropertyChanged
 
             StatusMessage = $"Procesando {ambientesDwg.Count} recintos y circuitos...";
 
-            // 3. Puntos eléctricos: rooms con puntos desde bloques eléctricos
-            List<SyncRoom> syncRooms;
-            if (_selectedPanel != null && _onGetRoomsConPuntos != null)
-            {
-                // Rooms con puntos eléctricos ya asignados (IDs estables por Handle)
-                syncRooms = _onGetRoomsConPuntos(_selectedPanel.Name);
-
-                // Completar polígonos faltantes desde ambientesDwg usando Handle (IDs coinciden)
-                var ambByHandle = ambientesDwg
-                    .Where(a => !string.IsNullOrEmpty(a.Handle))
-                    .ToDictionary(a => $"room_{a.Handle}", a => a, StringComparer.OrdinalIgnoreCase);
-
-                foreach (var sr in syncRooms.Where(r => r.PolygonPoints.Count == 0))
-                {
-                    if (ambByHandle.TryGetValue(sr.Id, out var match) && match.PolygonPoints.Count > 0)
-                        sr.PolygonPoints = match.PolygonPoints
-                            .Select(p => new Dictionary<string, double>
-                                { ["x"] = Math.Round(p.X, 3), ["y"] = Math.Round(p.Y, 3) })
-                            .ToList();
-                }
-            }
-            else
-            {
-                // Sin tablero seleccionado: sólo geometría, sin puntos (IDs estables por Handle)
-                syncRooms = ambientesDwg.Select(a => new SyncRoom
-                {
-                    Id            = string.IsNullOrEmpty(a.Handle) ? $"room_{ambientesDwg.IndexOf(a):000}" : $"room_{a.Handle}",
-                    Name          = $"{a.TipoDisplay} — {a.Planta}",
-                    Type          = AdElec.Core.Models.TipoAmbienteInfo.DesdeNombre(a.TipoDisplay).ApiValue,
-                    Area          = a.AreaM2,
-                    WallThickness = a.EspesorMuro,
-                    PolygonPoints = a.PolygonPoints
-                        .Select(p => new Dictionary<string, double>
-                            { ["x"] = Math.Round(p.X, 3), ["y"] = Math.Round(p.Y, 3) })
-                        .ToList(),
-                    Centroid      = a.PolygonPoints.Count > 0
-                        ? new Dictionary<string, double>
-                          {
-                            ["x"] = Math.Round(a.PolygonPoints.Average(p => p.X), 3),
-                            ["y"] = Math.Round(a.PolygonPoints.Average(p => p.Y), 3),
-                          }
-                        : new Dictionary<string, double> { ["x"] = 0, ["y"] = 0 },
-                }).ToList();
-            }
-
             // 4. Circuitos del panel → Board del canvas
             var syncCircuits = (_selectedPanel?.Circuits ?? [])
                 .Select(c => new SyncCircuit
@@ -502,31 +461,123 @@ public sealed class PanelViewModel : INotifyPropertyChanged
             // 5. Grafo planar para el módulo AD-CAD (visualización de muros)
             var graph = AdElec.Core.Utils.GeometryConverter.BuildGraphFromAmbientes(ambientesDwg, SyncMode == "INTERIOR");
 
-            // 5b. Índice Handle→UF para grouping correcto (un Handle identifica un único recinto)
-            var handleUfMap = ambientesDwg
-                .Where(a => !string.IsNullOrEmpty(a.Handle))
-                .ToDictionary(a => $"room_{a.Handle}", a => a.UF, StringComparer.OrdinalIgnoreCase);
+            // 5b. FaceKey por ambiente: en V2 el id del room = faceKey = IDs de aristas del borde unidas por "|"
+            var faceKeyByHandle = ambientesDwg
+                .Where(a => !string.IsNullOrEmpty(a.Handle) && a.PolygonPoints.Count > 0)
+                .ToDictionary(
+                    a => $"room_{a.Handle}",
+                    a => AdElec.Core.Utils.GeometryConverter.ComputeFaceKey(a.PolygonPoints, graph),
+                    StringComparer.OrdinalIgnoreCase);
 
-            // 5c. Nombre del proyecto
-            string finalProjectName = !string.IsNullOrWhiteSpace(_projectName)
-                ? _projectName
-                : (!string.IsNullOrWhiteSpace(projectNameOnServer) ? projectNameOnServer : "Proyecto AD-ELEC");
-
-            // 5d. Plantas: agrupar ambientes por campo Planta → un SyncPlanta por planta
+            // 5c. Planta ID por ambiente
             var plantaGroups = ambientesDwg
                 .GroupBy(a => string.IsNullOrWhiteSpace(a.Planta) ? "PB" : a.Planta,
                          StringComparer.OrdinalIgnoreCase)
                 .OrderBy(g => g.Key)
                 .ToList();
 
-            var plantas = plantaGroups.Select((pg, idx) =>
-            {
-                // IDs de rooms de esta planta
-                var plantaRoomIds = new HashSet<string>(
-                    pg.Where(a => !string.IsNullOrEmpty(a.Handle)).Select(a => $"room_{a.Handle}"),
+            var plantaIdByHandle = ambientesDwg
+                .Where(a => !string.IsNullOrEmpty(a.Handle))
+                .ToDictionary(
+                    a => $"room_{a.Handle}",
+                    a =>
+                    {
+                        int idx = plantaGroups.FindIndex(pg => pg.Key.Equals(
+                            string.IsNullOrWhiteSpace(a.Planta) ? "PB" : a.Planta,
+                            StringComparison.OrdinalIgnoreCase));
+                        return $"PL{(idx >= 0 ? idx + 1 : 1)}";
+                    },
                     StringComparer.OrdinalIgnoreCase);
 
-                // UFs de esta planta (con los rooms que le corresponden)
+            // 3. Puntos eléctricos: rooms con puntos desde bloques eléctricos
+            List<SyncRoom> syncRooms;
+            if (_selectedPanel != null && _onGetRoomsConPuntos != null)
+            {
+                var rawRooms = _onGetRoomsConPuntos(_selectedPanel.Name);
+
+                // Completar polígonos faltantes desde ambientesDwg usando Handle
+                var ambByHandle = ambientesDwg
+                    .Where(a => !string.IsNullOrEmpty(a.Handle))
+                    .ToDictionary(a => $"room_{a.Handle}", a => a, StringComparer.OrdinalIgnoreCase);
+
+                foreach (var sr in rawRooms.Where(r => r.PolygonPoints.Count == 0))
+                {
+                    if (ambByHandle.TryGetValue(sr.Id, out var match) && match.PolygonPoints.Count > 0)
+                        sr.PolygonPoints = match.PolygonPoints
+                            .Select(p => new Dictionary<string, double>
+                                { ["x"] = Math.Round(p.X, 3), ["y"] = Math.Round(p.Y, 3) })
+                            .ToList();
+                }
+
+                // Reasignar ID a faceKey y enriquecer puntos con _roomId/_roomZ/_plantaId
+                syncRooms = rawRooms.Select(sr =>
+                {
+                    string faceKey = faceKeyByHandle.GetValueOrDefault(sr.Id, sr.Id);
+                    string plantaId = plantaIdByHandle.GetValueOrDefault(sr.Id, "PL1");
+                    sr.Id = faceKey;
+                    sr.Points = sr.Points.Select(p => new AdElec.Core.AeaMotor.Dtos.ProposalPoint
+                    {
+                        Id        = p.Id,
+                        X         = p.X,
+                        Y         = p.Y,
+                        Type      = p.Type,
+                        CircuitId = p.CircuitId,
+                        SwitchId  = p.SwitchId,
+                        PowerVa   = p.PowerVa,
+                        Label     = p.Label,
+                        IsFixed   = p.IsFixed,
+                        RoomId    = faceKey,
+                        RoomZ     = 0,
+                        PlantaId  = plantaId,
+                    }).ToList();
+                    return sr;
+                }).ToList();
+            }
+            else
+            {
+                // Sin tablero seleccionado: sólo geometría, sin puntos
+                syncRooms = ambientesDwg.Select(a =>
+                {
+                    string handleKey = string.IsNullOrEmpty(a.Handle)
+                        ? $"room_{ambientesDwg.IndexOf(a):000}" : $"room_{a.Handle}";
+                    string faceKey = faceKeyByHandle.GetValueOrDefault(handleKey, handleKey);
+                    return new SyncRoom
+                    {
+                        Id            = faceKey,
+                        Name          = $"{a.TipoDisplay} — {a.Planta}",
+                        Type          = AdElec.Core.Models.TipoAmbienteInfo.DesdeNombre(a.TipoDisplay).ApiValue,
+                        Area          = a.AreaM2,
+                        WallThickness = a.EspesorMuro,
+                        PolygonPoints = a.PolygonPoints
+                            .Select(p => new Dictionary<string, double>
+                                { ["x"] = Math.Round(p.X, 3), ["y"] = Math.Round(p.Y, 3) })
+                            .ToList(),
+                        Centroid      = a.PolygonPoints.Count > 0
+                            ? new Dictionary<string, double>
+                              {
+                                ["x"] = Math.Round(a.PolygonPoints.Average(p => p.X), 3),
+                                ["y"] = Math.Round(a.PolygonPoints.Average(p => p.Y), 3),
+                              }
+                            : new Dictionary<string, double> { ["x"] = 0, ["y"] = 0 },
+                    };
+                }).ToList();
+            }
+
+            // 5d. Nombre del proyecto
+            string finalProjectName = !string.IsNullOrWhiteSpace(_projectName)
+                ? _projectName
+                : (!string.IsNullOrWhiteSpace(projectNameOnServer) ? projectNameOnServer : "Proyecto AD-ELEC");
+
+            // 5e. Plantas con faceKeys y UFs correctas
+            var plantas = plantaGroups.Select((pg, idx) =>
+            {
+                string plantaId = $"PL{idx + 1}";
+
+                var plantaFaceKeys = new HashSet<string>(
+                    pg.Where(a => !string.IsNullOrEmpty(a.Handle))
+                      .Select(a => faceKeyByHandle.GetValueOrDefault($"room_{a.Handle}", "")),
+                    StringComparer.OrdinalIgnoreCase);
+
                 var ufGroups = ambientesDwg
                     .GroupBy(a => string.IsNullOrWhiteSpace(a.UF) ? "Sin UF" : a.UF,
                              StringComparer.OrdinalIgnoreCase)
@@ -535,9 +586,9 @@ public sealed class PanelViewModel : INotifyPropertyChanged
                         Id      = ufg.Key,
                         Nombre  = ufg.Key,
                         RoomIds = syncRooms
-                            .Where(sr => plantaRoomIds.Contains(sr.Id) &&
-                                         handleUfMap.TryGetValue(sr.Id, out var uf) &&
-                                         string.Equals(uf, ufg.Key, StringComparison.OrdinalIgnoreCase))
+                            .Where(sr => plantaFaceKeys.Contains(sr.Id) &&
+                                         ufg.Any(a => faceKeyByHandle.GetValueOrDefault(
+                                             $"room_{a.Handle}", "") == sr.Id))
                             .Select(sr => sr.Id)
                             .ToList(),
                     })
@@ -546,21 +597,26 @@ public sealed class PanelViewModel : INotifyPropertyChanged
 
                 return new SyncPlanta
                 {
-                    Id     = $"PL{idx + 1}",
+                    Id     = plantaId,
                     Nombre = pg.Key,
-                    Graph  = graph,   // grafo compartido; AD-CAD filtra por planta con recintosMeta
-                    RecintosMeta = pg.Select(a => new SyncRecintoMeta
+                    Graph  = graph,
+                    RecintosMeta = pg.Select(a =>
                     {
-                        FaceKey = "",
-                        Nombre  = a.TipoDisplay,
-                        Tipo    = AdElec.Core.Models.TipoAmbienteInfo.DesdeNombre(a.TipoDisplay).ApiValue,
-                        Coord   = a.PolygonPoints.Count > 0
-                            ? new System.Collections.Generic.Dictionary<string, double>
-                              {
-                                ["x"] = Math.Round(a.PolygonPoints.Average(p => p.X), 3),
-                                ["y"] = Math.Round(a.PolygonPoints.Average(p => p.Y), 3),
-                              }
-                            : null,
+                        string fk = faceKeyByHandle.GetValueOrDefault(
+                            string.IsNullOrEmpty(a.Handle) ? "" : $"room_{a.Handle}", "");
+                        return new SyncRecintoMeta
+                        {
+                            FaceKey = fk,
+                            Nombre  = a.TipoDisplay,
+                            Tipo    = AdElec.Core.Models.TipoAmbienteInfo.DesdeNombre(a.TipoDisplay).ApiValue,
+                            Coord   = a.PolygonPoints.Count > 0
+                                ? new Dictionary<string, double>
+                                  {
+                                    ["x"] = Math.Round(a.PolygonPoints.Average(p => p.X), 3),
+                                    ["y"] = Math.Round(a.PolygonPoints.Average(p => p.Y), 3),
+                                  }
+                                : null,
+                        };
                     }).ToList(),
                     UnidadesFuncionales = ufGroups,
                 };

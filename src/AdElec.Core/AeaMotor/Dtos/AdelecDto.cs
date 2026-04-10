@@ -24,6 +24,13 @@ public class SyncProjectData
 
     [JsonPropertyName("ad_cad")]
     public SyncAdCadData AdCad { get; set; } = new();
+
+    /// <summary>
+    /// Preserva todos los campos del data_json que no conocemos (ambientes, circuitos, etc. del formato clásico).
+    /// Al hacer PUT, estos campos se reserializan tal cual, evitando borrar datos de AD-ELEC V1.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonExtensionData]
+    public Dictionary<string, System.Text.Json.JsonElement>? ExtensionData { get; set; }
 }
 
 public class SyncAdCadData
@@ -160,6 +167,12 @@ public class SyncRoom
     [JsonPropertyName("polygon_points")]
     public List<Dictionary<string, double>> PolygonPoints { get; set; } = [];
 
+    [JsonPropertyName("planta_id")]
+    public string? PlantaId { get; set; }
+
+    [JsonPropertyName("uf_id")]
+    public string? UfId { get; set; }
+
     [JsonPropertyName("wall_thickness")]
     public double WallThickness { get; set; } = 0.15;
 
@@ -171,6 +184,14 @@ public class SyncRoom
 
     [JsonPropertyName("openings")]
     public List<object> Openings { get; set; } = [];
+
+    /// <summary>
+    /// Clave de la cara del grafo planar en AD-CAD.
+    /// Asignado por AD-CAD al procesar los rooms; null cuando vienen de AutoCAD sin procesar.
+    /// Debe preservarse tal como viene del servidor para que V2 3D mantenga la asociación.
+    /// </summary>
+    [JsonPropertyName("face_key")]
+    public string? FaceKey { get; set; }
 }
 
 public class SyncBoard
@@ -341,4 +362,19 @@ public class ProposalPoint
 
     [JsonPropertyName("is_fixed")]
     public bool IsFixed { get; set; }
+
+    /// <summary>ID del room (faceKey) al que pertenece este punto. Requerido por AD-ELEC V2 para asociación 3D.</summary>
+    [JsonPropertyName("_roomId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? RoomId { get; set; }
+
+    /// <summary>Nivel Z del room (0 = planta baja). Requerido por AD-ELEC V2.</summary>
+    [JsonPropertyName("_roomZ")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? RoomZ { get; set; }
+
+    /// <summary>ID de la planta a la que pertenece el punto. Requerido por AD-ELEC V2.</summary>
+    [JsonPropertyName("_plantaId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? PlantaId { get; set; }
 }

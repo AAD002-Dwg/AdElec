@@ -156,5 +156,118 @@ namespace AdElec.Core.Utils
             long iy = (long)Math.Round(y / TOLERANCE);
             return $"{ix}_{iy}";
         }
+
+        /// <summary>
+        /// Construye un grafo planar a partir de polígonos en formato Dictionary x/y.
+        /// Equivalente a BuildGraphFromAmbientes pero acepta el formato de ProposalRoomInput.
+        /// </summary>
+        public static SyncGraph BuildGraphFromPolygons(IEnumerable<List<Dictionary<string, double>>> polygons)
+        {
+            var nodes = new Dictionary<string, SyncNode>();
+            var edges = new Dictionary<string, SyncEdge>();
+
+            foreach (var polygon in polygons)
+            {
+                if (polygon == null || polygon.Count < 2) continue;
+
+                var roomNodes = new List<string>();
+                foreach (var pt in polygon)
+                {
+                    double x = pt.TryGetValue("x", out var px) ? px : 0;
+                    double y = pt.TryGetValue("y", out var py) ? py : 0;
+                    string key = GetCoordKey(x, y);
+                    if (!nodes.ContainsKey(key))
+                    {
+                        var nodeId = $"N_{nodes.Count:D4}";
+                        nodes[key] = new SyncNode { Id = nodeId, X = Math.Round(x, 3), Y = Math.Round(y, 3) };
+                    }
+                    roomNodes.Add(nodes[key].Id);
+                }
+
+                if (roomNodes.First() != roomNodes.Last()) roomNodes.Add(roomNodes.First());
+
+                for (int j = 0; j < roomNodes.Count - 1; j++)
+                {
+                    string id1 = roomNodes[j];
+                    string id2 = roomNodes[j + 1];
+                    if (id1 == id2) continue;
+
+                    var sorted = new[] { id1, id2 }.OrderBy(x => x).ToArray();
+                    string edgeKey = $"{sorted[0]}|{sorted[1]}";
+
+                    if (!edges.ContainsKey(edgeKey))
+                    {
+                        edges[edgeKey] = new SyncEdge
+                        {
+                            Id            = $"E_{edges.Count:D4}",
+                            NodeA         = sorted[0],
+                            NodeB         = sorted[1],
+                            Thickness     = 0.15,
+                            Type          = "wall",
+                            Justification = "center",
+                        };
+                    }
+                }
+            }
+
+            return new SyncGraph
+            {
+                Nodes = nodes.Values.ToList(),
+                Edges = edges.Values.ToList(),
+            };
+        }
+
+        /// <summary>Overload de ComputeFaceKey para List&lt;Point2D&gt; (usado con Ambiente).</summary>
+        public static string ComputeFaceKey(List<Point2D> polygon, SyncGraph graph)
+        {
+            var dictPoly = polygon.Select(p =>
+                new Dictionary<string, double> { ["x"] = p.X, ["y"] = p.Y }).ToList();
+            return ComputeFaceKey(dictPoly, graph);
+        }
+
+        /// <summary>
+        /// Calcula el faceKey de un polígono dado el grafo ya construido.
+        /// faceKey = IDs de las aristas del borde del polígono, ordenadas y unidas por "|".
+        /// Este valor coincide con el id de room que usa AD-ELEC V2.
+        /// </summary>
+        public static string ComputeFaceKey(List<Dictionary<string, double>> polygon, SyncGraph graph)
+        {
+            if (polygon == null || polygon.Count < 2) return "";
+
+            // Índice inverso: coordKey → nodeId
+            var nodeByCoord = graph.Nodes.ToDictionary(
+                n => GetCoordKey(n.X, n.Y),
+                n => n.Id);
+
+            // Índice inverso: "nodeA|nodeB" (sorted) → edgeId
+            var edgeByNodes = graph.Edges.ToDictionary(
+                e => string.Join("|", new[] { e.NodeA, e.NodeB }.OrderBy(x => x)));
+
+            var edgeIds = new List<string>();
+            var pts = polygon.ToList();
+            if (pts.First() != pts.Last()) pts.Add(pts.First());  // cerrar loop
+
+            for (int i = 0; i < pts.Count - 1; i++)
+            {
+                double x1 = pts[i].TryGetValue("x", out var px1) ? px1 : 0;
+                double y1 = pts[i].TryGetValue("y", out var py1) ? py1 : 0;
+                double x2 = pts[i + 1].TryGetValue("x", out var px2) ? px2 : 0;
+                double y2 = pts[i + 1].TryGetValue("y", out var py2) ? py2 : 0;
+
+                string k1 = GetCoordKey(x1, y1);
+                string k2 = GetCoordKey(x2, y2);
+
+                if (!nodeByCoord.TryGetValue(k1, out var n1) ||
+                    !nodeByCoord.TryGetValue(k2, out var n2)) continue;
+
+                var sortedKey = string.Join("|", new[] { n1, n2 }.OrderBy(x => x));
+                if (edgeByNodes.TryGetValue(sortedKey, out var edge))
+                    edgeIds.Add(edge.Id);
+            }
+
+            if (edgeIds.Count == 0) return "";
+            edgeIds.Sort(StringComparer.Ordinal);
+            return string.Join("|", edgeIds);
+        }
     }
 }
