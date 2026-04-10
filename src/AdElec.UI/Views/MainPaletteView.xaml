@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:conv="clr-namespace:AdElec.UI.Converters"
              mc:Ignorable="d"
              d:DesignHeight="640" d:DesignWidth="280"
              Background="#1B1D23">
@@ -25,6 +26,7 @@
     <UserControl.Resources>
 
         <BooleanToVisibilityConverter x:Key="BoolVis"/>
+        <conv:InverseBoolToVisibilityConverter x:Key="InverseBoolVis"/>
 
         <!-- ── Botón primario (accent) ─────────────────────────────────── -->
         <Style x:Key="BtnPrimary" TargetType="Button">
@@ -509,7 +511,7 @@
                                     </StackPanel>
                                 </Grid>
 
-                                <Grid Margin="0,0,0,12">
+                                <Grid Margin="0,0,0,8">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="10"/>
@@ -526,6 +528,30 @@
                                                   SelectedValue="{Binding NewPanelPhaseCount, Mode=TwoWay}">
                                             <ComboBoxItem Content="1F (Monofásico)" Tag="1"/>
                                             <ComboBoxItem Content="3F (Trifásico)" Tag="3"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                </Grid>
+
+                                <Grid Margin="0,0,0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="10"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="Interruptor principal (A)" Style="{StaticResource SectionLabel}" Margin="0"/>
+                                        <TextBox Style="{StaticResource DarkInput}"
+                                                 Text="{Binding NewPanelMainBreakerAmps, UpdateSourceTrigger=PropertyChanged}"
+                                                 ToolTip="Corriente nominal del interruptor general (ej: 32, 40, 63)"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Tipo de tablero" Style="{StaticResource SectionLabel}" Margin="0"/>
+                                        <ComboBox Style="{StaticResource DarkCombo}"
+                                                  SelectedValue="{Binding NewPanelTipo, Mode=TwoWay}"
+                                                  SelectedValuePath="Tag">
+                                            <ComboBoxItem Content="Tablero Seccional" Tag="Tablero Seccional"/>
+                                            <ComboBoxItem Content="Tablero Principal"  Tag="Tablero Principal"/>
+                                            <ComboBoxItem Content="Tablero Medidor"    Tag="Tablero Medidor"/>
                                         </ComboBox>
                                     </StackPanel>
                                 </Grid>
@@ -647,7 +673,7 @@
                                Foreground="#5A6170" FontSize="11" TextWrapping="Wrap"
                                HorizontalAlignment="Center" VerticalAlignment="Center"
                                TextAlignment="Center" Margin="20"
-                               Visibility="{Binding HasCircuits, Converter={StaticResource BoolVis}, ConverterParameter=Inverse}"/>
+                               Visibility="{Binding HasCircuits, Converter={StaticResource InverseBoolVis}}"/>
 
                     <!-- Footer circuitos -->
                     <Border Grid.Row="1" Background="#14161b" Padding="10,6"
@@ -817,22 +843,34 @@
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
-                                    
-                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="ADE_AMBIENTES" Foreground="#55AAFF" FontSize="10" FontFamily="Consolas" Margin="0,0,0,6"/>
-                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="Etiquetar recinto y carga" Foreground="#8A91A1" FontSize="10"/>
-                                    
-                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="ADE_PROPUESTA" Foreground="#55AAFF" FontSize="10" FontFamily="Consolas" Margin="0,0,0,6"/>
-                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="Generar bocas y proyecto" Foreground="#8A91A1" FontSize="10"/>
-                                    
+
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="ADE_AMBIENTES"  Foreground="#55AAFF" FontSize="10" FontFamily="Consolas" Margin="0,0,0,6"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="Etiquetar recinto y carga"         Foreground="#8A91A1" FontSize="10"/>
+
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="ADE_PROPUESTA"  Foreground="#55AAFF" FontSize="10" FontFamily="Consolas" Margin="0,0,0,6"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="Generar bocas y proyecto"          Foreground="#8A91A1" FontSize="10"/>
+
                                     <TextBlock Grid.Row="2" Grid.Column="0" Text="ADE_LUMINARIAS" Foreground="#55AAFF" FontSize="10" FontFamily="Consolas" Margin="0,0,0,6"/>
-                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="Insertar luminaria manual" Foreground="#8A91A1" FontSize="10"/>
-                                    
-                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="ADE_RECARGAR" Foreground="#55AAFF" FontSize="10" FontFamily="Consolas" Margin="0,0,0,6"/>
-                                    <TextBlock Grid.Row="3" Grid.Column="1" Text="Escanear circuitos DWG" Foreground="#8A91A1" FontSize="10"/>
-                                    
-                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="ADE_PANEL" Foreground="#55AAFF" FontSize="10" FontFamily="Consolas"/>
-                                    <TextBlock Grid.Row="4" Grid.Column="1" Text="Refrescar esta paleta" Foreground="#8A91A1" FontSize="10"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="Distribuir luminarias (grilla)"    Foreground="#8A91A1" FontSize="10"/>
+
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="ADE_TOMAS"      Foreground="#55AAFF" FontSize="10" FontFamily="Consolas" Margin="0,0,0,6"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="1" Text="Insertar tomacorrientes"           Foreground="#8A91A1" FontSize="10"/>
+
+                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="ADE_CANERIAS"   Foreground="#55AAFF" FontSize="10" FontFamily="Consolas" Margin="0,0,0,6"/>
+                                    <TextBlock Grid.Row="4" Grid.Column="1" Text="Trazar cañerías (Lum / Tomas)"    Foreground="#8A91A1" FontSize="10"/>
+
+                                    <TextBlock Grid.Row="5" Grid.Column="0" Text="ADE_RECARGAR"   Foreground="#55AAFF" FontSize="10" FontFamily="Consolas" Margin="0,0,0,6"/>
+                                    <TextBlock Grid.Row="5" Grid.Column="1" Text="Escanear circuitos DWG"           Foreground="#8A91A1" FontSize="10"/>
+
+                                    <TextBlock Grid.Row="6" Grid.Column="0" Text="ADE_PULL"       Foreground="#55AAFF" FontSize="10" FontFamily="Consolas" Margin="0,0,0,6"/>
+                                    <TextBlock Grid.Row="6" Grid.Column="1" Text="Importar cambios desde la web"    Foreground="#8A91A1" FontSize="10"/>
+
+                                    <TextBlock Grid.Row="7" Grid.Column="0" Text="ADE_PANEL"      Foreground="#55AAFF" FontSize="10" FontFamily="Consolas"/>
+                                    <TextBlock Grid.Row="7" Grid.Column="1" Text="Refrescar esta paleta"            Foreground="#8A91A1" FontSize="10"/>
                                 </Grid>
                             </StackPanel>
                         </Expander>

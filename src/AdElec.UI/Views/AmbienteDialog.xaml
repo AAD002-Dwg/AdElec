@@ -111,13 +111,12 @@
                             </ToggleButton>
 
                             <!-- Texto seleccionado -->
-                            <ContentPresenter x:Name="ContentSite"
-                                              Content="{TemplateBinding SelectionBoxItem}"
-                                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
-                                              Margin="9,0,30,0"
-                                              VerticalAlignment="Center"
-                                              IsHitTestVisible="False"
-                                              TextElement.Foreground="White"/>
+                            <TextBlock x:Name="ContentSite"
+                                       Text="{Binding SelectionBoxItem.Nombre, RelativeSource={RelativeSource TemplatedParent}}"
+                                       Margin="9,0,30,0"
+                                       VerticalAlignment="Center"
+                                       IsHitTestVisible="False"
+                                       Foreground="White"/>
 
                             <!-- Input editable (cuando IsEditable=True) -->
                             <TextBox x:Name="PART_EditableTextBox"

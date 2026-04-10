@@ -1,269 +1,439 @@
 ;; ============================================================
-;;  ade_canerias.lsp  —  ADE_CANERIAS
-;;  Trazado de canalizaciones eléctricas.
+;;  ade_canerias.lsp  —  ADE_CANERIAS  v2.0
+;;  Trazado de canalizaciones electricas.
 ;;
 ;;  Modos:
-;;    L = Luminarias → arcos de 45° entre bloques I.E-AD-07
-;;    T = Tomas      → polilíneas ortogonales entre I.E-AD-09
+;;    Luminarias -> arcos de 45 grados entre bloques I.E-AD-07
+;;    Tomas      -> polilineas 45 grados entre bloques I.E-AD-09
+;;                  con puntos intermedios opcionales
 ;;
 ;;  Cada modo tiene sub-modo Manual / Auto (por circuito CX).
+;;
+;;  Shortcuts:
+;;    W    -> ADE_CANERIAS (pregunta modo)
+;;    WQ   -> directo a Luminarias
+;;    WE   -> directo a Tomas
+;;
+;;  v2.0: refactor con buenas practicas Lee Mac:
+;;   - Error handler local con restore de variables
+;;   - Undo marks (StartUndo/EndUndo) para rollback con U
+;;   - Save/restore CMDECHO y OSMODE
+;;   - Modo Luminarias Manual: interactivo continuo (arco por arco)
+;;   - Modo Tomas Manual: expandir-puntos para diagonal 45 + recto
+;;   - LWPOLYLINE creada con entmake (mas limpio que command _.PLINE)
 ;; ============================================================
 
-(defun c:ADE_CANERIAS ( / modo)
-  (vl-load-com)
+(vl-load-com)
+
+;; ── VARIABLES GLOBALES DE PERSISTENCIA ───────────────────────
+(if (not *ADE:CAN:MODO*)         (setq *ADE:CAN:MODO* "Luminarias"))
+(if (not *ADE:CAN:SUBMODO*)      (setq *ADE:CAN:SUBMODO* "Manual"))
+(if (not *ADE:CAN:CX*)           (setq *ADE:CAN:CX* "C1"))
+(if (not *ADE:CAN:CAPA-LUZ*)     (setq *ADE:CAN:CAPA-LUZ* "Canerias_Luz"))
+
+;; ── Cache del ActiveDocument (patron Lee Mac LM:acdoc) ──────
+(defun ade:acdoc ()
+  (eval (list 'defun 'ade:acdoc 'nil
+    (vla-get-activedocument (vlax-get-acad-object))))
+  (ade:acdoc)
+)
+
+;; ── EndUndoMark seguro (no falla si no hay marca abierta) ───
+(defun ade:endundo ()
+  (while (= 8 (logand 8 (getvar "UNDOCTL")))
+    (vla-endundomark (ade:acdoc))
+  )
+)
+
+;; ── Leer punto de insercion de un ename ─────────────────────
+(defun ade:ins-point (ent)
+  (cdr (assoc 10 (entget ent)))
+)
+
+;; ═════════════════════════════════════════════════════════════
+;;  COMANDO PRINCIPAL
+;; ═════════════════════════════════════════════════════════════
+(defun c:ADE_CANERIAS ( / modo old-err old-cmd)
+  (setq old-err *error*
+        old-cmd (getvar "CMDECHO"))
+
+  (defun *error* (msg)
+    (setvar "CMDECHO" old-cmd)
+    (ade:endundo)
+    (if (and msg (not (wcmatch (strcase msg t) "*break,*cancel*,*exit*")))
+      (princ (strcat "\nError: " msg))
+    )
+    (setq *error* old-err)
+    (princ)
+  )
+
+  (setvar "CMDECHO" 0)
+  (vla-startundomark (ade:acdoc))
+
+  (princ "\n── ADE_CANERIAS v2.0 ──────────────────────────")
 
   (initget "Luminarias Tomas")
-  (setq modo (getkword "\nModo [Luminarias/Tomas] <Luminarias>: "))
-  (if (null modo) (setq modo "Luminarias"))
+  (setq modo (getkword
+    (strcat "\nModo [Luminarias/Tomas] <" *ADE:CAN:MODO* ">: ")))
+  (if (null modo) (setq modo *ADE:CAN:MODO*) (setq *ADE:CAN:MODO* modo))
 
   (cond
     ((= modo "Luminarias") (ade:canerias-luminarias))
     ((= modo "Tomas")      (ade:canerias-tomas))
   )
+
+  (ade:endundo)
+  (setvar "CMDECHO" old-cmd)
+  (setq *error* old-err)
   (princ)
 )
 
-;; ============================================================
-;;  CAÑERÍAS — LUMINARIAS (arcos de 45°)
-;; ============================================================
+;; ── Shortcuts ────────────────────────────────────────────────
+(defun c:W  ()                       ; W -> pregunta modo
+  (c:ADE_CANERIAS))
 
-(defun ade:canerias-luminarias ( / sub-modo capa cx pts)
+(defun c:WQ ( / old-err old-cmd)     ; WQ -> directo a Luminarias
+  (setq old-err *error*
+        old-cmd (getvar "CMDECHO"))
+  (defun *error* (msg)
+    (setvar "CMDECHO" old-cmd)
+    (ade:endundo)
+    (if (and msg (not (wcmatch (strcase msg t) "*break,*cancel*,*exit*")))
+      (princ (strcat "\nError: " msg)))
+    (setq *error* old-err) (princ))
+  (setvar "CMDECHO" 0)
+  (vla-startundomark (ade:acdoc))
+  (setq *ADE:CAN:MODO* "Luminarias")
+  (ade:canerias-luminarias)
+  (ade:endundo)
+  (setvar "CMDECHO" old-cmd)
+  (setq *error* old-err)
+  (princ)
+)
+
+(defun c:WE ( / old-err old-cmd)     ; WE -> directo a Tomas
+  (setq old-err *error*
+        old-cmd (getvar "CMDECHO"))
+  (defun *error* (msg)
+    (setvar "CMDECHO" old-cmd)
+    (ade:endundo)
+    (if (and msg (not (wcmatch (strcase msg t) "*break,*cancel*,*exit*")))
+      (princ (strcat "\nError: " msg)))
+    (setq *error* old-err) (princ))
+  (setvar "CMDECHO" 0)
+  (vla-startundomark (ade:acdoc))
+  (setq *ADE:CAN:MODO* "Tomas")
+  (ade:canerias-tomas)
+  (ade:endundo)
+  (setvar "CMDECHO" old-cmd)
+  (setq *error* old-err)
+  (princ)
+)
+
+;; ═════════════════════════════════════════════════════════════
+;;  LUMINARIAS — arcos de 45 grados
+;; ═════════════════════════════════════════════════════════════
+
+(defun ade:canerias-luminarias ( / sub-modo capa cx pts i)
 
   (initget "Manual Auto")
-  (setq sub-modo (getkword "\nModo arcos [Manual/Auto] <Manual>: "))
-  (if (null sub-modo) (setq sub-modo "Manual"))
+  (setq sub-modo (getkword
+    (strcat "\nModo arcos [Manual/Auto] <" *ADE:CAN:SUBMODO* ">: ")))
+  (if (null sub-modo) (setq sub-modo *ADE:CAN:SUBMODO*)
+                      (setq *ADE:CAN:SUBMODO* sub-modo))
 
-  (setq capa (getstring "\nCapa para arcos [Canerias_Luz]: "))
-  (if (= capa "") (setq capa "Canerias_Luz"))
+  (setq capa (getstring
+    (strcat "\nCapa para arcos [" *ADE:CAN:CAPA-LUZ* "]: ")))
+  (if (= capa "") (setq capa *ADE:CAN:CAPA-LUZ*)
+                  (setq *ADE:CAN:CAPA-LUZ* capa))
   (ade:ensure-layer capa 4)
 
-  (if (= sub-modo "Auto")
-    (progn
-      (setq cx (getstring "\nCircuito a cablear [C1]: "))
-      (if (= cx "") (setq cx "C1"))
-      (setq cx  (strcase cx)
-            pts (ade:get-blocks-by-cx "I.E-AD-07" cx))
+  (cond
+    ((= sub-modo "Auto")  (ade:canerias-luminarias-auto capa))
+    ((= sub-modo "Manual") (ade:canerias-luminarias-manual capa))
+  )
+)
 
-      (if (< (length pts) 2)
-        (progn
-          (princ (strcat "\nMenos de 2 luminarias con CX=" cx " en el dibujo."))
-          (exit)
-        )
-      )
-      ;; Ordenar por Y desc, luego X asc (fila a fila de arriba a abajo)
-      (setq pts (vl-sort pts
-                  '(lambda (a b)
-                     (if (> (abs (- (cadr a) (cadr b))) 0.01)
-                       (> (cadr a) (cadr b))
-                       (< (car  a) (car  b))
-                     )
-                  )))
-      (princ (strcat "\n✓ " (itoa (length pts))
-                     " luminarias encontradas con CX=" cx "."))
-    )
+;; ── Modo Auto: por circuito CX, ordena y cablea ──────────────
+(defun ade:canerias-luminarias-auto (capa / cx pts i)
+  (setq cx (getstring
+    (strcat "\nCircuito a cablear [" *ADE:CAN:CX* "]: ")))
+  (if (= cx "") (setq cx *ADE:CAN:CX*)
+                (setq *ADE:CAN:CX* (strcase cx)))
+  (setq cx  (strcase cx)
+        pts (ade:get-blocks-by-cx "I.E-AD-07" cx))
+
+  (if (< (length pts) 2)
     (progn
-      ;; Manual: selección uno a uno
-      (setq pts '())
-      (princ "\nSeleccioná las luminarias en orden. ENTER para terminar.")
-      (while
-        (progn
-          (setq ent (car (entsel
-                    (strcat "\nLuminaria #"
-                            (itoa (1+ (length pts))) ": "))))
-          ent)
-        (setq pts (append pts
-                   (list (cdr (assoc 10 (entget ent))))))
-      )
-      (if (< (length pts) 2)
-        (progn (princ "\nSe necesitan al menos 2 bloques.") (exit))
-      )
+      (princ (strcat "\n  Menos de 2 luminarias con CX=" cx "."))
+      (exit)
     )
   )
+  ;; Ordenar fila a fila (Y desc, X asc)
+  (setq pts (vl-sort pts
+              '(lambda (a b)
+                 (if (> (abs (- (cadr a) (cadr b))) 0.01)
+                   (> (cadr a) (cadr b))
+                   (< (car a) (car b))))))
 
-  ;; Dibujar arcos encadenados
+  (princ (strcat "\n  " (itoa (length pts))
+                 " luminarias con CX=" cx "."))
+
   (setq i 0)
   (repeat (1- (length pts))
-    (ade:draw-arc-45
-      (nth i       pts)
-      (nth (1+ i)  pts)
-      capa)
+    (ade:draw-arc-45 (nth i pts) (nth (1+ i) pts) capa)
     (setq i (1+ i))
   )
-  (princ (strcat "\n✓ " (itoa (1- (length pts)))
+  (princ (strcat "\n  " (itoa (1- (length pts)))
                  " arcos trazados en capa '" capa "'."))
 )
 
-;; ── Dibujar arco de 45° entre dos puntos ────────────────────
-;; Usa el comando nativo ARC de AutoCAD:
-;;   ARC pt1 Segunda_dir pt2 con ángulo de arco ~45°
-;; Equivalente al LISP original: (command "_.ARC" pt1 "F" pt2 "U" "45")
-;; ── Dibujar arco de 45° entre dos puntos ────────────────────
-;; Calcula el centro geométrico para un arco de ángulo central 45°
-;; y dibuja usando la forma Centro-Inicio-Fin del comando ARC.
-(defun ade:draw-arc-45 (p1 p2 layer /
-                         x1 y1 x2 y2
-                         mx my dx dy
-                         half-chord d-center
-                         cx cy
-                         old-layer)
-  (setq x1 (car  p1) y1 (cadr p1)
-        x2 (car  p2) y2 (cadr p2)
-        ;; Punto medio de la cuerda
-        mx (/ (+ x1 x2) 2.0)
-        my (/ (+ y1 y2) 2.0)
-        ;; Vector perpendicular a la cuerda (normalizado)
-        dx (- x2 x1)  dy (- y2 y1)
-        ;; half-chord = |cuerda|/2
-        half-chord (/ (sqrt (+ (* dx dx) (* dy dy))) 2.0)
-        ;; Para arco de 45°: radio = half-chord / sin(22.5°)
-        ;; sin(22.5°) ≈ 0.38268
-        ;; distancia centro→midcord = radio * cos(22.5°), cos≈0.92388
-        ;; d-center = half-chord * cos(22.5°) / sin(22.5°) = half-chord / tan(22.5°)
-        ;; tan(22.5°) ≈ 0.41421
-        d-center (/ half-chord 0.41421)
-        ;; Perpendicular unitaria (rotar cuerda 90°)
-        ;; Normalizar: longitud = 2*half-chord
-        cx (- mx (* d-center (/ (- dy) (* 2.0 half-chord))))
-        cy (- my (* d-center (/ dx      (* 2.0 half-chord))))
-        old-layer (getvar "CLAYER"))
+;; ── Modo Manual: interactivo continuo (como c:w de Lee Mac) ─
+(defun ade:canerias-luminarias-manual (capa / ent pt-prev pt-curr count)
+  (princ "\nSelecciona las luminarias en orden. ENTER/Esc para terminar.")
 
+  ;; Primer bloque
+  (setq ent (car (entsel "\nPrimera luminaria: ")))
+  (if (null ent)
+    (progn (princ "\n  Cancelado.") (exit))
+  )
+  (setq pt-prev (ade:ins-point ent)
+        count   0)
+
+  ;; Cadena: cada nuevo bloque dibuja arco desde el anterior
+  (while
+    (progn
+      (setq ent (car (entsel
+        (strcat "\nLuminaria #" (itoa (+ 2 count)) " [ENTER=fin]: "))))
+      ent
+    )
+    (setq pt-curr (ade:ins-point ent))
+    (ade:draw-arc-45 pt-prev pt-curr capa)
+    (setq pt-prev pt-curr
+          count   (1+ count))
+  )
+
+  (if (= count 0)
+    (princ "\n  Se necesitan al menos 2 bloques.")
+    (princ (strcat "\n  " (itoa count)
+                   " arcos trazados en capa '" capa "'."))
+  )
+)
+
+;; ── Dibujar arco de 45 grados entre dos puntos ──────────────
+;; Usa la forma Start - End - Included Angle del comando ARC
+(defun ade:draw-arc-45 (p1 p2 layer / old-layer old-osm)
+  (setq old-layer (getvar "CLAYER")
+        old-osm   (getvar "OSMODE"))
   (setvar "CLAYER" layer)
-  (command "_.ARC"
-           "_C"
-           (list cx cy 0.0)
-           (list x1 y1 0.0)
-           (list x2 y2 0.0))
+  (setvar "OSMODE" 0)
+  (command "_.ARC" (list (car p1) (cadr p1) 0.0)
+                   "_E"
+                   (list (car p2) (cadr p2) 0.0)
+                   "_A" "45")
+  (setvar "OSMODE" old-osm)
   (setvar "CLAYER" old-layer)
 )
 
-;; ============================================================
-;;  CAÑERÍAS — TOMAS (polilíneas ortogonales)
-;; ============================================================
+;; ═════════════════════════════════════════════════════════════
+;;  TOMAS — polilineas con diagonal 45 grados + recto
+;; ═════════════════════════════════════════════════════════════
 
 (defun ade:canerias-tomas ( / sub-modo cx capa pts)
 
   (initget "Manual Auto")
-  (setq sub-modo (getkword "\nModo trazado [Manual/Auto] <Manual>: "))
-  (if (null sub-modo) (setq sub-modo "Manual"))
-
-  (if (= sub-modo "Auto")
-    (progn
-      (setq cx (getstring "\nCircuito a cablear [C1]: "))
-      (if (= cx "") (setq cx "C1"))
-      (setq cx (strcase cx))
-    )
-    (setq cx "C1")
-  )
-
-  (setq capa (getstring
-               (strcat "\nCapa para canalización [Canalizacion_" cx "]: ")))
-  (if (= capa "") (setq capa (strcat "Canalizacion_" cx)))
-  (ade:ensure-layer capa 1)   ; rojo
-
-  (if (= sub-modo "Auto")
-    (progn
-      (setq pts (ade:get-blocks-by-cx "I.E-AD-09" cx))
-      (if (< (length pts) 2)
-        (progn
-          (princ (strcat "\nMenos de 2 tomas con CX=" cx " en el dibujo."))
-          (exit)
-        )
-      )
-      ;; Ordenar por X, luego Y
-      (setq pts (vl-sort pts
-                  '(lambda (a b)
-                     (if (< (abs (- (car a) (car b))) 0.01)
-                       (< (cadr a) (cadr b))
-                       (< (car  a) (car  b))
-                     )
-                  )))
-      (princ (strcat "\n✓ " (itoa (length pts))
-                     " tomas encontradas con CX=" cx "."))
-    )
-    (progn
-      ;; Manual: selección con puntos intermedios opcionales
-      (setq pts '())
-      (princ "\nSeleccioná los bloques de toma en orden.")
-      (princ "\nEntre bloques podés agregar puntos intermedios (ENTER para saltar).")
-
-      (while
-        (progn
-          (setq ent (car (entsel
-                    (strcat "\nToma #" (itoa (1+ (length pts))) " [ENTER=terminar]: "))))
-          ent)
-        (setq pts (append pts
-                   (list (cdr (assoc 10 (entget ent))))))
-
-        ;; Puntos intermedios
-        (while
-          (setq pt-mid (getpoint "  Punto intermedio [ENTER=saltar]: "))
-          (setq pts (append pts (list pt-mid)))
-        )
-      )
-
-      (if (< (length pts) 2)
-        (progn (princ "\nSe necesitan al menos 2 puntos.") (exit))
-      )
-    )
-  )
-
-  ;; Dibujar tramos ortogonales encadenados
-  (setq i 0)
-  (repeat (1- (length pts))
-    (ade:draw-ortho-route
-      (nth i       pts)
-      (nth (1+ i)  pts)
-      capa)
-    (setq i (1+ i))
-  )
-  (princ (strcat "\n✓ Canalización trazada en capa '" capa
-                 "' (" (itoa (1- (length pts))) " tramos)."))
-)
-
-;; ── Polilínea ortogonal H→V con chamfer de 45° ──────────────
-;; p1, p2: listas '(x y) o '(x y z)
-(defun ade:draw-ortho-route (p1 p2 layer /
-                              x1 y1 x2 y2 dx dy
-                              kx ky chamfer sx sy
-                              bx by ax ay
-                              old-layer)
-  (setq x1 (car  p1) y1 (cadr p1)
-        x2 (car  p2) y2 (cadr p2)
-        dx (- x2 x1)  dy (- y2 y1)
-        old-layer (getvar "CLAYER"))
-
-  (setvar "CLAYER" layer)
+  (setq sub-modo (getkword
+    (strcat "\nModo trazado [Manual/Auto] <" *ADE:CAN:SUBMODO* ">: ")))
+  (if (null sub-modo) (setq sub-modo *ADE:CAN:SUBMODO*)
+                      (setq *ADE:CAN:SUBMODO* sub-modo))
 
   (cond
-    ;; Segmento recto (H o V)
-    ((or (< (abs dx) 1e-4) (< (abs dy) 1e-4))
-     (command "_.PLINE"
-              (list x1 y1 0.0)
-              (list x2 y2 0.0)
-              "")
-    )
-    ;; Codo con chamfer: H hasta la esquina, 45° diagonal, V hasta p2
-    (t
-     ;; Tamaño del chamfer: 15cm fijo, pero no más que la menor dimensión / 3
-     (setq chamfer (min 0.15 (/ (min (abs dx) (abs dy)) 3.0))
-           sx (if (> dx 0) 1.0 -1.0)
-           sy (if (> dy 0) 1.0 -1.0)
-           ;; Esquina del codo (x2, y1)
-           kx x2  ky y1
-           ;; Punto antes del chamfer (sobre la horizontal)
-           bx (- kx (* sx chamfer)) by ky
-           ;; Punto después del chamfer (sobre la vertical)
-           ax kx ay (+ ky (* sy chamfer)))
-     (command "_.PLINE"
-              (list x1 y1 0.0)
-              (list bx by 0.0)
-              (list ax ay 0.0)
-              (list x2 y2 0.0)
-              "")
-    )
+    ((= sub-modo "Auto")   (ade:canerias-tomas-auto))
+    ((= sub-modo "Manual") (ade:canerias-tomas-manual))
   )
-  (setvar "CLAYER" old-layer)
 )
 
-(princ "\n[AD-ELEC] ade_canerias.lsp cargado. Comando: ADE_CANERIAS")
+;; ── Modo Auto: cablea todos los bloques de un CX ─────────────
+(defun ade:canerias-tomas-auto ( / cx capa pts i expanded)
+  (setq cx (getstring
+    (strcat "\nCircuito a cablear [" *ADE:CAN:CX* "]: ")))
+  (if (= cx "") (setq cx *ADE:CAN:CX*)
+                (setq *ADE:CAN:CX* (strcase cx)))
+  (setq cx (strcase cx))
+
+  (setq capa (strcat "Canalizacion_" cx))
+  (ade:ensure-layer capa 1)
+
+  (setq pts (ade:get-blocks-by-cx "I.E-AD-09" cx))
+  (if (< (length pts) 2)
+    (progn
+      (princ (strcat "\n  Menos de 2 tomas con CX=" cx "."))
+      (exit)
+    )
+  )
+
+  ;; Ordenar por X, luego Y
+  (setq pts (vl-sort pts
+              '(lambda (a b)
+                 (if (< (abs (- (car a) (car b))) 0.01)
+                   (< (cadr a) (cadr b))
+                   (< (car a) (car b))))))
+
+  (princ (strcat "\n  " (itoa (length pts))
+                 " tomas con CX=" cx "."))
+
+  ;; Expandir con diagonal 45 grados y dibujar polilinea unica
+  (setq expanded (ade:expandir-puntos pts))
+  (ade:draw-lwpoly expanded capa)
+
+  (princ (strcat "\n  Canalizacion trazada en capa '" capa "'."))
+)
+
+;; ── Modo Manual: interactivo con validacion de CX ────────────
+;; Adapta el patron de c:WA (Conectar Puntos): selecciona primer
+;; bloque, lee CX, continua con bloques del mismo CX, permite
+;; puntos intermedios entre bloques.
+(defun ade:canerias-tomas-manual ( / ent1 ent2 pt1 pt2 cx1 cx2
+                                     puntos seguir pt-extra
+                                     capa expanded count)
+  (princ "\nSelecciona el primer bloque de toma...")
+  (setq ent1 (car (entsel "\nPrimer bloque: ")))
+
+  (if (null ent1)
+    (progn (princ "\n  Cancelado.") (exit))
+  )
+
+  (setq pt1 (ade:ins-point ent1)
+        cx1 (ade:get-att ent1 "CX"))
+
+  (if (null cx1)
+    (progn
+      (princ "\n  Ese bloque no tiene atributo CX.")
+      (exit)
+    )
+  )
+  (setq cx1  (strcase cx1)
+        capa (strcat "Canalizacion_" cx1))
+  (ade:ensure-layer capa 1)
+
+  (princ (strcat "\n  Circuito " cx1 " -> capa '" capa "'."))
+  (princ "\nEntre bloques podes agregar puntos intermedios (ENTER para saltar).")
+
+  (setq seguir t
+        puntos (list pt1)
+        count  0)
+
+  (while seguir
+    (setq ent2 (car (entsel
+      (strcat "\nSiguiente bloque del circuito " cx1
+              " [ENTER=fin]: "))))
+
+    (if (null ent2)
+      (setq seguir nil)
+      (progn
+        (setq cx2 (ade:get-att ent2 "CX"))
+        (cond
+          ((null cx2)
+           (princ "\n  Bloque sin atributo CX, se ignora."))
+          ((not (= (strcase cx2) cx1))
+           (princ (strcat "\n  Otro circuito (" cx2 "), se ignora.")))
+          (t
+           (setq pt2 (ade:ins-point ent2))
+
+           ;; Puntos intermedios opcionales
+           (while (setq pt-extra
+                    (getpoint (last puntos)
+                      "\n  Punto intermedio [ENTER=continuar]: "))
+             (setq puntos (append puntos (list pt-extra)))
+           )
+
+           ;; Agregar destino
+           (setq puntos (append puntos (list pt2)))
+
+           ;; Expandir y dibujar tramo
+           (setq expanded (ade:expandir-puntos puntos))
+           (ade:draw-lwpoly expanded capa)
+           (setq count (1+ count))
+           (princ (strcat "\n  Tramo #" (itoa count) " trazado."))
+
+           ;; Nueva cadena empieza en el ultimo punto
+           (setq puntos (list pt2))
+          )
+        )
+      )
+    )
+  )
+
+  (if (= count 0)
+    (princ "\n  No se trazaron tramos.")
+    (princ (strcat "\n  " (itoa count)
+                   " tramos trazados en capa '" capa "'."))
+  )
+)
+
+;; ── expandir-puntos: convierte quiebres en diagonal 45 + recto
+;; Entrada: lista de puntos '(x y [z])
+;; Salida: lista de puntos donde cada quiebre se divide en
+;;   diagonal 45 (corto) + tramo recto (largo restante).
+;; Adaptado de "Conectar Puntos(tomas).LSP" (c:WA).
+(defun ade:expandir-puntos (pts /
+                             i A B dx dy adx ady diag
+                             sx sy p-diag result)
+  (cond
+    ((<= (length pts) 1) pts)
+    (t
+      (setq result (list (car pts))
+            i      0)
+      (repeat (1- (length pts))
+        (setq A   (nth i pts)
+              B   (nth (1+ i) pts)
+              dx  (- (car B)  (car A))
+              dy  (- (cadr B) (cadr A))
+              adx (abs dx)
+              ady (abs dy)
+              diag (min adx ady)
+              sx  (if (>= dx 0) 1.0 -1.0)
+              sy  (if (>= dy 0) 1.0 -1.0))
+
+        (if (> diag 1e-6)
+          (progn
+            ;; Punto a 45 grados desde A (recorriendo el lado corto)
+            (setq p-diag (list (+ (car A)  (* sx diag))
+                               (+ (cadr A) (* sy diag))))
+            (setq result (append result (list p-diag)))
+          )
+        )
+
+        ;; Agregar B solo si no coincide con p-diag (evitar duplicado)
+        (if (not (equal diag (max adx ady) 1e-6))
+          (setq result (append result (list B)))
+        )
+        (setq i (1+ i))
+      )
+      result
+    )
+  )
+)
+
+;; ── Dibujar LWPOLYLINE con entmake (Lee Mac style) ──────────
+(defun ade:draw-lwpoly (pts layer)
+  (if (>= (length pts) 2)
+    (entmake
+      (append
+        (list '(0 . "LWPOLYLINE")
+              '(100 . "AcDbEntity")
+              (cons 8 layer)
+              '(100 . "AcDbPolyline")
+              (cons 90 (length pts))
+              '(70 . 0))
+        (mapcar '(lambda (p)
+                   (cons 10 (list (car p) (cadr p))))
+                pts)
+      )
+    )
+  )
+)
+
+(princ "\n[AD-ELEC] ade_canerias.lsp v2.0 cargado.")
+(princ "\n  Comandos: ADE_CANERIAS | W | WQ (luminarias) | WE (tomas)")
 (princ)
