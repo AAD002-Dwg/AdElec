@@ -125,13 +125,15 @@
             <Setter Property="Foreground" Value="#D2D2D2"/>
             <Setter Property="BorderBrush" Value="#343B48"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="7,4"/>
+            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="MinHeight" Value="30"/>
             <Setter Property="FontSize" Value="12"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="ItemContainerStyle" Value="{StaticResource DarkComboItem}"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ComboBox">
-                        <Grid>
+                        <Grid MinHeight="30">
                             <ToggleButton Background="{TemplateBinding Background}"
                                           BorderBrush="{TemplateBinding BorderBrush}"
                                           BorderThickness="{TemplateBinding BorderThickness}"
@@ -143,14 +145,14 @@
                                         <Border Background="{TemplateBinding Background}"
                                                 BorderBrush="{TemplateBinding BorderBrush}"
                                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                                CornerRadius="4">
+                                                CornerRadius="4"
+                                                MinHeight="30">
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*"/>
                                                     <ColumnDefinition Width="24"/>
                                                 </Grid.ColumnDefinitions>
-                                                <ContentPresenter Grid.Column="0"/>
-                                                <Path Grid.Column="1" Data="M 0 0 L 5 5 L 10 0"
+                                                <Path Grid.Column="1" Data="M 0 0 L 4 4 L 8 0"
                                                       Stroke="#8A91A1" StrokeThickness="1.5"
                                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                             </Grid>
@@ -163,15 +165,20 @@
                                     </ControlTemplate>
                                 </ToggleButton.Template>
                             </ToggleButton>
-                            <ContentPresenter Margin="8,0,26,0" VerticalAlignment="Center"
+                            <ContentPresenter Margin="10,0,28,0"
+                                              VerticalAlignment="Center"
+                                              HorizontalAlignment="Left"
                                               IsHitTestVisible="False"
+                                              Content="{TemplateBinding SelectionBoxItem}"
+                                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                              ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
                                               TextElement.Foreground="#D2D2D2"/>
                             <Popup Placement="Bottom" IsOpen="{TemplateBinding IsDropDownOpen}"
                                    AllowsTransparency="True" PopupAnimation="Slide">
                                 <Border Background="#21252B" BorderBrush="#343B48" BorderThickness="1"
                                         CornerRadius="0,0,4,4"
                                         MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=ComboBox}}">
-                                    <ScrollViewer MaxHeight="180">
+                                    <ScrollViewer MaxHeight="200">
                                         <ItemsPresenter/>
                                     </ScrollViewer>
                                 </Border>
@@ -439,48 +446,139 @@
                         <!-- ── SECCIÓN: TABLERO ACTIVO ────────────────────────── -->
                         <Border Style="{StaticResource AdeCard}">
                             <StackPanel>
-                                <TextBlock Text="TABLERO SELECCIONADO" Style="{StaticResource SectionLabel}"/>
-                                <Grid Margin="0,0,0,10">
+                                <Grid Margin="0,0,0,8">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="6"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <ComboBox Grid.Column="0" Style="{StaticResource DarkCombo}"
-                                              ItemsSource="{Binding Panels}"
-                                              SelectedItem="{Binding SelectedPanel, Mode=TwoWay}"
-                                              DisplayMemberPath="Name"/>
-                                    <Button Grid.Column="2" Content="+ Nuevo"
-                                            Style="{StaticResource BtnSecondary}"
-                                            Command="{Binding NuevoTableroCommand}"
-                                            Padding="10,5" FontSize="11"/>
+                                    <TextBlock Grid.Column="0" Text="TABLERO ACTIVO" Style="{StaticResource SectionLabel}" VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                        <Button Content="+ Nuevo" Style="{StaticResource BtnPrimary}"
+                                                Command="{Binding NuevoTableroCommand}"
+                                                Padding="8,3" FontSize="11" Margin="0,0,5,0"
+                                                ToolTip="Crear un nuevo tablero eléctrico"/>
+                                        <Button Content="🗑 Borrar" Style="{StaticResource BtnSecondary}"
+                                                Command="{Binding EliminarTableroCommand}"
+                                                Padding="8,3" FontSize="11"
+                                                ToolTip="Eliminar el tablero seleccionado"/>
+                                    </StackPanel>
                                 </Grid>
 
-                                <!-- Detalle del tablero -->
-                                <Border Background="#14161b" CornerRadius="4" Padding="10,8" 
+                                <!-- Selector desplegable de tablero -->
+                                <ComboBox Style="{StaticResource DarkCombo}"
+                                          ItemsSource="{Binding Panels}"
+                                          SelectedItem="{Binding SelectedPanel, Mode=TwoWay}"
+                                          DisplayMemberPath="Name"
+                                          Margin="0,0,0,10"
+                                          ToolTip="Seleccionar el tablero de trabajo"/>
+
+                                <!-- ── DETALLE Y EDICIÓN DEL TABLERO SELECCIONADO ── -->
+                                <Border Background="#141c2b" CornerRadius="6" Padding="10" Margin="0,0,0,6"
+                                        BorderBrush="#25354d" BorderThickness="1"
                                         Visibility="{Binding HasPanel, Converter={StaticResource BoolVis}}">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel>
-                                            <TextBlock Text="{Binding SelectedPanel.Location, FallbackValue='Sin ubicación'}"
-                                                       Foreground="#D2D2D2" FontSize="13" FontWeight="SemiBold"/>
-                                            <TextBlock Text="Ubicación / UF" Foreground="#8A91A1" FontSize="9"/>
-                                        </StackPanel>
-                                        <StackPanel Grid.Column="1" HorizontalAlignment="Right">
-                                            <TextBlock Text="{Binding SelectedPanel.PhaseCount, StringFormat='{}{0} Fases'}"
-                                                       Foreground="#55AAFF" FontSize="11" FontWeight="Bold" HorizontalAlignment="Right"/>
-                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                                <TextBlock Text="{Binding SelectedPanel.MainBreakerAmps, StringFormat='{}{0}A'}"
-                                                           Foreground="#8A91A1" FontSize="10"/>
-                                                <TextBlock Text=" · " Foreground="#343B48" Margin="4,0"/>
-                                                <TextBlock Text="{Binding SelectedPanel.SuperficieCubiertaM2, StringFormat='{}{0}m²'}"
-                                                           Foreground="#8A91A1" FontSize="10"/>
+                                    <StackPanel>
+                                        <!-- Nombre y Tipo -->
+                                        <Grid Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="85"/>
+                                                <ColumnDefinition Width="8"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0">
+                                                <TextBlock Text="Nombre" Style="{StaticResource SectionLabel}" Margin="0,0,0,4"/>
+                                                <TextBox Style="{StaticResource DarkInput}"
+                                                         Text="{Binding SelectedPanel.Name, UpdateSourceTrigger=PropertyChanged}"
+                                                         ToolTip="Identificador del tablero en el plano (ej: TD1, TS1)"/>
                                             </StackPanel>
-                                        </StackPanel>
-                                    </Grid>
+                                            <StackPanel Grid.Column="2">
+                                                <TextBlock Text="Tipo de Tablero" Style="{StaticResource SectionLabel}" Margin="0,0,0,4"/>
+                                                <ComboBox Style="{StaticResource DarkCombo}"
+                                                          SelectedValue="{Binding SelectedPanel.TipoTablero, Mode=TwoWay}"
+                                                          SelectedValuePath="Tag">
+                                                    <ComboBoxItem Content="Tablero Seccional" Tag="Tablero Seccional"/>
+                                                    <ComboBoxItem Content="Tablero Principal"  Tag="Tablero Principal"/>
+                                                    <ComboBoxItem Content="Tablero Medidor"    Tag="Tablero Medidor"/>
+                                                </ComboBox>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <!-- Fases y Ubicación / UF -->
+                                        <Grid Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="8"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0">
+                                                <TextBlock Text="Alimentación / Fases" Style="{StaticResource SectionLabel}" Margin="0,0,0,4"/>
+                                                <ComboBox Style="{StaticResource DarkCombo}"
+                                                          SelectedValue="{Binding SelectedPanel.PhaseCount, Mode=TwoWay}"
+                                                          SelectedValuePath="Tag">
+                                                    <ComboBoxItem Content="Monofásico (2P)" Tag="1"/>
+                                                    <ComboBoxItem Content="Trifásico (4P)"  Tag="3"/>
+                                                </ComboBox>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="2">
+                                                <TextBlock Text="Ubicación / UF" Style="{StaticResource SectionLabel}" Margin="0,0,0,4"/>
+                                                <TextBox Style="{StaticResource DarkInput}"
+                                                         Text="{Binding SelectedPanel.Location, UpdateSourceTrigger=PropertyChanged}"
+                                                         ToolTip="Ubicación física o Unidad Funcional (ej: PB, Depto 1)"/>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <!-- Superficie e Interruptor General -->
+                                        <Grid Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="8"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0">
+                                                <Grid Margin="0,0,0,4">
+                                                    <TextBlock Text="Superficie m²" Style="{StaticResource SectionLabel}" HorizontalAlignment="Left" Margin="0"/>
+                                                    <Button Content="↺ Ambientes" Style="{StaticResource BtnSecondary}"
+                                                            Command="{Binding CalcularSuperficieCommand}"
+                                                            Padding="4,1" FontSize="9" HorizontalAlignment="Right"
+                                                            ToolTip="Calcular superficie sumando los ambientes de este tablero"/>
+                                                </Grid>
+                                                <TextBox Style="{StaticResource DarkInput}"
+                                                         Text="{Binding SelectedPanel.SuperficieCubiertaM2, UpdateSourceTrigger=PropertyChanged, StringFormat='{}{0:F1}'}"
+                                                         ToolTip="Superficie cubierta para cálculo de Grado de Electrificación"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="2">
+                                                <TextBlock Text="Interruptor In (A)" Style="{StaticResource SectionLabel}" Margin="0,0,0,4"/>
+                                                <TextBox Style="{StaticResource DarkInput}"
+                                                         Text="{Binding SelectedPanel.MainBreakerAmps, UpdateSourceTrigger=PropertyChanged}"
+                                                         ToolTip="Corriente nominal del interruptor principal"/>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <!-- Barra de Cálculo de Demanda y Guardado -->
+                                        <Border Background="#101520" CornerRadius="4" Padding="8,6" Margin="0,4,0,0"
+                                                BorderBrush="#1e2a3c" BorderThickness="1">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                    <TextBlock Text="CÁLCULO DEMANDA (AEA)" Foreground="#8A91A1" FontSize="8" FontWeight="Bold"/>
+                                                    <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                                        <TextBlock Text="Ib: " Foreground="#8A91A1" FontSize="10"/>
+                                                        <TextBlock Text="{Binding SelectedPanel.CalculatedIbAmps, StringFormat='{}{0:F1} A'}" Foreground="#FFFFFF" FontWeight="Bold" FontSize="10"/>
+                                                        <TextBlock Text=" · Sugerido: " Foreground="#8A91A1" FontSize="10"/>
+                                                        <TextBlock Text="{Binding SelectedPanel.SuggestedBreakerAmps, StringFormat='{}{0:F0} A'}" Foreground="#55AAFF" FontWeight="Bold" FontSize="10"/>
+                                                    </StackPanel>
+                                                </StackPanel>
+                                                <Button Grid.Column="1" Content="💾 Guardar"
+                                                        Style="{StaticResource BtnPrimary}"
+                                                        Command="{Binding GuardarTableroCommand}"
+                                                        Padding="10,4" FontSize="10" FontWeight="Bold"
+                                                        VerticalAlignment="Center"
+                                                        ToolTip="Guardar cambios del tablero en el DWG"/>
+                                            </Grid>
+                                        </Border>
+                                    </StackPanel>
                                 </Border>
                             </StackPanel>
                         </Border>
@@ -500,12 +598,12 @@
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0">
-                                        <TextBlock Text="Nombre" Style="{StaticResource SectionLabel}" Margin="0"/>
+                                        <TextBlock Text="Nombre" Style="{StaticResource SectionLabel}" Margin="0,0,0,4"/>
                                         <TextBox Style="{StaticResource DarkInput}" 
                                                  Text="{Binding NewPanelName, UpdateSourceTrigger=PropertyChanged}"/>
                                     </StackPanel>
                                     <StackPanel Grid.Column="2">
-                                        <TextBlock Text="Ubicación (UF)" Style="{StaticResource SectionLabel}" Margin="0"/>
+                                        <TextBlock Text="Ubicación (UF)" Style="{StaticResource SectionLabel}" Margin="0,0,0,4"/>
                                         <TextBox Style="{StaticResource DarkInput}" 
                                                  Text="{Binding NewPanelLocation, UpdateSourceTrigger=PropertyChanged}"/>
                                     </StackPanel>
@@ -518,16 +616,17 @@
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0">
-                                        <TextBlock Text="Superficie m²" Style="{StaticResource SectionLabel}" Margin="0"/>
+                                        <TextBlock Text="Superficie m²" Style="{StaticResource SectionLabel}" Margin="0,0,0,4"/>
                                         <TextBox Style="{StaticResource DarkInput}"
                                                  Text="{Binding NewPanelSuperficie, UpdateSourceTrigger=PropertyChanged}"/>
                                     </StackPanel>
                                     <StackPanel Grid.Column="2">
-                                        <TextBlock Text="Fases" Style="{StaticResource SectionLabel}" Margin="0"/>
+                                        <TextBlock Text="Alimentación / Fases" Style="{StaticResource SectionLabel}" Margin="0,0,0,4"/>
                                         <ComboBox Style="{StaticResource DarkCombo}"
-                                                  SelectedValue="{Binding NewPanelPhaseCount, Mode=TwoWay}">
-                                            <ComboBoxItem Content="1F (Monofásico)" Tag="1"/>
-                                            <ComboBoxItem Content="3F (Trifásico)" Tag="3"/>
+                                                  SelectedValue="{Binding NewPanelPhaseCount, Mode=TwoWay}"
+                                                  SelectedValuePath="Tag">
+                                            <ComboBoxItem Content="Monofásico (2P)" Tag="1"/>
+                                            <ComboBoxItem Content="Trifásico (4P)"  Tag="3"/>
                                         </ComboBox>
                                     </StackPanel>
                                 </Grid>
@@ -539,13 +638,13 @@
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0">
-                                        <TextBlock Text="Interruptor principal (A)" Style="{StaticResource SectionLabel}" Margin="0"/>
+                                        <TextBlock Text="Interruptor principal (A)" Style="{StaticResource SectionLabel}" Margin="0,0,0,4"/>
                                         <TextBox Style="{StaticResource DarkInput}"
                                                  Text="{Binding NewPanelMainBreakerAmps, UpdateSourceTrigger=PropertyChanged}"
                                                  ToolTip="Corriente nominal del interruptor general (ej: 32, 40, 63)"/>
                                     </StackPanel>
                                     <StackPanel Grid.Column="2">
-                                        <TextBlock Text="Tipo de tablero" Style="{StaticResource SectionLabel}" Margin="0"/>
+                                        <TextBlock Text="Tipo de tablero" Style="{StaticResource SectionLabel}" Margin="0,0,0,4"/>
                                         <ComboBox Style="{StaticResource DarkCombo}"
                                                   SelectedValue="{Binding NewPanelTipo, Mode=TwoWay}"
                                                   SelectedValuePath="Tag">

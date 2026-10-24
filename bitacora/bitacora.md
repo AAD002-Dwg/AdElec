@@ -31,6 +31,37 @@ Motivo detrás de las elecciones de diseño o solución implementada.
 
 ## 📜 Historial de Registros
 
+### [2026-10-24] — Rediseño del Gestor de Tableros (Edición, Persistencia, Cálculo Ib/In, Superficie de Ambientes y Corrección de ComboBoxes)
+**Tipo:** `Feature` / `Fix`  
+**Autor / Asistente:** Antigravity / Usuario
+
+#### 🎯 Objetivo
+- Solucionar el problema visual donde los ComboBox (`DarkCombo`) colapsaban en una línea fina y no mostraban el texto seleccionado al cerrarse (falta de `MinHeight` y enlace `SelectionBoxItem`).
+- Convertir la pestaña Tablero en un gestor completo, persistente y editable (crear, editar en vivo, guardar y eliminar tableros del DWG).
+- Corregir la definición y rotulado de fases: Monofásico (2P / 1F+N) y Trifásico (4P / 3F+N), eliminando textos confusos como "1 Fases".
+- Incorporar el cálculo automático de superficie sumando las áreas de los recintos (`IAmbienteRepository`) correspondientes al tablero.
+- Implementar la estimación de corriente de empleo simultánea $I_b$ y el calibre comercial sugerido del interruptor principal $I_n$ según AEA 90364-771.
+- Resolver la sincronización de circuitos al seleccionar un tablero: asegurar que `SelectedPanel` sea una instancia viva de la colección observable para que la tabla de circuitos se actualice de inmediato.
+
+#### 🛠️ Cambios realizados
+- `src/AdElec.Core/Models/Panel.cs`:
+  - Implementado `INotifyPropertyChanged` con `SetField` reactivo.
+  - Añadidas propiedades calculadas: `PhaseDescription`, `CalculatedIbAmps` ($I_b$ en 220V o 380V con factor de simultaneidad) y `SuggestedBreakerAmps` ($I_n$ normalizado).
+- `src/AdElec.UI/Views/MainPaletteView.xaml`:
+  - Corregido el estilo `DarkCombo` con `MinHeight="30"`, `VerticalContentAlignment="Center"` y `Content="{TemplateBinding SelectionBoxItem}"`.
+  - Rediseñada la tarjeta de tablero activo para permitir edición directa de `Nombre`, `Tipo`, `Fases`, `Ubicación`, `Superficie` e `In`.
+  - Agregada barra de cálculo de demanda reglamentaria y botones `+ Nuevo`, `🗑 Borrar`, `💾 Guardar Tablero` y `↺ Ambientes`.
+- `src/AdElec.UI/ViewModels/PanelViewModel.cs`:
+  - Agregados comandos `GuardarTableroCommand`, `EliminarTableroCommand` y `CalcularSuperficieCommand`.
+  - Método `CalcularSuperficieDesdeAmbientes()` que totaliza m² desde la UF o todos los recintos del plano.
+  - Corregido `RefreshFromRepo` para vincular directamente la instancia seleccionada con la colección `Panels` y disparar `RefreshCircuits()`.
+- `deploy/`:
+  - Binarios actualizados y copiados.
+
+#### 💡 Decisiones técnicas
+- En WPF, un `ComboBox` personalizado sin `SelectionBoxItem` en su `ContentPresenter` no renderiza el elemento seleccionado en la caja cerrada. Añadirlo junto a `MinHeight` garantiza dimensiones estables y legibilidad idéntica a los campos de texto (`DarkInput`).
+- El cálculo preliminar de $I_b$ y calibre de protección general le otorga al usuario una referencia técnica inmediata sin necesidad de esperar la validación en la nube.
+
 ### [2026-10-24] — Corrección de Recurso XAML en Paleta (AdeExpander)
 **Tipo:** `Fix`  
 **Autor / Asistente:** Antigravity / Usuario

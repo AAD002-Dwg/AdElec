@@ -71,6 +71,22 @@ public sealed class PanelViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(HasPanel));
             OnPropertyChanged(nameof(TotalLoadVA));
             OnPropertyChanged(nameof(TotalLoadKVA));
+
+            if (_selectedPanel != null)
+            {
+                if (_selectedPanel.SuperficieCubiertaM2 <= 0 && _ambienteRepo != null)
+                {
+                    double sup = 0;
+                    if (!string.IsNullOrWhiteSpace(_selectedPanel.Location))
+                        sup = _ambienteRepo.GetAmbientesParaUF(_selectedPanel.Location).Sum(a => a.AreaM2);
+                    if (sup <= 0)
+                        sup = _ambienteRepo.GetAllAmbientes().Sum(a => a.AreaM2);
+                    if (sup > 0)
+                        _selectedPanel.SuperficieCubiertaM2 = Math.Round(sup, 1);
+                }
+                _selectedPanel.NotifyCalculations();
+            }
+
             RefreshCircuits();
             RaiseAllCommandsCanExecuteChanged();
         }
@@ -182,6 +198,9 @@ public sealed class PanelViewModel : INotifyPropertyChanged
     public ICommand AgregarCircuitoCommand { get; }
     public ICommand EliminarCircuitoCommand { get; }
     public ICommand GuardarCircuitosCommand { get; }
+    public ICommand GuardarTableroCommand { get; }
+    public ICommand EliminarTableroCommand { get; }
+    public ICommand CalcularSuperficieCommand { get; }
 
     // ── Constructor ─────────────────────────────────────────────────────────
 
@@ -230,6 +249,9 @@ public sealed class PanelViewModel : INotifyPropertyChanged
         AgregarCircuitoCommand = new RelayCommand(AgregarCircuito, () => HasPanel);
         EliminarCircuitoCommand = new RelayCommand(EliminarCircuito, () => HasSelectedCircuit);
         GuardarCircuitosCommand = new RelayCommand(GuardarCircuitos, () => HasPanel);
+        GuardarTableroCommand = new RelayCommand(GuardarTablero, () => HasPanel);
+        EliminarTableroCommand = new RelayCommand(EliminarTablero, () => HasPanel);
+        CalcularSuperficieCommand = new RelayCommand(CalcularSuperficieDesdeAmbientes, () => HasPanel);
 
         _projectId = _projectRepo.GetProjectId();
         _projectName = _projectRepo.GetProjectName();
@@ -432,7 +454,8 @@ public sealed class PanelViewModel : INotifyPropertyChanged
         {
             Name = NewPanelName.Trim().ToUpper(),
             Location = NewPanelLocation.Trim(),
-            PhaseCount = NewPanelPhaseCount,
+            PhaseCount = NewPanelPhaseCount >= 3 ? 3 : 1,
+            TipoTablero = NewPanelTipo,
             SuperficieCubiertaM2 = NewPanelSuperficie,
             MainBreakerAmps = NewPanelMainBreakerAmps > 0 ? NewPanelMainBreakerAmps : 32,
         };
@@ -803,14 +826,66 @@ public sealed class PanelViewModel : INotifyPropertyChanged
         _onRecargarCircuitos(_selectedPanel.Name);
     }
 
-    /// <summary>Recarga el panel desde el XRecord y actualiza la vista. Llamado por PaletteCommand tras ADE_RECARGAR.</summary>
-    public void RefreshFromRepo(string panelName)
+    private void GuardarTablero()
     {
-        var updated = _repo.GetAllPanels().FirstOrDefault(p => p.Name == panelName);
-        if (updated is null) return;
-        _selectedPanel = updated;
-        RefreshCircuits();
-        StatusMessage = $"Recargado: {updated.Circuits.Count} circuito(s) desde el DWG";
+        if (_selectedPanel == null) return;
+        _repo.SavePanel(_selectedPanel);
+        StatusMessage = $"✓ Tablero '{_selectedPanel.Name}' guardado exitosamente.";
+    }
+
+    private void EliminarTablero()
+    {
+        if (_selectedPanel == null) return;
+        string nombre = _selectedPanel.Name;
+        _repo.DeletePanel(nombre);
+        Panels.Remove(_selectedPanel);
+        SelectedPanel = Panels.FirstOrDefault();
+        StatusMessage = $"✓ Tablero '{nombre}' eliminado.";
+    }
+
+    private void CalcularSuperficieDesdeAmbientes()
+    {
+        if (_selectedPanel == null || _ambienteRepo == null) return;
+        double sup = 0;
+        if (!string.IsNullOrWhiteSpace(_selectedPanel.Location))
+        {
+            sup = _ambienteRepo.GetAmbientesParaUF(_selectedPanel.Location).Sum(a => a.AreaM2);
+        }
+        if (sup <= 0)
+        {
+            sup = _ambienteRepo.GetAllAmbientes().Sum(a => a.AreaM2);
+        }
+        if (sup > 0)
+        {
+            _selectedPanel.SuperficieCubiertaM2 = Math.Round(sup, 1);
+            _repo.SavePanel(_selectedPanel);
+            StatusMessage = $"✓ Superficie calculada: {_selectedPanel.SuperficieCubiertaM2} m² desde los ambientes.";
+        }
+        else
+        {
+            StatusMessage = "No se detectaron recintos con superficie en el DWG (usá ADE_AUTOAMBIENTES).";
+        }
+    }
+
+    /// <summary>Recarga el panel desde el XRecord y actualiza la vista. Llamado por PaletteCommand tras ADE_RECARGAR.</summary>
+    public void RefreshFromRepo(string? panelName = null)
+    {
+        var allPanels = _repo.GetAllPanels();
+        Panels.Clear();
+        foreach (var p in allPanels)
+            Panels.Add(p);
+
+        Panel? target = null;
+        if (!string.IsNullOrEmpty(panelName))
+            target = Panels.FirstOrDefault(p => string.Equals(p.Name, panelName, StringComparison.OrdinalIgnoreCase));
+
+        target ??= Panels.FirstOrDefault();
+        SelectedPanel = target;
+
+        if (SelectedPanel != null)
+        {
+            StatusMessage = $"Recargado: {SelectedPanel.Circuits.Count} circuito(s) desde el DWG";
+        }
     }
 
     private void RaiseAllCommandsCanExecuteChanged()
@@ -828,6 +903,9 @@ public sealed class PanelViewModel : INotifyPropertyChanged
         ((RelayCommand)AgregarCircuitoCommand).RaiseCanExecuteChanged();
         ((RelayCommand)EliminarCircuitoCommand).RaiseCanExecuteChanged();
         ((RelayCommand)GuardarCircuitosCommand).RaiseCanExecuteChanged();
+        ((RelayCommand)GuardarTableroCommand).RaiseCanExecuteChanged();
+        ((RelayCommand)EliminarTableroCommand).RaiseCanExecuteChanged();
+        ((RelayCommand)CalcularSuperficieCommand).RaiseCanExecuteChanged();
     }
 
     // ── INotifyPropertyChanged ───────────────────────────────────────────────
