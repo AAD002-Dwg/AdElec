@@ -601,6 +601,13 @@
                         <Expander Header="OPERACIONES Y ASISTENTES" Style="{StaticResource AdeExpander}" IsExpanded="True">
                             <StackPanel Margin="0,5,0,0">
                                 <TextBlock Text="Acciones Principales" Foreground="#5A6170" FontSize="9" Margin="0,0,0,6"/>
+                                <Button Content="⚡ Generar Unifilar (ADE_UNIFILAR)"
+                                        Style="{StaticResource BtnPrimary}"
+                                        Command="{Binding GenerarUnifilarCommand}"
+                                        Background="#1B5E20"
+                                        BorderBrush="#2E7D32"
+                                        Margin="0,0,0,8"
+                                        ToolTip="Genera en el plano el diagrama unifilar completo con bloques dinámicos y cuadro de cargas"/>
                                 <Grid Margin="0,0,0,10">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
@@ -634,6 +641,11 @@
                                             Command="{Binding SugerirTomasCommand}"
                                             ToolTip="Ubicación normativa de tomacorrientes"/>
                                 </Grid>
+                                <Button Content="🔀 Efectos e Interruptores (ADE_EFECTO)"
+                                        Style="{StaticResource BtnAction}"
+                                        Command="{Binding EfectosCommand}"
+                                        Margin="0,8,0,0"
+                                        ToolTip="Asistente para asociar llaves de 1, 2 o 3 efectos con luminarias y sus visibilidades"/>
                             </StackPanel>
                         </Expander>
 

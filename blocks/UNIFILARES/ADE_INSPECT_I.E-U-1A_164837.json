@@ -1,0 +1,55 @@
+{
+  "BlockName": "I.E-U-1A",
+  "Layer": "I.E._UNIFILARES",
+  "Attributes": [
+    {
+      "Tag": "Un:",
+      "Value": "220"
+    },
+    {
+      "Tag": "In:",
+      "Value": "40A"
+    },
+    {
+      "Tag": "I\u0394n:",
+      "Value": "30mA"
+    },
+    {
+      "Tag": "Inc:",
+      "Value": ""
+    },
+    {
+      "Tag": "Im:",
+      "Value": ""
+    },
+    {
+      "Tag": "Tipo",
+      "Value": ""
+    },
+    {
+      "Tag": "Polos",
+      "Value": ""
+    },
+    {
+      "Tag": "I\u0394n:",
+      "Value": ""
+    },
+    {
+      "Tag": "In:",
+      "Value": ""
+    }
+  ],
+  "DynamicProperties": [
+    {
+      "PropertyName": "Visibilidad1",
+      "Value": "Bipolar",
+      "AllowedValues": [
+        "Bipolar",
+        "Tetrapolar",
+        "Todo edit"
+      ],
+      "Description": "",
+      "ReadOnly": false
+    }
+  ]
+}

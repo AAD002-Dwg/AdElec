@@ -31,6 +31,49 @@ Motivo detrás de las elecciones de diseño o solución implementada.
 
 ## 📜 Historial de Registros
 
+### [2026-10-24] — Generador Automático de Diagramas Unifilares (ADE_UNIFILAR), Asistente de Interruptores (ADE_EFECTO) y Validación Normativa AEA 90364-771
+**Tipo:** `Feature` / `Refactor`  
+**Autor / Asistente:** Antigravity / Usuario
+
+#### 🎯 Objetivo
+- Implementar la generación 100% automatizada de Diagramas Unifilares en AutoCAD (`ADE_UNIFILAR`) conforme a la reglamentación AEA 90364-771, ensamblando los bloques dinámicos oficiales (`UNIFV.3`, `I.E-U-2A`, `I.E-U-1A`, `INFO E.I-1.1`), barras colectoras, puesta a tierra reglamentaria y cálculo dinámico de potencias simultáneas.
+- Implementar el Asistente de Interruptores y Efectos (`ADE_EFECTO`, `ADE_LLAVE`) para vincular y sincronizar de forma ágil las llaves (`I.E-AD-01`) con sus efectos (`LLAVE-N°0/1/2`), sus visibilidades dinámicas (`llave 1 efecto`, `llave 2 efecto`, `llave 3 efecto`) y los atributos `PX` de las luminarias (`I.E-AD-07`).
+- Mejorar el etiquetado de cañerías y cables en `ade_nomenclatura.lsp`, resolviendo dinámicamente el bloque `I.E-AD-Nomenclatura_Cables` y agregando el modo `Retornos` (`F+R`, `F+2R`, `F+3R`, `F+R+T`).
+- Integrar reglas normativas completas de circuitos AEA (`IUG`, `TUG`, `IUE`, `TUE`, `AP`, `ACU`, `RESERVA`), reserva obligatoria del 20% / 1 circuito, y botones de acceso directo en la paleta lateral `ADE_PANEL`.
+
+#### 🛠️ Cambios realizados
+- `src/AdElec.Core/Algorithms/AeaRules.cs`:
+  - Creado módulo de validación y formateo normativo bajo AEA 90364-771: límites de bocas, sección mínima de conductores, capacidad admisible $I_z$, coordinación térmica $I_b \le I_n \le I_z$, potencias mínimas simultáneas y método `EnsureReserveCircuit`.
+- `src/AdElec.Core/Models/Circuit.cs`:
+  - Enriquecido con propiedades normativas: `ArtefactCount`, `Destinations`, `Curve`, `Poles`, `Norma`, `PhaseString` y `Description`.
+- `src/AdElec.Core/Models/Panel.cs`:
+  - Añadidas propiedades eléctricas y de unifilar: `MainDiffAmps`, `MainDiffSensitivityMa`, `FeederFrom`, `SimultaneityFactor`, `PowerFactor`, `FunctionalUnitsCount`, `TotalLoadKVA()`, `TotalLoadKW()`, `SimultaneousKW()` y `TotalProjectKW()`.
+- `src/AdElec.AutoCAD/Services/UnifilarGeneratorService.cs`:
+  - Motor de ensamble gráfico: inserción y configuración de columnas `UNIFV.3`, termomagnéticas `I.E-U-2A` (con visibilidad Bipolar/Tetrapolar), interruptor diferencial `I.E-U-1A`, cuadro resumen `INFO E.I-1.1` con estiramiento dinámico `Distancia1`, barra colectora (peine de distribución), bajadas con flechas, derivaciones PE (capa verde), sistema de puesta a tierra, acometida superior y caja perimetral discontinua con rótulo de tablero.
+- `src/AdElec.AutoCAD/Commands/UnifilarCommand.cs`:
+  - Comandos `ADE_UNIFILAR` y `ADE_UNIF`: selección de tablero (o sincronización automática si no hay cargados), ingreso de UF y coeficiente de simultaneidad, selección del punto de inserción e invocación del servicio unifilar.
+- `src/AdElec.AutoCAD/Commands/EfectoCommand.cs`:
+  - Comandos `ADE_EFECTO` y `ADE_LLAVE`: edición y vinculación interactiva de interruptores y luminarias, alternando automáticamente estados de visibilidad dinámica y rellenando `PX` en las bocas de techo/pared.
+- `src/AdElec.AutoCAD/Commands/BlockInspectorCommand.cs`:
+  - Agregado comando `ADE_INSPECT_FILE` para inspección directa de archivos DWG en disco sin abrirlos en el editor principal, y extracción de dimensiones espaciales (`Width`, `Height`, `Position`, `Extents`).
+- `src/AdElec.UI/ViewModels/PanelViewModel.cs` y `src/AdElec.UI/Views/MainPaletteView.xaml`:
+  - Incorporados botones de acceso rápido `⚡ Generar Unifilar (ADE_UNIFILAR)` y `🔀 Efectos e Interruptores (ADE_EFECTO)`.
+- `src/AdElec.AutoCAD/Commands/PaletteCommand.cs`:
+  - Conectados los nuevos comandos de unifilar y efectos a la paleta lateral.
+- `lisp/ade_nomenclatura.lsp`:
+  - Corregida la ruta del bloque `I.E-AD-Nomenclatura_Cables.dwg` a búsqueda dinámica local/relativa, compatibilidad con atributos `CAÑERIA` y `CA ERIA`, y añadido modo interactivo `Retornos`.
+
+#### 💡 Decisiones técnicas
+- **Autonomía total en AutoCAD:** Toda la lógica de cálculo y dibujo unifilar opera directamente sobre la base de datos de AutoCAD sin dependencias de red o de AEA-MOTOR, convirtiendo a AutoCAD en la fuente fidedigna de diseño eléctrico.
+- **Parametrización dinámica nativa:** El diagrama unifilar aprovecha al 100% los bloques dinámicos y atributos preexistentes en `blocks/UNIFILARES/`, permitiendo que el usuario pueda seguir editando visualmente cualquier aspecto con los grips de AutoCAD tras la generación.
+- **Reserva reglamentaria garantizada:** Si el plano carece de un circuito de reserva, el sistema lo incorpora automáticamente según el artículo 771.8 para cumplir la reglamentación.
+
+#### 📌 Próximos pasos pendientes
+- Posibilidad de exportar la planilla de cargas y el unifilar a formato PDF/Excel normalizado.
+- Soporte para esquemas con múltiples interruptores diferenciales seccionales para tableros con más de 8 circuitos.
+
+---
+
 ### [2026-10-24] — Rediseño Gestor de Ambientes (UI Dark), Mapeo de Artefactos Eléctricos y Autonomía de ADE_PANEL
 **Tipo:** `Feature` / `Fix`  
 **Autor / Asistente:** Antigravity / Usuario

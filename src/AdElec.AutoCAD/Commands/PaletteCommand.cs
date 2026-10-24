@@ -75,6 +75,16 @@ namespace AdElec.AutoCAD.Commands
                         Application.DocumentManager.MdiActiveDocument
                             ?.SendStringToExecute("ADE_PANEL\n", false, false, true);
 
+                    // Generador de Diagrama Unifilar
+                    Action<string> onGenerarUnifilar = (tablero) =>
+                        Application.DocumentManager.MdiActiveDocument
+                            ?.SendStringToExecute("ADE_UNIFILAR\n", false, false, true);
+
+                    // Asistente de Efectos e Interruptores
+                    Action onEfectos = () =>
+                        Application.DocumentManager.MdiActiveDocument
+                            ?.SendStringToExecute("ADE_EFECTO\n", false, false, true);
+
                     var electricoRepo = new DwgElectricoRepository();
                     Func<string, List<AdElec.Core.AeaMotor.Dtos.SyncRoom>> onGetRoomsConPuntos =
                         (tableroName) => electricoRepo.GetRoomsConPuntos(tableroName);
@@ -85,7 +95,8 @@ namespace AdElec.AutoCAD.Commands
                         onLuminarias, onTomas,
                         onInsertarTablero, ambienteRepo,
                         onRecargarCircuitos, onGetRoomsConPuntos,
-                        onPullFromWeb, onRecargarDocumento);
+                        onPullFromWeb, onRecargarDocumento,
+                        onGenerarUnifilar, onEfectos);
 
                     _view = new MainPaletteView(_vm);
 

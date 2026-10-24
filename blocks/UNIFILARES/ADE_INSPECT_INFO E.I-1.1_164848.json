@@ -1,0 +1,60 @@
+{
+  "BlockName": "INFO E.I-1.1",
+  "Layer": "I.E._T.U.G - C (AD)",
+  "Attributes": [
+    {
+      "Tag": "KVA",
+      "Value": "4.90"
+    },
+    {
+      "Tag": "%",
+      "Value": "70"
+    },
+    {
+      "Tag": "KW1",
+      "Value": "4.17"
+    },
+    {
+      "Tag": "KW2",
+      "Value": "2.92"
+    },
+    {
+      "Tag": "UF",
+      "Value": "10"
+    },
+    {
+      "Tag": "KW2.1",
+      "Value": "2.92"
+    },
+    {
+      "Tag": "KW3",
+      "Value": "29.20"
+    }
+  ],
+  "DynamicProperties": [
+    {
+      "PropertyName": "Distancia1",
+      "Value": "8.639711966251669",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": false
+    },
+    {
+      "PropertyName": "Origin",
+      "Value": "(0,0,0)",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": true
+    },
+    {
+      "PropertyName": "Visibilidad1",
+      "Value": "Con total",
+      "AllowedValues": [
+        "Sin Total",
+        "Con total"
+      ],
+      "Description": "",
+      "ReadOnly": false
+    }
+  ]
+}

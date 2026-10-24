@@ -1,0 +1,29 @@
+{
+  "BlockName": "I.E-U-2A",
+  "Layer": "I.E._UNIFILARES",
+  "Attributes": [
+    {
+      "Tag": "In:",
+      "Value": "16A"
+    },
+    {
+      "Tag": "CURVA",
+      "Value": ""
+    }
+  ],
+  "DynamicProperties": [
+    {
+      "PropertyName": "Visibilidad1",
+      "Value": "Bipolar",
+      "AllowedValues": [
+        "Unipolar",
+        "Bipolar",
+        "Tripolar",
+        "Tetrapolar",
+        "todo-edit"
+      ],
+      "Description": "",
+      "ReadOnly": false
+    }
+  ]
+}

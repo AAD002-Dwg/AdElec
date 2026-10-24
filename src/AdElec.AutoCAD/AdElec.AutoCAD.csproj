@@ -31,9 +31,9 @@
       <DeployDir>$(MSBuildThisFileDirectory)..\..\deploy\</DeployDir>
     </PropertyGroup>
     <MakeDir Directories="$(DeployDir)" />
-    <Copy SourceFiles="$(OutputPath)AdElec.AutoCAD.dll" DestinationFolder="$(DeployDir)" OverwriteReadOnlyFiles="true" />
-    <Copy SourceFiles="$(OutputPath)AdElec.Core.dll"    DestinationFolder="$(DeployDir)" OverwriteReadOnlyFiles="true" />
-    <Copy SourceFiles="$(OutputPath)AdElec.UI.dll"      DestinationFolder="$(DeployDir)" OverwriteReadOnlyFiles="true" />
+    <Copy SourceFiles="$(OutputPath)AdElec.AutoCAD.dll" DestinationFolder="$(DeployDir)" OverwriteReadOnlyFiles="true" ContinueOnError="WarnAndContinue" Retries="1" RetryDelayMilliseconds="100" />
+    <Copy SourceFiles="$(OutputPath)AdElec.Core.dll"    DestinationFolder="$(DeployDir)" OverwriteReadOnlyFiles="true" ContinueOnError="WarnAndContinue" Retries="1" RetryDelayMilliseconds="100" />
+    <Copy SourceFiles="$(OutputPath)AdElec.UI.dll"      DestinationFolder="$(DeployDir)" OverwriteReadOnlyFiles="true" ContinueOnError="WarnAndContinue" Retries="1" RetryDelayMilliseconds="100" />
     <Message Text="✓ AD-ELEC desplegado en $(DeployDir)" Importance="high" />
   </Target>
 

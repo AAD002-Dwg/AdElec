@@ -1,0 +1,47 @@
+{
+  "BlockName": "UNIFV.3",
+  "Layer": "I.E._UNIFILARES",
+  "Attributes": [
+    {
+      "Tag": "POT",
+      "Value": "0.50"
+    },
+    {
+      "Tag": "I.U.G",
+      "Value": "I.U.G - C1"
+    },
+    {
+      "Tag": "REC",
+      "Value": "6"
+    },
+    {
+      "Tag": "LOCAL01",
+      "Value": "MONOAMBIENTE BA\u00D1O"
+    },
+    {
+      "Tag": "ILUMINACI\u00D3N",
+      "Value": "ILUMINACION "
+    },
+    {
+      "Tag": "TERMOMAGN\u00C9TICA",
+      "Value": "2x10"
+    },
+    {
+      "Tag": "RAMAL",
+      "Value": "2x1,5"
+    },
+    {
+      "Tag": "FASE",
+      "Value": "SN"
+    }
+  ],
+  "DynamicProperties": [
+    {
+      "PropertyName": "POT1",
+      "Value": "1",
+      "AllowedValues": [],
+      "Description": "",
+      "ReadOnly": false
+    }
+  ]
+}

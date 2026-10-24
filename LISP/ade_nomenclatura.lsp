@@ -31,12 +31,26 @@
 (if (not *ADE:NOM:CX*)       (setq *ADE:NOM:CX*       "C1"))
 (if (not *ADE:NOM:CABLES-L*) (setq *ADE:NOM:CABLES-L* "2x1,5+T"))
 (if (not *ADE:NOM:CABLES-T*) (setq *ADE:NOM:CABLES-T* "3x2,5+T"))
+(if (not *ADE:NOM:CABLES-R*) (setq *ADE:NOM:CABLES-R* "F+R+T"))
 (if (not *ADE:NOM:CANERIA*)  (setq *ADE:NOM:CANERIA*  "RS"))
 
-;; Ruta del DWG del bloque de nomenclatura
-(setq *ADE:NOM:BLK-DWG*
-  "g:/AD-ELEC/Bloques_CAD/I.E-AD-Nomenclatura_Cables.dwg")
 (setq *ADE:NOM:BLK-NAME* "I.E-AD-Nomenclatura_Cables")
+
+;; Busqueda dinamica del DWG del bloque
+(defun ade:nom:get-block-dwg ( / candidates p)
+  (setq candidates
+    (list
+      (strcat (getvar "DWGPREFIX") "blocks/" *ADE:NOM:BLK-NAME* ".dwg")
+      (strcat (getvar "DWGPREFIX") *ADE:NOM:BLK-NAME* ".dwg")
+      (strcat "g:/PROYECTOS AD/AD-ELEC/blocks/" *ADE:NOM:BLK-NAME* ".dwg")
+      (strcat "g:/AD-ELEC/Bloques_CAD/" *ADE:NOM:BLK-NAME* ".dwg")
+    )
+  )
+  (setq p (vl-some '(lambda (c) (if (findfile c) (findfile c))) candidates))
+  (if p p (strcat "g:/PROYECTOS AD/AD-ELEC/blocks/" *ADE:NOM:BLK-NAME* ".dwg"))
+)
+
+(setq *ADE:NOM:BLK-DWG* (ade:nom:get-block-dwg))
 
 ;; -- Cache ActiveDocument -------------------------------------
 (defun ade:nom:acdoc ()
@@ -147,11 +161,13 @@
 
 ;; -- Insertar bloque en pt con angulo ang --------------------
 (defun ade:nom:place (pt ang cables caneria)
+  (setq *ADE:NOM:BLK-DWG* (ade:nom:get-block-dwg))
   (ade:insert-block
     *ADE:NOM:BLK-NAME*
     (list (car pt) (cadr pt) 0.0)
     (ade:nom:normalize-angle ang)
     (list (cons "CABLES"   cables)
+          (cons "CAÑERIA"  caneria)
           (cons "CA ERIA"  caneria)))
 )
 
@@ -312,13 +328,13 @@
   (princ "\n-- ADE_NOMENCLATURA v2.0 --------------------------")
 
   ;; -- 1. Modo ------------------------------------------------
-  (initget "Luminarias Tomas Manual")
+  (initget "Luminarias Tomas Retornos Manual")
   (setq modo (getkword
-    (strcat "\nModo [Luminarias/Tomas/Manual] <" *ADE:NOM:MODO* ">: ")))
+    (strcat "\nModo [Luminarias/Tomas/Retornos/Manual] <" *ADE:NOM:MODO* ">: ")))
   (if (null modo) (setq modo *ADE:NOM:MODO*) (setq *ADE:NOM:MODO* modo))
 
-  ;; -- 2. Circuito CX (no se pide en Manual) ------------------
-  (if (not (= modo "Manual"))
+  ;; -- 2. Circuito CX (no se pide en Manual ni Retornos) ------
+  (if (and (not (= modo "Manual")) (not (= modo "Retornos")))
     (progn
       (setq cx (getstring
         (strcat "\nCircuito [" *ADE:NOM:CX* "]: ")))
@@ -331,15 +347,20 @@
   ;; -- 3. Cables (default segun modo) -------------------------
   (setq cables
     (cond
-      ((= modo "Tomas")   *ADE:NOM:CABLES-T*)
-      (t                  *ADE:NOM:CABLES-L*)))
+      ((= modo "Tomas")    *ADE:NOM:CABLES-T*)
+      ((= modo "Retornos") *ADE:NOM:CABLES-R*)
+      (t                   *ADE:NOM:CABLES-L*)))
 
   (setq cables (getstring (strcat "\nCables [" cables "]: ")))
   (cond
     ((= cables "")
-     (setq cables (if (= modo "Tomas") *ADE:NOM:CABLES-T* *ADE:NOM:CABLES-L*)))
-    ((= modo "Tomas") (setq *ADE:NOM:CABLES-T* cables))
-    (t                (setq *ADE:NOM:CABLES-L* cables))
+     (setq cables (cond
+                    ((= modo "Tomas")    *ADE:NOM:CABLES-T*)
+                    ((= modo "Retornos") *ADE:NOM:CABLES-R*)
+                    (t                   *ADE:NOM:CABLES-L*))))
+    ((= modo "Tomas")    (setq *ADE:NOM:CABLES-T* cables))
+    ((= modo "Retornos") (setq *ADE:NOM:CABLES-R* cables))
+    (t                   (setq *ADE:NOM:CABLES-L* cables))
   )
 
   ;; -- 4. Caneria ---------------------------------------------
@@ -371,6 +392,10 @@
      (princ (strcat "\n  Capa: '" capa
                     "' | Cables: " cables " | Caneria: " caneria))
      (ade:nom:auto capa cables caneria))
+
+    ((= modo "Retornos")
+     (princ (strcat "\n  Seleccione cañeria hacia llave/interruptor (Cables: " cables " | Cañeria: " caneria ")"))
+     (ade:nom:manual cables caneria))
 
     ((= modo "Manual")
      (princ (strcat "\n  Cables: " cables " | Caneria: " caneria))

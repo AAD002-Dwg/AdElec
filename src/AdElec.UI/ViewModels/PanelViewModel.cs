@@ -23,6 +23,8 @@ public sealed class PanelViewModel : INotifyPropertyChanged
     private readonly Func<string, List<SyncRoom>>? _onGetRoomsConPuntos;
     private readonly Action? _onPullFromWeb;
     private readonly Action? _onRecargarDocumento;
+    private readonly Action<string>? _onGenerarUnifilar;
+    private readonly Action? _onEfectos;
 
     // ── Estado ──────────────────────────────────────────────────────────────
 
@@ -155,6 +157,8 @@ public sealed class PanelViewModel : INotifyPropertyChanged
     public ICommand SincronizarCommand { get; }
     public ICommand PullFromWebCommand { get; }
     public ICommand RecargarDocumentoCommand { get; }
+    public ICommand GenerarUnifilarCommand { get; }
+    public ICommand EfectosCommand { get; }
 
     // ── Constructor ─────────────────────────────────────────────────────────
 
@@ -169,7 +173,9 @@ public sealed class PanelViewModel : INotifyPropertyChanged
         Action<string>? onRecargarCircuitos = null,
         Func<string, List<SyncRoom>>? onGetRoomsConPuntos = null,
         Action? onPullFromWeb = null,
-        Action? onRecargarDocumento = null)
+        Action? onRecargarDocumento = null,
+        Action<string>? onGenerarUnifilar = null,
+        Action? onEfectos = null)
     {
         _repo = repo;
         _motorClient = motorClient;
@@ -182,6 +188,8 @@ public sealed class PanelViewModel : INotifyPropertyChanged
         _projectRepo = projectRepo;
         _onPullFromWeb = onPullFromWeb;
         _onRecargarDocumento = onRecargarDocumento;
+        _onGenerarUnifilar = onGenerarUnifilar;
+        _onEfectos = onEfectos;
 
         NuevoTableroCommand = new RelayCommand(() => ShowNewPanelForm = true, () => !ShowNewPanelForm);
         ConfirmarNuevoTableroCommand = new RelayCommand(ConfirmarNuevoTablero, () => !string.IsNullOrWhiteSpace(NewPanelName));
@@ -194,6 +202,8 @@ public sealed class PanelViewModel : INotifyPropertyChanged
         SincronizarCommand = new RelayCommand(async () => await SincronizarAsync(), () => EstaVinculado && IsMotorAvailable && !IsBusy);
         PullFromWebCommand = new RelayCommand(() => _onPullFromWeb?.Invoke(), () => EstaVinculado && IsMotorAvailable && !IsBusy);
         RecargarDocumentoCommand = new RelayCommand(() => _onRecargarDocumento?.Invoke(), () => !IsBusy);
+        GenerarUnifilarCommand = new RelayCommand(() => _onGenerarUnifilar?.Invoke(SelectedPanel?.Name ?? ""), () => HasPanel);
+        EfectosCommand = new RelayCommand(() => _onEfectos?.Invoke());
 
         _projectId = _projectRepo.GetProjectId();
         _projectName = _projectRepo.GetProjectName();
@@ -707,6 +717,8 @@ public sealed class PanelViewModel : INotifyPropertyChanged
         ((RelayCommand)SincronizarCommand).RaiseCanExecuteChanged();
         ((RelayCommand)PullFromWebCommand).RaiseCanExecuteChanged();
         ((RelayCommand)RecargarDocumentoCommand).RaiseCanExecuteChanged();
+        ((RelayCommand)GenerarUnifilarCommand).RaiseCanExecuteChanged();
+        ((RelayCommand)EfectosCommand).RaiseCanExecuteChanged();
     }
 
     // ── INotifyPropertyChanged ───────────────────────────────────────────────
