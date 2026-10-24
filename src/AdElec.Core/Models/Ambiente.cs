@@ -35,4 +35,9 @@ public class Ambiente
     /// Usado para generar IDs estables de room: "room_{Handle}".
     /// </summary>
     public string Handle { get; set; } = "";
+
+    /// <summary>
+    /// Handle de la polilínea asociada en AutoCAD (hex string, desde XData ADE_SYNC_LINK).
+    /// </summary>
+    public string PolylineHandle { get; set; } = "";
 }

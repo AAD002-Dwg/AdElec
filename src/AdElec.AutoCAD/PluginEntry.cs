@@ -25,12 +25,12 @@ namespace AdElec.AutoCAD
 
         private static void CargarLispFiles()
         {
-            // La carpeta LISP está junto al DLL del plugin
+            // La carpeta lisp/ contiene las rutinas AutoLISP del plugin
             string dllDir  = Path.GetDirectoryName(
                 typeof(PluginEntry).Assembly.Location) ?? "";
 
-            // En desarrollo, subir hasta la raíz del repo para encontrar LISP/
-            string lispDir = BuscarDirectorio(dllDir, "LISP");
+            // En desarrollo, subir hasta la raíz del repo para encontrar lisp/
+            string lispDir = BuscarDirectorio(dllDir, "lisp");
 
             if (string.IsNullOrEmpty(lispDir))
             {
@@ -41,8 +41,14 @@ namespace AdElec.AutoCAD
                 return;
             }
 
-            string[] archivos = { "ade_utils.lsp", "ade_luminarias.lsp",
-                                   "ade_tomas.lsp", "ade_canerias.lsp" };
+            string[] archivos = {
+                Path.Combine("vendor", "GrSnapV1-0.lsp"),
+                "ade_utils.lsp",
+                "ade_luminarias.lsp",
+                "ade_tomas.lsp",
+                "ade_canerias.lsp",
+                "ade_nomenclatura.lsp"
+            };
 
             foreach (var archivo in archivos)
             {

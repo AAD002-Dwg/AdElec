@@ -1,56 +1,67 @@
 ;; ============================================================
-;;  ade_tomas.lsp  —  ADE_TOMAS  v2.3
+;;  ade_tomas.lsp  -  ADE_TOMAS  v2.3
 ;;  Insercion interactiva de tomacorrientes (Joystick Mode).
 ;;
 ;;  v2.3:
-;;    - Snap con GrSnapV1-0.lsp (Lee Mac) — endpoint, midpoint,
+;;    - Snap con GrSnapV1-0.lsp (Lee Mac) - endpoint, midpoint,
 ;;      nearest, intersection, perpendicular, center.
 ;;      Siempre incluye nearest(512) en el bitmask de snap.
 ;;    - Rotacion: perpendicular hacia afuera (centroide) +
-;;      atributos (CX, D) fijados a 0° para que el texto
+;;      atributos (CX, D) fijados a 0 deg para que el texto
 ;;      siempre sea legible sin importar la orientacion del bloque.
-;;    - Teclas A/D para rotar ±90°, +/- offset, </> rotar 45°,
+;;    - Teclas A/D para rotar  90 deg, +/- offset, </> rotar 45 deg,
 ;;      O/R valores exactos, S toggle snap.
 ;; ============================================================
 
 (vl-load-com)
 
-;; ── Cargar GrSnapV1-0.lsp si no esta cargado ────────────────
+;; -- Cargar GrSnapV1-0.lsp si no esta cargado ----------------
 (if (null LM:grsnap:snapfunction)
   (progn
-    (vl-catch-all-apply 'load
-      (list
-        (cond
-          ((findfile "GrSnapV1-0.lsp"))
-          ((findfile "LISP BASE/GrSnapV1-0.lsp"))
-          ((findfile "../LISP BASE/GrSnapV1-0.lsp"))
-          ((findfile "G:/AD-ELEC/LISP BASE/GrSnapV1-0.lsp"))
-          (t "")
-        )
+    (setq *ade-grsnap-path*
+      (cond
+        ((findfile "vendor/GrSnapV1-0.lsp"))
+        ((findfile "lisp/vendor/GrSnapV1-0.lsp"))
+        ((findfile "GrSnapV1-0.lsp"))
+        ((and (findfile "ade_tomas.lsp")
+              (findfile (strcat (vl-filename-directory (findfile "ade_tomas.lsp")) "/vendor/GrSnapV1-0.lsp"))))
+        ((findfile "G:/PROYECTOS AD/AD-ELEC/lisp/vendor/GrSnapV1-0.lsp"))
+        (t nil)
       )
+    )
+    (if *ade-grsnap-path*
+      (vl-catch-all-apply 'load (list *ade-grsnap-path*))
     )
   )
 )
 
-;; ── VARIABLES GLOBALES DE PERSISTENCIA ───────────────────────
+;; -- VARIABLES GLOBALES DE PERSISTENCIA -----------------------
 (if (not *ADE:TOMAS:CX*)         (setq *ADE:TOMAS:CX* "C1"))
 (if (not *ADE:TOMAS:TABLERO*)    (setq *ADE:TOMAS:TABLERO* "TD1"))
+(if (not *ADE:TOMAS:POT*)        (setq *ADE:TOMAS:POT* "200"))  ;; VA por boca (defecto TUG 200VA)
 (if (not *ADE:TOMAS:MODO*)       (setq *ADE:TOMAS:MODO* "Manual"))
 (if (not *ADE:TOMAS:OFFSET*)     (setq *ADE:TOMAS:OFFSET* 0.0))
 (if (not *ADE:TOMAS:ROT*)        (setq *ADE:TOMAS:ROT* 0.0))
+;; Offset angular para corregir la orientacion interna del bloque I.E-AD-09.
+;; La perpendicular calculada apunta al interior del recinto.
+;; Este offset compensa la orientacion 0 deg del bloque respecto a ese eje. (default 90 deg)
+(if (not *ADE:TOMAS:ANG-OFFSET*) (setq *ADE:TOMAS:ANG-OFFSET* (/ pi 2.0)))
+
+;; Radio de busqueda de pared mas cercana (metros). Tecla [R] en loop para ajustar.
+(if (not *ADE:TOMAS:SNAP-RADIUS*) (setq *ADE:TOMAS:SNAP-RADIUS* 2.0))
 
 ;; Bitmask de snap: endpoint(1) + midpoint(2) + center(4) +
 ;; intersection(32) + perpendicular(128) + nearest(512) = 679
 (setq *ADE:TOMAS:SNAPMODES* 679)
 
-;; ── Utilidades ───────────────────────────────────────────────
+;; -- Utilidades -----------------------------------------------
 (defun ade:tomas:endundo (doc)
   (while (= 8 (logand 8 (getvar "UNDOCTL")))
     (vla-endundomark doc)
   )
 )
 
-;; Centroide de una polilínea
+;; Centroide de una polilinea
 (defun ade:tomas:centroid (ent / verts n sx sy)
   (setq verts (ade:poly-vertices ent)
         n     (length verts)
@@ -63,7 +74,7 @@
   (list (/ sx n) (/ sy n))
 )
 
-;; Fijar rotacion de atributos a 0° para que el texto sea
+;; Fijar rotacion de atributos a 0 deg para que el texto sea
 ;; siempre legible sin importar el angulo del bloque.
 (defun ade:tomas:fix-attr-rotation (br / atts)
   (setq atts (vlax-invoke br 'GetAttributes))
@@ -72,10 +83,10 @@
   )
 )
 
-;; ═════════════════════════════════════════════════════════════
+;; =============================================================
 ;;  COMANDO PRINCIPAL
-;; ═════════════════════════════════════════════════════════════
-(defun c:ADE_TOMAS ( / cx tablero modo blk-segs old-err old-dyn acad-doc)
+;; =============================================================
+(defun c:ADE_TOMAS ( / cx tablero pot modo interior-pt ang-off-str blk-segs old-err old-dyn acad-doc)
   (vl-load-com)
   (setq acad-doc (vla-get-ActiveDocument (vlax-get-acad-object)))
 
@@ -95,9 +106,9 @@
 
   (vla-startundomark acad-doc)
 
-  (princ "\n── ADE_TOMAS v2.3 ──────────────────────────────────")
+  (princ "\n-- ADE_TOMAS v2.3 ----------------------------------")
 
-  ;; ── Inputs comunes ────────────────────────────────────────
+  ;; -- Inputs comunes ----------------------------------------
   (initget "Perimetro Manual Desde")
   (setq modo (getkword (strcat "\nModo [Perimetro/Manual/Desde] <" *ADE:TOMAS:MODO* ">: ")))
   (if (null modo) (setq modo *ADE:TOMAS:MODO*) (setq *ADE:TOMAS:MODO* modo))
@@ -107,6 +118,26 @@
 
   (setq tablero (getstring (strcat "\nTablero (D) [" *ADE:TOMAS:TABLERO* "]: ")))
   (if (= tablero "") (setq tablero *ADE:TOMAS:TABLERO*) (setq *ADE:TOMAS:TABLERO* (strcase tablero)))
+
+  (setq pot *ADE:TOMAS:POT*)  ;; usa valor persistido - tecla [P] en loop para cambiarlo
+
+  ;; Offset angular del bloque (corrige orientacion interna del bloque)
+  (setq ang-off-str (getstring (strcat "\nOffset angular bloque  deg  [" (rtos (* *ADE:TOMAS:ANG-OFFSET* (/ 180.0 pi)) 2 0) "]: ")))
+  (if (/= ang-off-str "")
+    (setq *ADE:TOMAS:ANG-OFFSET* (* (atof ang-off-str) (/ pi 180.0)))
+  )
+  ;; interior-pt: solo necesario para Perimetro (Manual usa cursor, Desde usa cursor tambien)
+  (setq interior-pt nil)
+  (if (= modo "Perimetro")
+    (progn
+      (princ "\nPunto interior de referencia [Enter = centroide automatico]: ")
+      (setq interior-pt (getpoint))
+      (if interior-pt
+        (setq interior-pt (list (car interior-pt) (cadr interior-pt)))
+        (princ " (usando centroide)")
+      )
+    )
+  )
 
   (if (not (ade:block-exists "I.E-AD-09"))
     (progn
@@ -120,9 +151,9 @@
   (setvar "DYNMODE" 0)
 
   (cond
-    ((= modo "Perimetro") (ade:tomas-perimetro cx tablero blk-segs))
-    ((= modo "Manual")    (ade:tomas-manual    cx tablero blk-segs))
-    ((= modo "Desde")     (ade:tomas-desde     cx tablero blk-segs))
+    ((= modo "Perimetro") (ade:tomas-perimetro cx tablero pot interior-pt blk-segs))
+    ((= modo "Manual")    (ade:tomas-manual    cx tablero pot interior-pt blk-segs))
+    ((= modo "Desde")     (ade:tomas-desde     cx tablero pot interior-pt blk-segs))
   )
 
   (ade:tomas:endundo acad-doc)
@@ -131,9 +162,9 @@
   (princ)
 )
 
-;; ═════════════════════════════════════════════════════════════
+;; =============================================================
 ;;  GEOMETRIA PARA EL JIG (preview con grdraw)
-;; ═════════════════════════════════════════════════════════════
+;; =============================================================
 
 (defun ade:tomas:pt3 (p)
   (list (car p) (cadr p) (if (caddr p) (caddr p) 0.0))
@@ -225,59 +256,64 @@
   )
 )
 
-;; ═════════════════════════════════════════════════════════════
+;; =============================================================
 ;;  CALCULO DE ANGULO PERPENDICULAR
-;; ═════════════════════════════════════════════════════════════
+;; =============================================================
 
 ;; Angulo perpendicular al segmento mas cercano, apuntando
-;; SIEMPRE HACIA AFUERA usando el centroide como referencia.
-(defun ade:ang-perpendicular-to-wall (ent pt /
-                                       verts n i centro
+;; HACIA el punto interior de referencia (interior-pt).
+;; Aplica *ADE:TOMAS:ANG-OFFSET* para corregir la orientacion
+;; interna del bloque I.E-AD-09.
+;;
+;; interior-pt: punto 2D '(x y) dentro del recinto.
+;;   Si nil, usa el centroide de la entidad como fallback.
+(defun ade:ang-perpendicular-to-wall (ent pt interior-pt /
+                                       verts n i ref-pt
                                        p1 p2 best-dist best-ang
                                        dx dy seg-len t-val
-                                       cx cy dist-sq seg-ang
+                                       foot-x foot-y dist-sq seg-ang
                                        perp1 perp2
                                        tp1 tp2 d1 d2)
-  (setq verts  (ade:poly-vertices ent)
-        n      (length verts)
-        i      0
+  (setq verts    (ade:poly-vertices ent)
+        n        (length verts)
+        i        0
         best-dist 1e38
         best-ang  0.0
-        centro (ade:tomas:centroid ent))
+        ref-pt   (if interior-pt interior-pt (ade:tomas:centroid ent)))
 
   (repeat n
-    (setq p1 (nth i verts)
-          p2 (nth (rem (1+ i) n) verts)
-          dx (- (car p2) (car p1))
-          dy (- (cadr p2) (cadr p1))
+    (setq p1      (nth i verts)
+          p2      (nth (rem (1+ i) n) verts)
+          dx      (- (car p2) (car p1))
+          dy      (- (cadr p2) (cadr p1))
           seg-len (sqrt (+ (* dx dx) (* dy dy))))
 
     (if (> seg-len 1e-6)
       (progn
-        (setq t-val (/ (+ (* (- (car pt) (car p1)) dx)
-                          (* (- (cadr pt) (cadr p1)) dy))
-                       (* seg-len seg-len)))
-        (setq t-val (max 0.0 (min 1.0 t-val)))
-        (setq cx (+ (car p1) (* t-val dx))
-              cy (+ (cadr p1) (* t-val dy)))
-        (setq dist-sq (+ (* (- (car pt) cx) (- (car pt) cx))
-                         (* (- (cadr pt) cy) (- (cadr pt) cy))))
+        (setq t-val   (/ (+ (* (- (car pt) (car p1)) dx)
+                             (* (- (cadr pt) (cadr p1)) dy))
+                          (* seg-len seg-len))
+              t-val   (max 0.0 (min 1.0 t-val))
+              foot-x  (+ (car p1) (* t-val dx))
+              foot-y  (+ (cadr p1) (* t-val dy))
+              dist-sq (+ (* (- (car pt) foot-x) (- (car pt) foot-x))
+                         (* (- (cadr pt) foot-y) (- (cadr pt) foot-y))))
 
         (if (< dist-sq best-dist)
           (progn
             (setq best-dist dist-sq
-                  seg-ang   (atan dy dx)
-                  perp1     (+ seg-ang (/ pi 2.0))
-                  perp2     (- seg-ang (/ pi 2.0)))
-            ;; Evaluar cual apunta LEJOS del centro
-            (setq tp1 (list (+ cx (cos perp1)) (+ cy (sin perp1)))
-                  tp2 (list (+ cx (cos perp2)) (+ cy (sin perp2)))
-                  d1  (distance tp1 centro)
-                  d2  (distance tp2 centro))
-            (if (> d1 d2)
-              (setq best-ang perp1)
-              (setq best-ang perp2)
-            )
+                  seg-ang  (atan dy dx)
+                  perp1    (+ seg-ang (/ pi 2.0))
+                  perp2    (- seg-ang (/ pi 2.0)))
+            ;; Elegir la perpendicular que apunte HACIA ref-pt (interior)
+            (setq tp1 (list (+ foot-x (cos perp1)) (+ foot-y (sin perp1)))
+                  tp2 (list (+ foot-x (cos perp2)) (+ foot-y (sin perp2)))
+                  d1  (distance tp1 ref-pt)
+                  d2  (distance tp2 ref-pt))
+            ;; Menor distancia = apunta hacia el interior
+            (setq best-ang
+              (+ (if (< d1 d2) perp1 perp2)
+                 *ADE:TOMAS:ANG-OFFSET*))
           )
         )
       )
@@ -287,11 +323,12 @@
   best-ang
 )
 
-;; ── Buscar polilínea mas cercana ─────────────────────────────
-(defun ade:tomas:find-nearest-wall (pt / ss i ent-dist-list ent d p-near)
+;; -- Buscar polilinea mas cercana -----------------------------
+(defun ade:tomas:find-nearest-wall (pt / ss i ent-dist-list ent d p-near r)
+  (setq r (if *ADE:TOMAS:SNAP-RADIUS* *ADE:TOMAS:SNAP-RADIUS* 2.0))
   (setq ss (ssget "_C"
-             (list (- (car pt) 2.0) (- (cadr pt) 2.0))
-             (list (+ (car pt) 2.0) (+ (cadr pt) 2.0))
+             (list (- (car pt) r) (- (cadr pt) r))
+             (list (+ (car pt) r) (+ (cadr pt) r))
              '((0 . "LWPOLYLINE"))))
   (if ss
     (progn
@@ -311,24 +348,27 @@
   )
 )
 
-;; ── Insertar toma sobre pared ────────────────────────────────
+;; -- Insertar toma sobre pared --------------------------------
 ;; Retorna (br . ang) para poder ajustar despues.
-(defun ade:insert-toma-on-wall (ent pt cx tablero /
+;; interior-pt: punto 2D de referencia interior (puede ser nil).
+(defun ade:insert-toma-on-wall (ent pt cx tablero pot interior-pt /
                                   ang rot1-deg br pt-off)
-  (setq ang      (ade:ang-perpendicular-to-wall ent pt)
-        rot1-deg (strcat (rtos (* (- ang) (/ 180.0 pi)) 2 2) "°"))
+  (setq pt       (vlax-curve-getClosestPointTo ent pt))
+  (setq ang      (ade:ang-perpendicular-to-wall ent pt interior-pt)
+        rot1-deg (strcat (rtos (* ang (/ 180.0 pi)) 2 2) " deg"))
   (setq pt-off (polar pt ang *ADE:TOMAS:OFFSET*))
   (setq br (ade:insert-block "I.E-AD-09"
               (list (car pt-off) (cadr pt-off) 0.0)
               ang
               (list (cons "CX" cx)
                     (cons "D"  tablero)
+                    (cons "POT" pot)
                     (cons "ROT1" rot1-deg))))
   (ade:tomas:fix-attr-rotation br)
   (cons br ang)
 )
 
-;; ── Rotar bloque ya insertado sumando delta al angulo actual ─
+;; -- Rotar bloque ya insertado sumando delta al angulo actual -
 (defun ade:tomas:rotate-block (br delta / cur-rot new-rot)
   (setq cur-rot (vla-get-Rotation br)
         new-rot (+ cur-rot delta))
@@ -337,10 +377,10 @@
   new-rot
 )
 
-;; ── Sub-loop post-insercion: A/D para rotar ±90° ────────────
+;; -- Sub-loop post-insercion: A/D para rotar  90 deg ------------
 ;; Retorna T si el usuario quiere seguir, NIL si quiere salir.
 (defun ade:tomas:post-adjust (br / gr2 type2 val2 adjusting)
-  (princ "\n    [A]:-90° [D]:+90° | Clic/Enter: confirmar")
+  (princ "\n    [A]:-90 deg [D]:+90 deg | Clic/Enter: confirmar")
   (setq adjusting t)
   (while adjusting
     (setq gr2   (grread t 15 0)
@@ -350,15 +390,15 @@
       ;; Tecla
       ((= type2 2)
        (cond
-         ;; A / a  rotar -90°
+         ;; A / a  rotar -90 deg
          ((member val2 '(65 97))
           (ade:tomas:rotate-block br (- (/ pi 2.0)))
-          (princ "\r    -90°  ")
+          (princ "\r    -90 deg  ")
          )
-         ;; D / d  rotar +90°
+         ;; D / d  rotar +90 deg
          ((member val2 '(68 100))
           (ade:tomas:rotate-block br (/ pi 2.0))
-          (princ "\r    +90°  ")
+          (princ "\r    +90 deg  ")
          )
          ;; Enter/Espacio: confirmar y seguir
          ((member val2 '(13 32))
@@ -378,15 +418,15 @@
   )
 )
 
-;; ═════════════════════════════════════════════════════════════
+;; =============================================================
 ;;  MODO PERIMETRO
-;; ═════════════════════════════════════════════════════════════
-(defun ade:tomas-perimetro (cx tablero blk-segs / ent vla-ent dist-str dist
+;; =============================================================
+(defun ade:tomas-perimetro (cx tablero pot interior-pt blk-segs / ent vla-ent dist-str dist
                              total-len n-tomas i dist-actual
                              pt tang ang rot1-deg count br
-                             centro pt-list tang-ang
-                             perp-ang test-pt d-centro)
-  (setq ent (car (entsel "\nSelecciona la polilínea de pared: ")))
+                             ref-pt pt-list tang-ang
+                             perp-ang test-pt d-ref)
+  (setq ent (car (entsel "\nSelecciona la polilinea de pared: ")))
   (if (null ent) (exit))
 
   (setq dist-str (getstring "\nDistancia entre tomas [3.0]: "))
@@ -399,7 +439,7 @@
   (setq vla-ent  (vlax-ename->vla-object ent)
         total-len (vla-get-Length vla-ent)
         n-tomas   (fix (/ total-len dist))
-        centro    (ade:tomas:centroid ent)
+        ref-pt    (if interior-pt interior-pt (ade:tomas:centroid ent))
         i         0
         count     0)
 
@@ -423,23 +463,23 @@
     (setq pt-list (list (vlax-safearray-get-element pt 0)
                         (vlax-safearray-get-element pt 1)))
 
-    ;; Perpendicular que apunte AFUERA del centro
+    ;; Perpendicular que apunte HACIA ref-pt (interior)
     (setq perp-ang (+ tang-ang (/ pi 2.0))
           test-pt  (list (+ (car pt-list) (cos perp-ang))
                          (+ (cadr pt-list) (sin perp-ang)))
-          d-centro (distance test-pt centro))
+          d-ref    (distance test-pt ref-pt))
 
-    (if (< d-centro (distance pt-list centro))
-      (setq ang (- tang-ang (/ pi 2.0)))
-      (setq ang perp-ang)
+    (if (< d-ref (distance pt-list ref-pt))
+      (setq ang (+ perp-ang *ADE:TOMAS:ANG-OFFSET*))
+      (setq ang (+ (- tang-ang (/ pi 2.0)) *ADE:TOMAS:ANG-OFFSET*))
     )
 
-    (setq rot1-deg (strcat (rtos (* (- ang) (/ 180.0 pi)) 2 2) "°"))
+    (setq rot1-deg (strcat (rtos (* ang (/ 180.0 pi)) 2 2) " deg"))
 
     (setq br (ade:insert-block "I.E-AD-09"
                (list (car pt-list) (cadr pt-list) 0.0)
                ang
-               (list (cons "CX" cx) (cons "D" tablero) (cons "ROT1" rot1-deg))))
+               (list (cons "CX" cx) (cons "D" tablero) (cons "POT" pot) (cons "ROT1" rot1-deg))))
     ;; Fijar atributos legibles
     (ade:tomas:fix-attr-rotation br)
 
@@ -447,14 +487,14 @@
           i     (1+ i))
   )
   (princ (strcat "\n  " (itoa count)
-                 " tomas en perimetro — CX=" cx " D=" tablero))
+                 " tomas en perimetro - CX=" cx " D=" tablero))
 )
 
-;; ═════════════════════════════════════════════════════════════
+;; =============================================================
 ;;  MODO MANUAL (Joystick con GrSnap)
-;; ═════════════════════════════════════════════════════════════
+;; =============================================================
 ;; Controles:
-;;   Clic izq     Insertar toma → luego A/D para ajustar
+;;   Clic izq     Insertar toma -> luego A/D para ajustar
 ;;   +  / =       Offset +0.05
 ;;   -  / _       Offset -0.05
 ;;   O  / o       Offset exacto
@@ -462,36 +502,191 @@
 ;;   Esc/Enter    Terminar
 ;;
 ;; Post-insercion (despues de cada clic):
-;;   A / a        Rotar bloque -90°
-;;   D / d        Rotar bloque +90°
+;;   A / a        Rotar bloque -90 deg
+;;   D / d        Rotar bloque +90 deg
 ;;   Clic/Enter   Confirmar y seguir
-(defun ade:tomas-manual (cx tablero blk-segs / count gr type val pt
+;; -- Sub-paso "Desde" integrado en el loop Manual ------------
+;; Flujo (similar al FROM nativo de AutoCAD):
+;;   1. Clic en punto base sobre la pared (con snap activo)
+;;   2. Mover cursor a lo largo de la pared -> preview sigue la proyeccion
+;;   3. Clic para confirmar posicion  OR  tipear distancia + Enter
+;;
+;; El lado de orientacion del bloque lo determina el cursor en paso 2.
+;; Retorna el block reference insertado, o nil si se cancelo.
+(defun ade:tomas:desde-step (cx tablero pot blk-segs snap-fn snap-mode /
+                               pt-base pt-raw ent-wall total-len ref-dist
+                               gr type val snap-pt pt-cur proj-close
+                               dist-final pt-final tang-ang ang rot1-deg
+                               done confirmed br buf key)
+  ;; -- Paso 1: punto base -----------------------------------
+  (setq pt-raw (getpoint "\n  [Desde] Punto base en pared: "))
+  (if (null pt-raw)
+    nil
+    (progn
+      (setq pt-base  (list (car pt-raw) (cadr pt-raw))
+            ent-wall (ade:tomas:find-nearest-wall pt-base))
+      (if (null ent-wall)
+        (progn (princ "\n  [Desde] Sin pared cercana al punto.") nil)
+        (progn
+          (setq total-len (vlax-curve-getdistatparam ent-wall
+                            (vlax-curve-getendparam ent-wall))
+                ref-dist  (vlax-curve-getdistatpoint ent-wall
+                            (vlax-curve-getclosestpointto ent-wall pt-base))
+                done      nil
+                confirmed nil
+                buf       ""
+                ang       0.0)
+
+          (princ "\n  [Desde] Move el cursor - clic para colocar | distancia + Enter")
+
+          ;; -- Paso 2: loop interactivo ---------------------
+          (while (not done)
+            (setq gr   (grread t 15 0)
+                  type (car gr)
+                  val  (cadr gr))
+            (cond
+
+              ;; Movimiento - preview proyectado sobre la pared
+              ((= type 5)
+               (redraw)
+               (setq snap-pt (if snap-fn (snap-fn val snap-mode) val)
+                     pt-cur  (if (and snap-pt (listp snap-pt) (numberp (car snap-pt)))
+                                snap-pt val))
+               ;; Proyectar cursor sobre la pared y calcular distancia desde base
+               (setq proj-close  (vlax-curve-getclosestpointto ent-wall pt-cur)
+                     dist-final  (vlax-curve-getdistatpoint ent-wall proj-close)
+                     pt-final    (list (car proj-close) (cadr proj-close))
+                     tang-ang    (angle '(0 0) (vlax-curve-getfirstderiv ent-wall
+                                                 (vlax-curve-getparamatdist ent-wall
+                                                   (vlax-curve-getparamatdist ent-wall dist-final))))
+                     ang         (ade:ang-perpendicular-to-wall ent-wall pt-final val))
+               (ade:tomas:draw-preview pt-final ang blk-segs 2)
+               ;; Linea rubber-band desde el punto base
+               (grdraw (trans pt-base 0 1) (trans pt-final 0 1) 3)
+               (princ (strcat "\r  Dist desde base: "
+                              (rtos (abs (- dist-final ref-dist)) 2 2)
+                              " m   " (if (= buf "") "" (strcat "[" buf "]"))))
+              )
+
+              ;; Clic - confirmar posicion actual
+              ((= type 3)
+               (setq snap-pt (if snap-fn (snap-fn val snap-mode) val)
+                     pt-cur  (if (and snap-pt (listp snap-pt) (numberp (car snap-pt)))
+                                snap-pt val)
+                     proj-close (vlax-curve-getclosestpointto ent-wall pt-cur)
+                     dist-final (vlax-curve-getdistatpoint ent-wall proj-close)
+                     pt-final   (list (car proj-close) (cadr proj-close))
+                     tang-ang   (angle '(0 0) (vlax-curve-getfirstderiv ent-wall
+                                                (vlax-curve-getparamatdist ent-wall dist-final)))
+                     ang        (ade:ang-perpendicular-to-wall ent-wall pt-final val)
+                     confirmed  t
+                     done       t)
+              )
+
+              ;; Teclado
+              ((= type 2)
+               (setq key val)
+               (cond
+                 ;; Digitos / punto decimal -> acumular distancia en buf
+                 ((or (and (>= key 48) (<= key 57)) (= key 46))
+                  (setq buf (strcat buf (chr key)))
+                  (princ (strcat "\r  Dist: " buf "   "))
+                 )
+                 ;; Backspace
+                 ((= key 8)
+                  (if (> (strlen buf) 0)
+                    (setq buf (substr buf 1 (1- (strlen buf))))
+                  )
+                  (princ (strcat "\r  Dist: " buf "   "))
+                 )
+                 ;; Enter con distancia tipeada -> colocar a esa distancia
+                 ((= key 13)
+                  (if (> (strlen buf) 0)
+                    (progn
+                      (setq dist-final (max 0.0
+                                         (min total-len
+                                           (+ ref-dist (atof buf))))
+                            proj-close (vlax-curve-getpointatdist ent-wall dist-final)
+                            pt-final   (list (car proj-close) (cadr proj-close))
+                            tang-ang   (angle '(0 0) (vlax-curve-getfirstderiv ent-wall
+                                                       (vlax-curve-getparamatdist ent-wall dist-final)))
+                            ;; Para distancia tipeada usar centroide como ref de lado
+                            ang        (ade:ang-perpendicular-to-wall ent-wall pt-final
+                                                                       (ade:tomas:centroid ent-wall))
+                            confirmed  t
+                            done       t)
+                    )
+                    (setq done t)  ;; Enter sin numero = cancelar
+                  )
+                 )
+                 ;; Esc
+                 ((= key 27) (setq done t))
+               )
+              )
+            )
+          )
+          (redraw)
+
+          ;; -- Insertar si fue confirmado -------------------
+          (if confirmed
+            (progn
+              (setq rot1-deg (strcat (rtos (* ang (/ 180.0 pi)) 2 2) " deg"))
+              (setq br (ade:insert-block "I.E-AD-09"
+                         (list (car pt-final) (cadr pt-final) 0.0)
+                         ang
+                         (list (cons "CX" cx) (cons "D" tablero)
+                               (cons "POT" pot) (cons "ROT1" rot1-deg))))
+              (ade:tomas:fix-attr-rotation br)
+              br
+            )
+            nil
+          )
+        )
+      )
+    )
+  )
+)
+
+;; =============================================================
+;;  MODO MANUAL - loop continuo con snap visual y sub-modo Desde
+;; =============================================================
+;;
+;;  Controles:
+;;   Clic izq    Insertar en cursor (snap a pared si cerca)
+;;   F / f       Insertar "Desde referencia+distancia" (sin salir)
+;;   + / -       Offset  0.05
+;;   O / o       Offset exacto
+;;   S / s       Toggle snap on/off
+;;   Esc/Enter   Terminar
+;;
+;;  Post-insercion (despues de cada toma):
+;;   A / a       Rotar -90 deg
+;;   D / d       Rotar +90 deg
+;;   Clic/Enter  Confirmar y seguir
+
+(defun ade:tomas-manual (cx tablero pot interior-pt blk-segs / count gr type val pt
                           ent-wall ang done msg-ctrl tmp br result
-                          snap-active snap-fn ori-txt snap-mode)
+                          snap-active snap-fn snap-pt ori-txt snap-mode)
   (setq count 0
         done  nil
         snap-active t)
 
-  ;; Crear funcion de snap si GrSnapV1-0 esta cargado
+  ;; Snap function de GrSnapV1-0 (end/mid/cen/int/per/near)
   (setq snap-fn
-    (if LM:grsnap:snapfunction
-      (LM:grsnap:snapfunction)
-      nil
-    )
+    (if LM:grsnap:snapfunction (LM:grsnap:snapfunction) nil)
   )
-
-  ;; Snap mode: OSMODE del usuario OR nuestros modos (siempre incluir nearest)
+  ;; Bitmask: OSMODE del usuario + modos ADE siempre activos
   (setq snap-mode (logior (getvar "OSMODE") *ADE:TOMAS:SNAPMODES*))
 
   (if snap-fn
-    (princ "\n[GrSnap activo — end/mid/near/int/per/cen]")
+    (princ "\n[GrSnap activo - end/mid/near/int/per/cen]")
     (princ "\n[GrSnap no disponible]")
   )
 
   (setq msg-ctrl
-    "\n  Clic: insertar | [+/-]:Offset [O]:Ofs exacto [S]:Snap [Esc]:Fin"
+    "\n  Clic:insertar  [F]:Desde  [P]:Potencia  [+/-]:Offset  [O]:Ofs  [S]:Snap  [Esc]:Fin"
   )
-  (princ "\n[Joystick] Cursor cerca de pared = orientacion auto. Post-clic: A/D ajustan ±90°")
+  (princ "\n[Manual] Orientacion auto en pared. Post-clic: [A/D]  90 deg")
   (princ msg-ctrl)
 
   (while (not done)
@@ -501,64 +696,80 @@
 
     (cond
 
-      ;; ── Movimiento del cursor (Type 5) ────────────────────
+      ;; -- Movimiento del cursor (Type 5) - preview + snap visual --
       ((= type 5)
        (redraw)
-       ;; Aplicar snap
-       (setq pt (if (and snap-active snap-fn)
-                  (snap-fn val snap-mode)
-                  val))
-       (if (not (and (listp pt) (numberp (car pt))))
-         (setq pt val)
-       )
+       (setq snap-pt (if (and snap-active snap-fn)
+                       (snap-fn val snap-mode)
+                       val))
+       (setq pt (if (and snap-pt (listp snap-pt) (numberp (car snap-pt)))
+                  snap-pt val))
        (setq ent-wall (ade:tomas:find-nearest-wall pt))
        (if ent-wall
-         (setq ang (ade:ang-perpendicular-to-wall ent-wall pt))
-         (setq ang *ADE:TOMAS:ROT*)
+         (progn
+           (setq pt (vlax-curve-getClosestPointTo ent-wall pt))
+           ;; Usar val (cursor raw antes del snap) para determinar el lado de la pared
+           (setq ang (ade:ang-perpendicular-to-wall ent-wall pt val))
+         )
+         (setq ang (+ *ADE:TOMAS:ROT* *ADE:TOMAS:ANG-OFFSET*))
        )
        (ade:tomas:draw-preview (polar pt ang *ADE:TOMAS:OFFSET*) ang blk-segs 2)
        (setq ori-txt (if ent-wall "PARED" "LIBRE"))
        (princ (strcat "\r  #" (itoa (1+ count))
-              " Ofs=" (rtos *ADE:TOMAS:OFFSET* 2 2)
-              " " ori-txt
-              (if snap-active " SNAP" "")
-              "    "))
+                      " Ofs=" (rtos *ADE:TOMAS:OFFSET* 2 2)
+                      " " ori-txt
+                      (if snap-active " SNAP" "")
+                      "    "))
       )
 
-      ;; ── Click izquierdo (Type 3) ──────────────────────────
+      ;; -- Click izquierdo (Type 3) - insertar ----------------------
       ((= type 3)
-       (setq pt (if (and snap-active snap-fn)
-                  (snap-fn val snap-mode)
-                  val))
-       (if (not (and (listp pt) (numberp (car pt))))
-         (setq pt val)
-       )
+       (setq snap-pt (if (and snap-active snap-fn)
+                       (snap-fn val snap-mode)
+                       val))
+       (setq pt (if (and snap-pt (listp snap-pt) (numberp (car snap-pt)))
+                  snap-pt val))
        (setq ent-wall (ade:tomas:find-nearest-wall pt))
        (if ent-wall
          (progn
-           (setq result (ade:insert-toma-on-wall ent-wall pt cx tablero))
+           (setq pt (vlax-curve-getClosestPointTo ent-wall pt))
+           ;; val = posicion raw del cursor -> indica el lado interior
+           (setq result (ade:insert-toma-on-wall ent-wall pt cx tablero pot val))
            (setq br (car result))
          )
          (progn
-           (setq ang *ADE:TOMAS:ROT*)
+           (setq ang (+ *ADE:TOMAS:ROT* *ADE:TOMAS:ANG-OFFSET*))
            (setq br (ade:insert-block "I.E-AD-09"
                       (polar pt ang *ADE:TOMAS:OFFSET*)
                       ang
-                      (list (cons "CX" cx) (cons "D" tablero)
-                            (cons "ROT1" (strcat (rtos (* (- ang) (/ 180.0 pi)) 2 2) "°")))))
+                      (list (cons "CX" cx) (cons "D" tablero) (cons "POT" pot)
+                            (cons "ROT1" (strcat (rtos (* ang (/ 180.0 pi)) 2 2) " deg")))))
            (ade:tomas:fix-attr-rotation br)
          )
        )
        (setq count (1+ count))
        (princ (strcat "\n  Toma #" (itoa count) " insertada."))
-       ;; ── Sub-loop: A/D para ajustar rotacion ──────────────
        (ade:tomas:post-adjust br)
        (princ msg-ctrl)
       )
 
-      ;; ── Teclas (Type 2) ───────────────────────────────────
+      ;; -- Teclas (Type 2) ------------------------------------------
       ((= type 2)
        (cond
+         ;; F / f  -> sub-paso "Desde referencia+distancia" con preview interactivo
+         ((member val '(70 102))
+          (redraw)
+          (setq br (ade:tomas:desde-step cx tablero pot blk-segs snap-fn snap-mode))
+          (if br
+            (progn
+              (setq count (1+ count))
+              (princ (strcat "\n  Toma #" (itoa count) " [Desde] insertada."))
+              (ade:tomas:post-adjust br)
+            )
+            (princ "\n  [Desde] Cancelado.")
+          )
+          (princ msg-ctrl)
+         )
          ;; + / =  offset +0.05
          ((member val '(43 61))
           (setq *ADE:TOMAS:OFFSET* (+ *ADE:TOMAS:OFFSET* 0.05))
@@ -568,6 +779,15 @@
          ((member val '(45 95))
           (setq *ADE:TOMAS:OFFSET* (max 0.0 (- *ADE:TOMAS:OFFSET* 0.05)))
           (princ (strcat "\r  Offset = " (rtos *ADE:TOMAS:OFFSET* 2 2) "    "))
+         )
+         ;; P / p  cambiar potencia por boca
+         ((member val '(80 112))
+          (setq tmp (getstring (strcat "\nPotencia VA <" pot ">: ")))
+          (if (and tmp (/= tmp ""))
+            (setq pot tmp *ADE:TOMAS:POT* tmp)
+          )
+          (princ (strcat "\r  Potencia = " pot " VA    "))
+          (princ msg-ctrl)
          )
          ;; O / o  offset exacto
          ((member val '(79 111))
@@ -590,82 +810,34 @@
     )
   )
   (redraw)
-  (princ (strcat "\n  " (itoa count) " tomas colocadas — CX=" cx " D=" tablero))
+  (princ (strcat "\n  " (itoa count) " tomas colocadas - CX=" cx " D=" tablero))
 )
 
-;; ═════════════════════════════════════════════════════════════
-;;  MODO DESDE (referencia + distancia sobre curva)
-;; ═════════════════════════════════════════════════════════════
-(defun ade:tomas-desde (cx tablero blk-segs / ent vla-ent total-len
-                         pt-ref pt-ref-dist dist-str dist
-                         dist-final pt tang ang rot1-deg count seguir br
-                         centro tang-ang perp-ang test-pt d-centro pt-list)
-  (setq ent (car (entsel "\nSelecciona la pared (linea o polilinea): ")))
-  (if (null ent) (exit))
+;; =============================================================
+;;  MODO DESDE - loop continuo usando ade:tomas:desde-step
+;; =============================================================
+(defun ade:tomas-desde (cx tablero pot interior-pt blk-segs / count br snap-fn snap-mode seguir)
+  (setq count 0  seguir t)
 
-  (setq vla-ent   (vlax-ename->vla-object ent)
-        total-len (vla-get-Length vla-ent)
-        centro    (ade:tomas:centroid ent)
-        count     0
-        seguir    t)
+  (setq snap-fn
+    (if LM:grsnap:snapfunction (LM:grsnap:snapfunction) nil)
+  )
+  (setq snap-mode (logior (getvar "OSMODE") *ADE:TOMAS:SNAPMODES*))
 
-  (princ "\nEsc o Enter sin punto para terminar.")
+  (princ "\n[Desde] Clic en pared -> mover -> clic/distancia. Esc para terminar.")
 
   (while seguir
-    (setq pt-ref (getpoint "\nPunto de referencia en la pared: "))
-    (if (null pt-ref)
-      (setq seguir nil)
-      (progn
-        (setq pt-ref-dist
-          (vlax-invoke vla-ent 'GetDistanceAtParameter
-            (vlax-invoke vla-ent 'GetParameterAtPoint
-              (vlax-invoke vla-ent 'GetClosestPointTo
-                (vlax-3d-point pt-ref) :vlax-false))))
-
-        (setq dist-str (getstring "\nDistancia desde referencia [1.0]: "))
-        (if (or (null dist-str) (= dist-str ""))
-          (setq dist 1.0)
-          (setq dist (atof dist-str))
-        )
-
-        (setq dist-final (max 0.0 (min total-len (+ pt-ref-dist dist))))
-
-        (setq pt   (vlax-invoke vla-ent 'GetPointAtDist dist-final)
-              tang (vlax-invoke vla-ent 'GetFirstDerivative
-                     (vlax-invoke vla-ent 'GetParameterAtDistance dist-final)))
-
-        (setq tang-ang (atan (vlax-safearray-get-element tang 1)
-                             (vlax-safearray-get-element tang 0)))
-
-        (setq pt-list (list (vlax-safearray-get-element pt 0)
-                            (vlax-safearray-get-element pt 1)))
-
-        ;; Perpendicular que apunte AFUERA del centro
-        (setq perp-ang (+ tang-ang (/ pi 2.0))
-              test-pt  (list (+ (car pt-list) (cos perp-ang))
-                             (+ (cadr pt-list) (sin perp-ang)))
-              d-centro (distance test-pt centro))
-
-        (if (< d-centro (distance pt-list centro))
-          (setq ang (- tang-ang (/ pi 2.0)))
-          (setq ang perp-ang)
-        )
-
-        (setq rot1-deg (strcat (rtos (* (- ang) (/ 180.0 pi)) 2 2) "°"))
-
-        (setq br (ade:insert-block "I.E-AD-09"
-                   (list (car pt-list) (cadr pt-list) 0.0)
-                   ang
-                   (list (cons "CX" cx) (cons "D" tablero) (cons "ROT1" rot1-deg))))
-        (ade:tomas:fix-attr-rotation br)
-
-        (setq count (1+ count))
-        (princ (strcat "\n  Toma #" (itoa count) " insertada."))
+    (setq br (ade:tomas:desde-step cx tablero pot blk-segs snap-fn snap-mode))
+    (cond
+      (br
+       (setq count (1+ count))
+       (princ (strcat "\n  Toma #" (itoa count) " [Desde] insertada."))
+       (ade:tomas:post-adjust br)
       )
+      (t (setq seguir nil))
     )
   )
-  (princ (strcat "\n  " (itoa count)
-                 " tomas desde referencia — CX=" cx " D=" tablero))
+  (princ (strcat "\n  " (itoa count) " tomas colocadas - CX=" cx " D=" tablero))
 )
 
 (princ "\n[AD-ELEC] ade_tomas.lsp v2.3 cargado. Comando: ADE_TOMAS")

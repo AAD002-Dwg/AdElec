@@ -108,12 +108,9 @@ namespace AdElec.AutoCAD.Commands
                     _lastActiveDocPath = doc.Name;
                     Application.Idle += OnApplicationIdle;
                 }
-                else if (!string.Equals(doc.Name, _lastActiveDocPath, StringComparison.OrdinalIgnoreCase))
-                {
-                    // ADE_PANEL ejecutado en un documento diferente al que tiene la paleta:
-                    // recargar datos desde el doc activo (contexto garantizadamente correcto aquí).
-                    ReloadFromCurrentDoc(doc);
-                }
+
+                // Cargar inmediatamente el documento activo con tableros y circuitos interpretados
+                ReloadFromCurrentDoc(doc);
 
                 _ps.Visible = true;
             }
@@ -140,7 +137,8 @@ namespace AdElec.AutoCAD.Commands
                 string syncMode    = projectRepo.GetSyncMode();
 
                 var panelRepo = new DwgPanelRepository();
-                var panels    = panelRepo.GetAllPanels();
+                // Sincronizar de forma autónoma tableros y circuitos desde el DWG
+                var panels = RecargarCommand.SincronizarTablerosDesdeDwg(doc.Database, panelRepo);
 
                 System.Windows.Application.Current?.Dispatcher.BeginInvoke(
                     () => _vm?.ReloadWithPreloadedData(dwgName, projectId, projectName, syncMode, panels));

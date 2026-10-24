@@ -1,5 +1,5 @@
 ;; ============================================================
-;;  ade_canerias.lsp  —  ADE_CANERIAS  v2.0
+;;  ade_canerias.lsp  -  ADE_CANERIAS  v2.0
 ;;  Trazado de canalizaciones electricas.
 ;;
 ;;  Modos:
@@ -25,34 +25,34 @@
 
 (vl-load-com)
 
-;; ── VARIABLES GLOBALES DE PERSISTENCIA ───────────────────────
+;; -- VARIABLES GLOBALES DE PERSISTENCIA -----------------------
 (if (not *ADE:CAN:MODO*)         (setq *ADE:CAN:MODO* "Luminarias"))
 (if (not *ADE:CAN:SUBMODO*)      (setq *ADE:CAN:SUBMODO* "Manual"))
 (if (not *ADE:CAN:CX*)           (setq *ADE:CAN:CX* "C1"))
 (if (not *ADE:CAN:CAPA-LUZ*)     (setq *ADE:CAN:CAPA-LUZ* "Canerias_Luz"))
 
-;; ── Cache del ActiveDocument (patron Lee Mac LM:acdoc) ──────
+;; -- Cache del ActiveDocument (patron Lee Mac LM:acdoc) ------
 (defun ade:acdoc ()
   (eval (list 'defun 'ade:acdoc 'nil
     (vla-get-activedocument (vlax-get-acad-object))))
   (ade:acdoc)
 )
 
-;; ── EndUndoMark seguro (no falla si no hay marca abierta) ───
+;; -- EndUndoMark seguro (no falla si no hay marca abierta) ---
 (defun ade:endundo ()
   (while (= 8 (logand 8 (getvar "UNDOCTL")))
     (vla-endundomark (ade:acdoc))
   )
 )
 
-;; ── Leer punto de insercion de un ename ─────────────────────
+;; -- Leer punto de insercion de un ename ---------------------
 (defun ade:ins-point (ent)
   (cdr (assoc 10 (entget ent)))
 )
 
-;; ═════════════════════════════════════════════════════════════
+;; =============================================================
 ;;  COMANDO PRINCIPAL
-;; ═════════════════════════════════════════════════════════════
+;; =============================================================
 (defun c:ADE_CANERIAS ( / modo old-err old-cmd)
   (setq old-err *error*
         old-cmd (getvar "CMDECHO"))
@@ -70,7 +70,7 @@
   (setvar "CMDECHO" 0)
   (vla-startundomark (ade:acdoc))
 
-  (princ "\n── ADE_CANERIAS v2.0 ──────────────────────────")
+  (princ "\n-- ADE_CANERIAS v2.0 --------------------------")
 
   (initget "Luminarias Tomas")
   (setq modo (getkword
@@ -88,7 +88,7 @@
   (princ)
 )
 
-;; ── Shortcuts ────────────────────────────────────────────────
+;; -- Shortcuts ------------------------------------------------
 (defun c:W  ()                       ; W -> pregunta modo
   (c:ADE_CANERIAS))
 
@@ -130,9 +130,9 @@
   (princ)
 )
 
-;; ═════════════════════════════════════════════════════════════
-;;  LUMINARIAS — arcos de 45 grados
-;; ═════════════════════════════════════════════════════════════
+;; =============================================================
+;;  LUMINARIAS - arcos de 45 grados
+;; =============================================================
 
 (defun ade:canerias-luminarias ( / sub-modo capa cx pts i)
 
@@ -154,7 +154,7 @@
   )
 )
 
-;; ── Modo Auto: por circuito CX, ordena y cablea ──────────────
+;; -- Modo Auto: por circuito CX, ordena y cablea --------------
 (defun ade:canerias-luminarias-auto (capa / cx pts i)
   (setq cx (getstring
     (strcat "\nCircuito a cablear [" *ADE:CAN:CX* "]: ")))
@@ -188,7 +188,7 @@
                  " arcos trazados en capa '" capa "'."))
 )
 
-;; ── Modo Manual: interactivo continuo (como c:w de Lee Mac) ─
+;; -- Modo Manual: interactivo continuo (como c:w de Lee Mac) -
 (defun ade:canerias-luminarias-manual (capa / ent pt-prev pt-curr count)
   (princ "\nSelecciona las luminarias en orden. ENTER/Esc para terminar.")
 
@@ -220,7 +220,7 @@
   )
 )
 
-;; ── Dibujar arco de 45 grados entre dos puntos ──────────────
+;; -- Dibujar arco de 45 grados entre dos puntos --------------
 ;; Usa la forma Start - End - Included Angle del comando ARC
 (defun ade:draw-arc-45 (p1 p2 layer / old-layer old-osm)
   (setq old-layer (getvar "CLAYER")
@@ -235,9 +235,9 @@
   (setvar "CLAYER" old-layer)
 )
 
-;; ═════════════════════════════════════════════════════════════
-;;  TOMAS — polilineas con diagonal 45 grados + recto
-;; ═════════════════════════════════════════════════════════════
+;; =============================================================
+;;  TOMAS - polilineas con diagonal 45 grados + recto
+;; =============================================================
 
 (defun ade:canerias-tomas ( / sub-modo cx capa pts)
 
@@ -253,7 +253,7 @@
   )
 )
 
-;; ── Modo Auto: cablea todos los bloques de un CX ─────────────
+;; -- Modo Auto: cablea todos los bloques de un CX -------------
 (defun ade:canerias-tomas-auto ( / cx capa pts i expanded)
   (setq cx (getstring
     (strcat "\nCircuito a cablear [" *ADE:CAN:CX* "]: ")))
@@ -289,7 +289,7 @@
   (princ (strcat "\n  Canalizacion trazada en capa '" capa "'."))
 )
 
-;; ── Modo Manual: interactivo con validacion de CX ────────────
+;; -- Modo Manual: interactivo con validacion de CX ------------
 ;; Adapta el patron de c:WA (Conectar Puntos): selecciona primer
 ;; bloque, lee CX, continua con bloques del mismo CX, permite
 ;; puntos intermedios entre bloques.
@@ -371,7 +371,7 @@
   )
 )
 
-;; ── expandir-puntos: convierte quiebres en diagonal 45 + recto
+;; -- expandir-puntos: convierte quiebres en diagonal 45 + recto
 ;; Entrada: lista de puntos '(x y [z])
 ;; Salida: lista de puntos donde cada quiebre se divide en
 ;;   diagonal 45 (corto) + tramo recto (largo restante).
@@ -415,7 +415,7 @@
   )
 )
 
-;; ── Dibujar LWPOLYLINE con entmake (Lee Mac style) ──────────
+;; -- Dibujar LWPOLYLINE con entmake (Lee Mac style) ----------
 (defun ade:draw-lwpoly (pts layer)
   (if (>= (length pts) 2)
     (entmake

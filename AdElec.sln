@@ -1,33 +1,41 @@
+﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AdElec.Core", "src\AdElec.Core\AdElec.Core.csproj", "{11111111-2222-3333-4444-555555555555}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{C3CC7941-B140-4030-AF49-F597F8247C11}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AdElec.UI", "src\AdElec.UI\AdElec.UI.csproj", "{66666666-7777-8888-9999-AAAAAAAAAAAA}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AdElec.Core", "src\AdElec.Core\AdElec.Core.csproj", "{0DF3BC7B-FEC2-4D50-B10B-7FBAFAAD9E51}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AdElec.AutoCAD", "src\AdElec.AutoCAD\AdElec.AutoCAD.csproj", "{BBBBBBBB-CCCC-DDDD-EEEE-FFFFFFFFFFFF}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AdElec.UI", "src\AdElec.UI\AdElec.UI.csproj", "{5A90F6DA-673D-4054-8F25-B257515F644D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AdElec.AutoCAD", "src\AdElec.AutoCAD\AdElec.AutoCAD.csproj", "{208089B1-1862-4E76-9430-C5F60861C15F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
-	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{11111111-2222-3333-4444-555555555555}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{11111111-2222-3333-4444-555555555555}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{11111111-2222-3333-4444-555555555555}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{11111111-2222-3333-4444-555555555555}.Release|Any CPU.Build.0 = Release|Any CPU
-		{66666666-7777-8888-9999-AAAAAAAAAAAA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{66666666-7777-8888-9999-AAAAAAAAAAAA}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{66666666-7777-8888-9999-AAAAAAAAAAAA}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{66666666-7777-8888-9999-AAAAAAAAAAAA}.Release|Any CPU.Build.0 = Release|Any CPU
-		{BBBBBBBB-CCCC-DDDD-EEEE-FFFFFFFFFFFF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{BBBBBBBB-CCCC-DDDD-EEEE-FFFFFFFFFFFF}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{BBBBBBBB-CCCC-DDDD-EEEE-FFFFFFFFFFFF}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{BBBBBBBB-CCCC-DDDD-EEEE-FFFFFFFFFFFF}.Release|Any CPU.Build.0 = Release|Any CPU
-	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0DF3BC7B-FEC2-4D50-B10B-7FBAFAAD9E51}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0DF3BC7B-FEC2-4D50-B10B-7FBAFAAD9E51}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0DF3BC7B-FEC2-4D50-B10B-7FBAFAAD9E51}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0DF3BC7B-FEC2-4D50-B10B-7FBAFAAD9E51}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5A90F6DA-673D-4054-8F25-B257515F644D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5A90F6DA-673D-4054-8F25-B257515F644D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5A90F6DA-673D-4054-8F25-B257515F644D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5A90F6DA-673D-4054-8F25-B257515F644D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{208089B1-1862-4E76-9430-C5F60861C15F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{208089B1-1862-4E76-9430-C5F60861C15F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{208089B1-1862-4E76-9430-C5F60861C15F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{208089B1-1862-4E76-9430-C5F60861C15F}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{0DF3BC7B-FEC2-4D50-B10B-7FBAFAAD9E51} = {C3CC7941-B140-4030-AF49-F597F8247C11}
+		{5A90F6DA-673D-4054-8F25-B257515F644D} = {C3CC7941-B140-4030-AF49-F597F8247C11}
+		{208089B1-1862-4E76-9430-C5F60861C15F} = {C3CC7941-B140-4030-AF49-F597F8247C11}
 	EndGlobalSection
 EndGlobal

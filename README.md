@@ -1,60 +1,89 @@
-# AD-ELEC (AutoCAD Electrical Plugin)
+# AD-ELEC — Plugin Eléctrico para AutoCAD (AEA 90364)
 
-Este repositorio contiene el código fuente de **AD-ELEC**, un complemento (plugin) nativo para AutoCAD 2025 que automatiza tareas de diseño eléctrico extremo a extremo: desde la ubicación inteligente de bocas hasta el cálculo de potencias y generación de documentación técnica.
+Plugin profesional para AutoCAD desarrollado en **C# (.NET 8)** y **AutoLISP** para el diseño, dimensionamiento y verificación normativa de instalaciones eléctricas residenciales y comerciales según la reglamentación argentina **AEA 90364-7-771**.
 
-## 🚀 Características Principales
+---
 
-- **Distribución Inteligente**: Algoritmos para ubicación de luminarias y tomas.
-- **Enrutamiento Automático**: Generación de cañerías y cableado basada en lógica de circuitos.
-- **Gestión de Cargas**: Cálculo automático de potencias y balanceo de fases en tableros.
-- **Inspección Técnica**: Herramientas integradas para auditoría de bloques y atributos.
+## 🏗️ Arquitectura y Repositorios
 
-## 📂 Estructura del Proyecto
+El ecosistema está compuesto por dos proyectos independientes que se comunican vía API HTTP REST:
 
-El proyecto sigue los principios de **Clean Architecture**:
+| Proyecto | Ruta | Rol | Stack |
+|---|---|---|---|
+| **AD-ELEC** *(este repo)* | `G:\PROYECTOS AD\AD-ELEC` | Cliente CAD (UI, bloques, DWG, comandos) | .NET 8, WPF, AutoCAD .NET API, AutoLISP |
+| **AEA-MOTOR** | `G:\PROYECTOS AD\AEA 90364-B\AEA-MOTOR-RESTORED` | Backend de cálculo normativo AEA | Python 3.10, FastAPI, SQLite |
 
-### 1. `AdElec.Core` (Lógica de Negocio)
-- **Modelos**: `Panel`, `Circuit`, `Load`, `BlockDefinition`.
-- **Motor de Cálculo**: Sumatoria de cargas, secciones de cables y caída de tensión.
+> **Nota de Integración:** AD-ELEC consume el motor de cálculo enviando el modelo del proyecto a `http://localhost:8000/calcular`. No se fusionan los repositorios para mantener el plugin CAD desacoplado del motor normativo.
 
-### 2. `AdElec.UI` (Interfaz WPF)
-- **Paleta Lateral**: Interfaz nativa de AutoCAD para gestión de proyectos en tiempo real.
-- **MVVM**: Separación estricta entre vista y lógica de interfaz.
+---
 
-### 3. `AdElec.AutoCAD` (Motor de Dibujo)
-- **Comandos**: 
-  - `ADE_PANEL`: Abre la interfaz principal.
-  - `ADE_INSPECT`: Herramienta de diagnóstico que exporta atributos y estados de visibilidad a JSON.
-- **Geometría**: Extensiones para manipulación de `BlockReference`, `Polyline` y Diccionarios de Extensión.
+## 📁 Estructura del Repositorio
 
-## 🏗️ Gestión de Bloques CAD
-
-Los bloques son el núcleo del sistema. Se encuentran en [Bloques_CAD](file:///g:/AD-ELEC/Bloques_CAD).
-La documentación técnica detallada de cada bloque, incluyendo sus atributos reales y modos de visibilidad, se encuentra en:
-👉 **[Bloques_CAD/Bloques.md](file:///g:/AD-ELEC/Bloques_CAD/Bloques.md)**
-
-## 🛠️ Desarrollo y Compilación
-
-### Prerrequisitos
-- **.NET 8 SDK**
-- **AutoCAD 2025 SDK** (AutoCAD.NET / AutoCAD.NET.Model)
-- **Visual Studio 2022**
-
-### Compilación rápida
-Para compilar el plugin desde la terminal:
-```powershell
-dotnet build AdElec.sln
+```
+AD-ELEC/
+├── AdElec.sln            # Solución .NET (3 proyectos)
+├── src/
+│   ├── AdElec.Core/      # Modelos de dominio y cliente HTTP (sin dependencias CAD)
+│   ├── AdElec.UI/        # Paletas y ventanas WPF (ADE_PANEL)
+│   └── AdElec.AutoCAD/   # Comandos AutoCAD, persistencia XData y geometría
+├── lisp/                 # Rutinas AutoLISP propias (luminarias, tomas, cañerías)
+│   └── vendor/           # Utilidades LISP de terceros
+├── blocks/               # Bloques dinámicos DWG del sistema
+├── deploy/               # DLLs compiladas, acad.lsp y script de compilación
+├── bitacora/             # Historial cronológico de cambios y decisiones (bitacora.md)
+└── docs/                 # Documentación técnica, arquitectura y especificaciones
 ```
 
-### Carga en AutoCAD
-1. Abrir AutoCAD 2025.
-2. Ejecutar comando `NETLOAD`.
-3. Seleccionar la DLL en: `src\AdElec.AutoCAD\bin\Debug\net8.0-windows\AdElec.AutoCAD.dll`.
+---
 
-## 🔄 Flujo de Git
-Mantener el repositorio actualizado:
+## 🚀 Requisitos y Compilación
+
+### Requisitos previos
+- **.NET 8 SDK** (verificar con `dotnet --version`)
+- **AutoCAD 2025** (o 2024 con .NET 8 / net48 según configuración)
+- Opcional: **Visual Studio 2022** / **VS Code** con C# Dev Kit
+
+### Compilar el proyecto
+Desde la terminal en la raíz del proyecto:
 ```bash
-git add .
-git commit -m "Descripción de avance"
-git push origin master
+dotnet build AdElec.sln --configuration Release
 ```
+O simplemente ejecutando:
+```cmd
+deploy\build.bat
+```
+Las DLLs resultantes (`AdElec.AutoCAD.dll`, `AdElec.Core.dll`, `AdElec.UI.dll`) se copiarán automáticamente en la carpeta `deploy/`.
+
+---
+
+## 🔌 Carga en AutoCAD
+
+### Opción 1: Carga manual
+En la línea de comandos de AutoCAD:
+```text
+NETLOAD -> seleccionar G:\PROYECTOS AD\AD-ELEC\deploy\AdElec.AutoCAD.dll
+```
+
+### Opción 2: Carga automática al iniciar AutoCAD
+Copiar [`deploy/acad.lsp`](file:///g:/PROYECTOS%20AD/AD-ELEC/deploy/acad.lsp) a la carpeta Support de AutoCAD:
+`%APPDATA%\Autodesk\AutoCAD 2025\R25.0\enu\Support\`  
+O agregar `G:\PROYECTOS AD\AD-ELEC\deploy\` a las rutas de búsqueda en *Opciones → Archivos → Support File Search Path*.
+
+---
+
+## ⌨️ Comandos Principales en AutoCAD
+
+| Comando | Tipo | Descripción |
+|---|---|---|
+| `ADE_PANEL` | C# / WPF | Abre la paleta lateral de gestión de tableros, circuitos y ambientes |
+| `ADE_CALCULAR` | C# | Envía el proyecto al backend AEA-MOTOR y actualiza los resultados |
+| `ADE_AUTOAMBIENTES` | C# | Detección geométrica de ambientes cerrados a partir de polilíneas |
+| `ADE_INSPECT` | C# | Inspector de bloques eléctricos y atributos en el DWG |
+| `ADE_LUMINARIAS` | AutoLISP | Distribución y colocación de luminarias |
+| `ADE_TOMAS` | AutoLISP | Distribución y conteo de bocas de tomacorrientes |
+| `ADE_CANERIAS` | AutoLISP | Trazado de cañerías y vinculación de bocas |
+
+---
+
+## 📌 Bitácora y Reglas del Proyecto
+Las actualizaciones y registros técnicos de cada sesión se documentan en [`bitacora/bitacora.md`](file:///g:/PROYECTOS%20AD/AD-ELEC/bitacora/bitacora.md) siguiendo las reglas de [`AGENTS.md`](file:///g:/PROYECTOS%20AD/AD-ELEC/AGENTS.md).

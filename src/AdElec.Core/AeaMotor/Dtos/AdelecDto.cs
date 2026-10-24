@@ -363,6 +363,9 @@ public class ProposalPoint
     [JsonPropertyName("is_fixed")]
     public bool IsFixed { get; set; }
 
+    [JsonPropertyName("rotation")]
+    public double Rotation { get; set; }
+
     /// <summary>ID del room (faceKey) al que pertenece este punto. Requerido por AD-ELEC V2 para asociación 3D.</summary>
     [JsonPropertyName("_roomId")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

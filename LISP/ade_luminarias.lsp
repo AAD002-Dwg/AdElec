@@ -1,20 +1,21 @@
 ;; ============================================================
-;;  ade_luminarias.lsp  —  ADE_LUMINARIAS  v4.2
-;;  Distribución interactiva masiva de luminarias (Joystick Mode).
+;;  ade_luminarias.lsp  -  ADE_LUMINARIAS  v4.2
+;;  Distribucion interactiva masiva de luminarias (Joystick Mode).
 ;; ============================================================
 
 (vl-load-com)
 
-;; ── VARIABLES GLOBALES DE PERSISTENCIA ───────────────────────
+;; -- VARIABLES GLOBALES DE PERSISTENCIA -----------------------
 (if (not *ADE:LUM:CX*)         (setq *ADE:LUM:CX* "C1"))
 (if (not *ADE:LUM:TABLERO*)    (setq *ADE:LUM:TABLERO* "TD1"))
+(if (not *ADE:LUM:POT*)        (setq *ADE:LUM:POT* "75"))   ;; VA por boca (defecto IUG 75VA)
 (if (not *ADE:LUM:SP-INICIAL*) (setq *ADE:LUM:SP-INICIAL* 2.5))
 (if (not *ADE:LUM:PASO-SP*)    (setq *ADE:LUM:PASO-SP* 0.1))
 (if (not *ADE:LUM:FIXED-MODE*) (setq *ADE:LUM:FIXED-MODE* nil)) ;; nil=Auto, T=Fijo
 
-;; ─────────────────────────────────────────────────────────────
+;; -------------------------------------------------------------
 ;;  FUNCIONES AUXILIARES 
-;; ─────────────────────────────────────────────────────────────
+;; -------------------------------------------------------------
 
 (defun ade:lum:pt3 (p) (list (car p) (cadr p) (if (caddr p) (caddr p) 0.0)))
 
@@ -73,7 +74,7 @@
             y1 (+ y0 (* (max 0 (1- rows)) stepY))
             i 0)
       
-      ;; Dibujar recuadro de área de margen (siempre, para ver dónde termina el cuarto)
+      ;; Dibujar recuadro de area de margen (siempre, para ver donde termina el cuarto)
       (setq p1 (trans (list x0_area y0_area 0) 0 1) p2 (trans (list x1_area y0_area 0) 0 1)
             p3 (trans (list x1_area y1_area 0) 0 1) p4 (trans (list x0_area y1_area 0) 0 1))
       (grdraw p1 p2 3) (grdraw p2 p3 3) (grdraw p3 p4 3) (grdraw p4 p1 3)
@@ -139,13 +140,13 @@
 
 (defun ade:lum:numeric-input (cur-cols cur-rows first-digit / buf done result val comma-pos str-f str-c nf nc gr)
   (setq buf (chr first-digit) done nil result nil)
-  (princ (strcat "\r  Input [filas,cols] → " buf "  "))
+  (princ (strcat "\r  Input [filas,cols] -> " buf "  "))
   (while (not done)
     (setq gr (ade:lum:grread) val (cadr gr))
     (cond
-      ((and (>= val 48) (<= val 57)) (setq buf (strcat buf (chr val))) (princ (strcat "\r  Input [filas,cols] → " buf "  ")))
-      ((= val 44) (if (not (vl-string-search "," buf)) (progn (setq buf (strcat buf ",")) (princ (strcat "\r  Input [filas,cols] → " buf "  ")))))
-      ((= val 8) (if (> (strlen buf) 0) (setq buf (substr buf 1 (1- (strlen buf))))) (princ (strcat "\r  Input [filas,cols] → " buf "  ")))
+      ((and (>= val 48) (<= val 57)) (setq buf (strcat buf (chr val))) (princ (strcat "\r  Input [filas,cols] -> " buf "  ")))
+      ((= val 44) (if (not (vl-string-search "," buf)) (progn (setq buf (strcat buf ",")) (princ (strcat "\r  Input [filas,cols] -> " buf "  ")))))
+      ((= val 8) (if (> (strlen buf) 0) (setq buf (substr buf 1 (1- (strlen buf))))) (princ (strcat "\r  Input [filas,cols] -> " buf "  ")))
       ((or (= val 13) (= val 32))
        (setq done t comma-pos (vl-string-search "," buf))
        (cond
@@ -157,7 +158,7 @@
   result
 )
 
-(defun c:ADE_LUMINARIAS ( / cx tablero sp-inicial paso-sp ent poly-verts bbox minX minY maxX maxY W H cols rows spX spY blk-segs show-grid undo-stack state done confirmed gr key pts n num-result ss old-dyn marX marY mode-fixed cmd-done)
+(defun c:ADE_LUMINARIAS ( / cx tablero pot sp-inicial paso-sp ent poly-verts bbox minX minY maxX maxY W H cols rows spX spY blk-segs show-grid undo-stack state done confirmed gr key pts n num-result ss old-dyn marX marY mode-fixed cmd-done)
   (vl-load-com)
   (defun *ade_lum_error* (msg)
     (if old-dyn (setvar "DYNMODE" old-dyn)) (ade:lum:clear)
@@ -166,32 +167,33 @@
   )
   (setq old_err *error*  *error* *ade_lum_error* old-dyn (getvar "DYNMODE"))
   
-  (princ "\n── ADE_LUMINARIAS v4.2 ─────────────────────────────")
+  (princ "\n-- ADE_LUMINARIAS v4.2 -----------------------------")
   (princ "\n  LEYENDA DE VARIABLES:")
   (princ "\n    M:Modo (Fijo/Auto)  G:Grilla (Col x Fil)  E:Espac. (m)  M:Margen (m)")
   (princ "\n  CONTROLES:")
-  (princ "\n    W S A D  →  Grilla (Cant. o Metros)")
-  (princ "\n    8 2 4 6  →  Margen (0.1m step)")
-  (princ "\n    M → Cambiar Modo  G → Ver Grilla  U → Undo")
-  (princ "\n────────────────────────────────────────────────────")
+  (princ "\n    W S A D  ->  Grilla (Cant. o Metros)")
+  (princ "\n    8 2 4 6  ->  Margen (0.1m step)")
+  (princ "\n    M -> Cambiar Modo  G -> Ver Grilla  U -> Undo")
+  (princ "\n----------------------------------------------------")
 
   (setq cx (getstring (strcat "\nCircuito [" *ADE:LUM:CX* "]: ")))
   (if (= cx "") (setq cx *ADE:LUM:CX*) (setq *ADE:LUM:CX* (strcase cx)))
   (setq tablero (getstring (strcat "\nTablero (D) [" *ADE:LUM:TABLERO* "]: ")))
   (if (= tablero "") (setq tablero *ADE:LUM:TABLERO*) (setq *ADE:LUM:TABLERO* (strcase tablero)))
+  (setq pot *ADE:LUM:POT*)  ;; usa valor persistido - cambiar con (setq *ADE:LUM:POT* "NNN") si es necesario
   
   (if (not (ade:block-exists "I.E-AD-07")) (progn (princ "\n[ADE] Bloque I.E-AD-07 no encontrado.") (*error* "Bloque faltante")))
   (setq blk-segs (ade:lum:get-block-segs "I.E-AD-07") sp-inicial 2.5 mode-fixed nil cmd-done nil)
 
   (while (not cmd-done)
-    (princ "\nSeleccioná el contorno (polilínea cerrada) [Esc para finalizar]: ")
+    (princ "\nSelecciona el contorno (polilinea cerrada) [Esc para finalizar]: ")
     (setq ss (ssget "_:S" '((0 . "LWPOLYLINE"))))
     (if (null ss) (setq cmd-done t)
       (progn
         (setq ent (ssname ss 0) poly-verts (ade:poly-vertices ent) bbox (ade:poly-bbox ent)
               minX (nth 0 bbox) minY (nth 1 bbox) maxX (nth 2 bbox) maxY (nth 3 bbox)
               W (- maxX minX) H (- maxY minY))
-        (if (or (< W 0.1) (< H 0.1)) (princ "\nRecinto demasiado pequeño.")
+        (if (or (< W 0.1) (< H 0.1)) (princ "\nRecinto demasiado pequeno.")
           (progn
             (setq cols (max 1 (fix (+ 0.5 (/ W sp-inicial)))) rows (max 1 (fix (+ 0.5 (/ H sp-inicial))))
                   spX (/ W cols) spY (/ H rows) marX 0.0 marY 0.0 show-grid nil undo-stack '() done nil confirmed nil)
@@ -219,14 +221,14 @@
               (if (not mode-fixed) (setq spX (/ (- W (* 2.0 marX)) (max 1 cols)) spY (/ (- H (* 2.0 marY)) (max 1 rows))))
             )
             (ade:lum:clear)
-            (if confirmed (foreach pt (ade:lum:calc-pts cols rows spX spY minX minY poly-verts marX marY mode-fixed W H) (ade:insert-block "I.E-AD-07" pt 0.0 (list (cons "CX" cx) (cons "D" tablero)))))
+            (if confirmed (foreach pt (ade:lum:calc-pts cols rows spX spY minX minY poly-verts marX marY mode-fixed W H) (ade:insert-block "I.E-AD-07" pt 0.0 (list (cons "CX" cx) (cons "D" tablero) (cons "POT" pot)))))
           ))))
   )
   (setvar "DYNMODE" old-dyn) (setq *error* old_err) (princ)
 )
 
 (defun c:ADE_LUMINARIAS_DIAGKEYS ( / gr)
-  (princ "\n── DIAGNÓSTICO RAW (Esc para salir) ──\n")
+  (princ "\n-- DIAGNOSTICO RAW (Esc para salir) --\n")
   (while (not (and (= (car (setq gr (grread t 12 0))) 2) (= (cadr gr) 27)))
     (if (not (= (car gr) 5)) (princ (strcat "\nRecibido: " (vl-prin1-to-string gr)))))
   (princ)

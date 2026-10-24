@@ -1,0 +1,203 @@
+# 📓 Bitácora de Desarrollo — AD-ELEC
+
+Este documento registra de forma cronológica los avances, cambios arquitectónicos, correcciones de errores y decisiones técnicas relevantes tomadas en el proyecto **AD-ELEC**.
+
+---
+
+## 📋 Estructura de cada registro
+
+Cada entrada debe seguir este formato estándar:
+
+```markdown
+### [YYYY-MM-DD] — Título descriptivo del avance o hito
+**Tipo:** `Refactor` | `Feature` | `Fix` | `Limpieza` | `Docs`
+**Autor / Asistente:** Antigravity / Usuario
+
+#### 🎯 Objetivo
+Breve descripción del problema a resolver o meta del cambio.
+
+#### 🛠️ Cambios realizados
+- Detalle de modificaciones
+- Archivos creados / movidos / eliminados
+
+#### 💡 Decisiones técnicas
+Motivo detrás de las elecciones de diseño o solución implementada.
+
+#### 📌 Próximos pasos pendientes
+- Tareas subsiguientes derivadas de este avance
+```
+
+---
+
+## 📜 Historial de Registros
+
+### [2026-10-24] — Rediseño Gestor de Ambientes (UI Dark), Mapeo de Artefactos Eléctricos y Autonomía de ADE_PANEL
+**Tipo:** `Feature` / `Fix`  
+**Autor / Asistente:** Antigravity / Usuario
+
+#### 🎯 Objetivo
+- Solucionar el problema de contraste en `AutoAmbientesDialog` donde los desplegables de ComboBox aparecían con fondo blanco y texto ilegible.
+- Transformar `ADE_AUTOAMBIENTES` en un auténtico **Gestor de Ambientes**, permitiendo editar de forma ágil la Unidad Funcional (UF), el Piso/Planta y el Tipo de local.
+- Mapear espacialmente las bocas de iluminación, tomacorrientes y circuitos dentro de los límites de cada ambiente mediante inclusión geométrica (Point-in-Polygon).
+- Dotar a la paleta lateral `ADE_PANEL` de autonomía total: detectar y mostrar el documento DWG activo de inmediato, interpretar automáticamente los tableros y circuitos presentes en el plano y calcular sus potencias reales en VA/kVA sin requerir que AEA-MOTOR esté encendido.
+
+#### 🛠️ Cambios realizados
+- `src/AdElec.UI/Views/AutoAmbientesDialog.xaml`:
+  - Se forzó el tema oscuro a través de `SystemBrushes` (`WindowBrushKey` = `#252525`, `WindowTextBrushKey` = `#FFFFFF`) y estilos específicos para `ComboBoxItem` y `ComboBox`, eliminando el fondo blanco en los desplegables.
+  - Se añadieron columnas editables para **Piso / Planta** y **Unidad Funcional**.
+  - Se incorporaron columnas de artefactos (**💡 Luces**, **🔌 Tomas**), **Circuitos** y **Estado** (Existente/Nuevo).
+  - Se añadió un panel inferior de inspección que muestra el inventario detallado de cargas, potencia en VA y circuitos del recinto seleccionado, con botón de centrado en plano.
+  - Se amplió el ancho a 1020px y se actualizó el título a "Gestor de Ambientes & Cargas".
+- `src/AdElec.UI/ViewModels/AutoAmbientesViewModel.cs`:
+  - Se hizo editable la propiedad `Planta` en `DetectedRoomRow`.
+  - Se agregaron `PlantasOptions`, métricas globales de bocas y potencia, y soporte para notificación del ambiente seleccionado.
+- `src/AdElec.Core/Models/DetectedRoom.cs`:
+  - Se añadieron las propiedades `CantidadLuminarias`, `CantidadTomas`, `CantidadOtros`, `TotalBocas`, `PotenciaTotalVA`, `CircuitosDetalle` y `ArtefactosDetalle`.
+- `src/AdElec.AutoCAD/Commands/AutoAmbientesCommand.cs`:
+  - Se implementó `MapearArtefactosEnAmbientes`, que escanea bloques del dibujo (`I.E-AD-07`, `I.E-AD-08`, `I.E-AD-09`, `I.E-AD-09.02`, luminarias y tomas genéricos), verifica su pertenencia al polígono del recinto mediante `PolygonMath.PointInPolygon`, cuenta bocas, acumula potencias en VA y extrae los circuitos vinculados.
+- `src/AdElec.AutoCAD/Commands/PaletteCommand.cs`:
+  - Se corrigió la inicialización de `ActiveDwgName` llamando a `ReloadFromCurrentDoc(doc)` inmediatamente tras crear la paleta, resolviendo la etiqueta "Sin documento".
+- `src/AdElec.AutoCAD/Commands/RecargarCommand.cs`:
+  - Se implementó `SincronizarTablerosDesdeDwg`: descubre automáticamente tableros a partir del atributo `D` y de bloques `ID_TABLERO`, extrae sus circuitos `CX`, suma las potencias en VA de cada boca (leyendo `POT` o aplicando mínimos de AEA 90364) y calcula la carga total en VA y kVA.
+
+#### 💡 Decisiones técnicas
+- La paleta ahora calcula automáticamente la potencia simultánea de cada circuito y del tablero en el entorno local de AutoCAD, proporcionando valor inmediato al usuario antes o en ausencia del cálculo normativo con AEA-MOTOR.
+- El mapeo punto-en-polígono permite relacionar cualquier bloque eléctrico (tomas, luces, interruptores) con su recinto físico sin necesidad de trazados manuales previos.
+
+#### 📌 Próximos pasos pendientes
+- Cerrar AutoCAD para liberar el DLL en `deploy\`, recompilar y probar la nueva experiencia visual y funcional.
+
+---
+
+### [2026-10-24] — Robustez e interoperabilidad total entre ADE_AMBIENTES y ADE_AUTOAMBIENTES
+**Tipo:** `Feature` / `Fix`  
+**Autor / Asistente:** Antigravity / Usuario
+
+#### 🎯 Objetivo
+- Lograr que los ambientes creados o etiquetados manualmente mediante `ADE_AMBIENTES` sean detectados, reconocidos y preservados por `ADE_AUTOAMBIENTES` (y su alias `ADE_AUTO_AMBIENTES`).
+- Evitar duplicación de bloques `ID_LOCALES` y permitir actualizar o verificar recintos existentes en la interfaz gráfica.
+- Brindar al usuario la opción interactiva de seleccionar polilíneas/entidades específicas en pantalla o realizar escaneo automático en todo el dibujo.
+- Corregir el filtrado restrictivo de capas en `RoomDetector` y normalizar las rutas de bloques a `blocks/ID_LOCALES.dwg`.
+
+#### 🛠️ Cambios realizados
+- `src/AdElec.Core/Models/Ambiente.cs`:
+  - Se agregó la propiedad `PolylineHandle` para almacenar el handle de la polilínea asociada a través del XData `ADE_SYNC_LINK`.
+- `src/AdElec.Core/Models/DetectedRoom.cs`:
+  - Se añadieron `ExistingBlockHandle` y la propiedad booleana calculada `IsExisting` para distinguir recintos preexistentes.
+- `src/AdElec.Core/Models/RoomDetectionConfig.cs`:
+  - Se agregó la lista de capas de recintos `CapasAmbientes` (`AMBIENTES`, `RECINTOS`, `LOCALES`, `AREAS`, `0`, `ARQUITECTURA`, etc.).
+- `src/AdElec.AutoCAD/Repositories/DwgAmbienteRepository.cs`:
+  - Se incorporó la lectura del XData `ADE_SYNC_LINK` para asociar `ambiente.PolylineHandle`.
+- `src/AdElec.AutoCAD/Geometry/RoomDetector.cs`:
+  - Se admitió el procesamiento de polilíneas cerradas pertenecientes a `CapasAmbientes` o con XData `ADE_SYNC_LINK`.
+  - Se agregó el parámetro `selectedEntities` a `DetectRooms` para soportar selecciones parciales y se expuso `ExtractPolylineVertices` como método estático público.
+- `src/AdElec.AutoCAD/Geometry/RoomClassifier.cs`:
+  - Se implementó la coincidencia "Nivel 0", que busca bloques `ID_LOCALES` existentes dentro del polígono del recinto y hereda sus datos (Local, UF, Planta, Handle) con alta confianza.
+- `src/AdElec.AutoCAD/Commands/AutoAmbientesCommand.cs`:
+  - Se registró el doble comando `[CommandMethod("ADE_AUTOAMBIENTES")]` y `[CommandMethod("ADE_AUTO_AMBIENTES")]`.
+  - Se corrigió la ruta del bloque a `blocks\\ID_LOCALES.dwg`.
+  - Se agregó el prompt interactivo de modo: `[Automatico todo el dibujo/Seleccionar entidades]`.
+  - Se sincronizaron los ambientes preexistentes mediante `DwgAmbienteRepository`, integrando en el panel tanto los detectados como los existentes que no coincidieran en la pasada.
+  - Se diferenció la acción de confirmación: si el ambiente ya existía se actualizan sus atributos en el bloque `ID_LOCALES` existente; si es nuevo se inserta el bloque y se vincula con la polilínea vía `ADE_SYNC_LINK`.
+- `src/AdElec.AutoCAD/Commands/AmbientesCommand.cs` y `AutoAmbientesCVCommand.cs`:
+  - Se actualizó la constante de ruta de `ID_LOCALES.dwg` a `blocks\\ID_LOCALES.dwg`.
+
+#### 💡 Decisiones técnicas
+- El flujo manual (`ADE_AMBIENTES`) y el flujo automático (`ADE_AUTOAMBIENTES`) ahora comparten la misma fuente de verdad geométrica y semántica: el bloque `ID_LOCALES` y el XData `ADE_SYNC_LINK`. Ningún ambiente existente se pierde ni se duplica.
+- Si el usuario elige `Seleccionar entidades`, se omiten las inferencias pesadas para una respuesta instantánea y enfocada en los recintos indicados.
+
+#### 📌 Próximos pasos pendientes
+- Cerrar AutoCAD para liberar el DLL en `deploy\`, recompilar y probar ambos comandos en el dibujo.
+
+---
+
+### [2026-10-24] — Corrección de OSNAP y fijación sobre polilínea en ADE_TOMAS
+**Tipo:** `Fix`  
+**Autor / Asistente:** Antigravity & Usuario
+
+#### 🎯 Objetivo
+- Solucionar la ausencia de glifos de OSNAP en `ADE_TOMAS` modo Manual tras la reorganización de la carpeta de utilidades a `lisp/vendor/`.
+- Garantizar que al insertar tomacorrientes en modo Manual queden matemáticamente magnetizados y colocados sobre la polilínea de pared, tal como funciona en la opción "Desde".
+
+#### 🛠️ Cambios realizados
+- `lisp/ade_tomas.lsp`:
+  - Se corrigió la ruta de carga de `GrSnapV1-0.lsp` para que resuelva hacia `vendor/GrSnapV1-0.lsp` mediante búsqueda dinámica relativa y absoluta.
+  - En `ade:tomas-manual`, se incorporó la proyección exacta del punto `pt` sobre la curva de pared mediante `(vlax-curve-getClosestPointTo ent-wall pt)` tanto en el loop interactivo de previsualización (`Type 5`) como en el clic de inserción (`Type 3`).
+  - En `ade:insert-toma-on-wall`, se aseguró la proyección de `pt` sobre la entidad seleccionada.
+- `src/AdElec.AutoCAD/PluginEntry.cs`: Se agregó `vendor/GrSnapV1-0.lsp` al arreglo de rutinas cargadas automáticamente al iniciar el plugin.
+
+#### 💡 Decisiones técnicas
+- Igualar la lógica de fijación geométrica de `Manual` a la de `Desde`, de modo que el cursor se imante a la pared dentro del radio de captura y el bloque quede siempre apoyado en la polilínea.
+
+#### 📌 Próximos pasos pendientes
+- Recargar `ade_tomas.lsp` en AutoCAD y verificar la visualización de los snaps y la inserción sobre la polilínea.
+
+---
+
+### [2026-10-21] — Creación de Solución .sln, portabilidad de rutas y documentación raíz
+**Tipo:** `Refactor` / `Feature` / `Docs`  
+**Autor / Asistente:** Antigravity & Usuario
+
+#### 🎯 Objetivo
+- Dotar al proyecto de una solución .NET (`AdElec.sln`) para compilar todos los proyectos con un solo comando o IDE.
+- Eliminar rutas hardcodeadas obsoletas (`D:\AD-TONTO\...` y `G:\AD-ELEC\...`) producto del traslado de repositorios al disco `G:\PROYECTOS AD\`.
+- Documentar formalmente el ecosistema en `README.md` especificando la interacción entre `AD-ELEC` y `AEA-MOTOR-RESTORED`.
+
+#### 🛠️ Cambios realizados
+- **Solución .NET:** Creación de `AdElec.sln` vinculando `AdElec.Core.csproj`, `AdElec.UI.csproj` y `AdElec.AutoCAD.csproj`.
+- **Ruta de Despliegue (.csproj):** En `AdElec.AutoCAD.csproj`, se reemplazó la ruta absoluta fija por la macro relativa `$(MSBuildThisFileDirectory)..\..\deploy\`.
+- **Carga LISP / AutoCAD:** Actualización de `deploy/acad.lsp` para soportar búsqueda dinámica y la ruta oficial `G:\PROYECTOS AD\AD-ELEC\deploy\AdElec.AutoCAD.dll`.
+- **Documentación:** Creación del `README.md` raíz y actualización completa de rutas y árbol de carpetas en `docs/ARQUITECTURA.md` y `docs/AEA_MOTOR.md`.
+
+#### 💡 Decisiones técnicas
+- Mantener `AD-ELEC` y `AEA-MOTOR` como repositorios separados en `G:\PROYECTOS AD\` con comunicación HTTP REST pura.
+- La compilación `dotnet build AdElec.sln --configuration Release` quedó verificada con 0 errores.
+
+#### 📌 Próximos pasos pendientes
+- Implementar suite de tests en `tests/AdElec.Core.Tests` para validar reglas AEA 90364 offline.
+- Conectar endpoints del cliente HTTP en `AdElec.Core/AeaMotor` con el backend en FastAPI cuando se levante el servicio.
+
+---
+
+### [2026-10-21] — Desacoplamiento de módulo IA y reorganización estructural del repositorio
+**Tipo:** `Limpieza` / `Refactor` / `Fix`  
+**Autor / Asistente:** Antigravity & Usuario
+
+#### 🎯 Objetivo
+1. Separar el pipeline experimental de IA (YOLOv8 y segmentación DXF) hacia su repositorio original (`AD_VIEJO ELEC`) para mantener AD-ELEC enfocado puramente en la lógica CAD (.NET + AutoLISP + AEA 90364).
+2. Reorganizar la estructura de directorios del proyecto para eliminar nombres con espacios, estandarizar rutas y solucionar inconsistencias de carga en runtime.
+
+#### 🛠️ Cambios realizados
+- **Desacoplamiento a `AD_VIEJO ELEC`:**
+  - Se movió `src/AdElec.AiSegmentation/` (scripts Python y pesos YOLO).
+  - Se movió `src/Lisp/ADE_AI_Layers.lsp`.
+  - Se movió `DATASET/` (~55 MB de DXFs y modelos de entrenamiento).
+  - Se mantuvieron en C# los comandos `AutoAmbientesCommand`, `AutoAmbientesCVCommand` y `AutoDatasetCommand` con detección geométrica nativa segura (fallback ante ausencia de Python).
+- **Estandarización de carpetas en `AD-ELEC`:**
+  - `LISP-AD-ELEC/` ➔ `lisp/`
+  - `LISP BASE/` ➔ `lisp/vendor/` (utilidades de terceros aisladas)
+  - `Bloques_CAD/` ➔ `blocks/`
+  - `MD/` y `memory/` ➔ consolidados en `docs/` (`docs/fases/`, `docs/specs/`)
+- **Fix crítico de carga AutoLISP:**
+  - `src/AdElec.AutoCAD/PluginEntry.cs`: Se corrigió la ruta de búsqueda. El código buscaba una carpeta `"LISP"`, por lo que nunca encontraba `"LISP-AD-ELEC"`. Ahora resuelve correctamente hacia `lisp/`.
+
+#### 💡 Decisiones técnicas
+- Mantener nombres en minúsculas y sin espacios (`lisp/`, `blocks/`, `docs/`) para evitar problemas con herramientas CLI, scripts batch y compilación cruzada.
+- Aislar el código de terceros en `lisp/vendor/` para distinguir claramente el desarrollo propio de bibliotecas auxiliares.
+
+#### 📌 Próximos pasos pendientes
+- Validar compilación del plugin `.NET` y carga en AutoCAD.
+- Continuar desarrollo del motor normativo AEA 90364 y comandos de cálculo de circuitos.
+
+---
+
+### [2026-10-21] — Inicialización de la bitácora del proyecto
+**Tipo:** `Docs` / `Config`  
+**Autor / Asistente:** Antigravity & Usuario
+
+#### 🎯 Objetivo
+Establecer un mecanismo formal y ordenado de seguimiento de tareas y registrar instrucciones persistentes para que los asistentes de IA documenten automáticamente los progresos.
+
+#### 🛠️ Cambios realizados
+- Creación del directorio [bitacora/](file:///g:/PROYECTOS%20AD/AD-ELEC/bitacora) y el archivo central [bitacora.md](file:///g:/PROYECTOS%20AD/AD-ELEC/bitacora/bitacora.md).
+- Configuración de directivas para el asistente en `AGENTS.md` y `CLAUDE.md`.

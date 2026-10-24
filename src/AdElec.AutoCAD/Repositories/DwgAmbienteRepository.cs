@@ -92,6 +92,7 @@ namespace AdElec.AutoCAD.Repositories
                     if (values.Length > 1 && values[1].TypeCode == (short)DxfCode.ExtendedDataHandle)
                     {
                         string handleStr = (string)values[1].Value;
+                        ambiente.PolylineHandle = handleStr;
                         if (db.TryGetObjectId(new Handle(Convert.ToInt64(handleStr, 16)), out ObjectId polyId))
                         {
                             var poly = tr.GetObject(polyId, OpenMode.ForRead) as Polyline;

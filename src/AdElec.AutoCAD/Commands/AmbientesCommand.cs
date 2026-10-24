@@ -18,7 +18,7 @@ namespace AdElec.AutoCAD.Commands
     public class AmbientesCommand
     {
         private const string BLOCK_IDLOCALES = "ID_LOCALES";
-        private const string BLOCK_FILE_IDLOCALES = "Bloques_CAD\\ID_LOCALES.dwg";
+        private const string BLOCK_FILE_IDLOCALES = "blocks\\ID_LOCALES.dwg";
 
         [CommandMethod("ADE_AMBIENTES")]
         public void TagAmbiente()

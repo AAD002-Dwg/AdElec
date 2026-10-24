@@ -13,6 +13,8 @@
 *.dwl2
 *.err
 
-# Windows
+# Windows & IDEs
 Thumbs.db
-Desktop.ini
+[Dd]esktop.ini
+.claude/
+*.local.json

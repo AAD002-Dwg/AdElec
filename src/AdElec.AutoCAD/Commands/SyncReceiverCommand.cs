@@ -10,6 +10,7 @@ using Autodesk.AutoCAD.Runtime;
 using AdElec.AutoCAD.Helpers;
 using AdElec.AutoCAD.Repositories;
 using AdElec.AutoCAD.Managers;
+using AdElec.AutoCAD.Geometry;
 using AdElec.Core.AeaMotor;
 using AdElec.Core.AeaMotor.Dtos;
 using Application = Autodesk.AutoCAD.ApplicationServices.Application;
@@ -79,23 +80,37 @@ namespace AdElec.AutoCAD.Commands
                             var br = (BlockReference)tr.GetObject(existingBlockId, OpenMode.ForWrite);
                             bool changed = false;
 
+                            double cadRotation = RotationHelper.WebToAutoCAD(pt.Rotation);
+
                             if (br.Position.DistanceTo(pos) > 0.001)
                             {
                                 br.Position = pos;
                                 changed = true;
                             }
 
-                            // Actualizar atributos CX (circuito), POT (potencia), LLAVE-N°0 (switch id)
+                            if (Math.Abs(br.Rotation - cadRotation) > 0.001)
+                            {
+                                br.Rotation = cadRotation;
+                                changed = true;
+                            }
+
+                            // Actualizar atributos horizontalmente y asignar ROT1
                             foreach (ObjectId attId in br.AttributeCollection)
                             {
                                 var att = (AttributeReference)tr.GetObject(attId, OpenMode.ForWrite);
+                                
+                                // Forzar texto horizontal (comportamiento de ade_tomas.lsp)
+                                att.Rotation = 0.0;
+
                                 string newVal = att.Tag.ToUpperInvariant() switch
                                 {
                                     "CX"       => pt.CircuitId ?? att.TextString,
                                     "POT"      => pt.PowerVa > 0 ? pt.PowerVa.ToString("F0") : att.TextString,
                                     "LLAVE-N°0"=> pt.Type == "SWITCH" ? (pt.SwitchId ?? att.TextString) : att.TextString,
+                                    "ROT1"     => RotationHelper.ToDegreesString(cadRotation),
                                     _          => att.TextString,
                                 };
+
                                 if (newVal != att.TextString)
                                 {
                                     att.TextString = newVal;
@@ -178,6 +193,7 @@ namespace AdElec.AutoCAD.Commands
         private void InsertarNuevaBoca(Transaction tr, BlockTableRecord space, ObjectId blockId, Point3d pos, ProposalPoint pt, Editor ed)
         {
             var br = new BlockReference(pos, blockId);
+            br.Rotation = pt.Rotation;
             space.AppendEntity(br);
             tr.AddNewlyCreatedDBObject(br, true);
 
@@ -195,10 +211,16 @@ namespace AdElec.AutoCAD.Commands
                     attRef.SetAttributeFromBlock(attDef, br.BlockTransform);
                     attRef.Position = attDef.Position.TransformBy(br.BlockTransform);
                     
-                    // Mapeo simple de atributos
+                    // Mapeo de atributos y fijación horizontal
+                    double cadRotation = RotationHelper.WebToAutoCAD(pt.Rotation);
+                    br.Rotation = cadRotation;
+
+                    attRef.Rotation = 0.0;
+
                     if (attDef.Tag == "CX") attRef.TextString = pt.CircuitId ?? "";
                     if (attDef.Tag == "POT") attRef.TextString = pt.PowerVa.ToString("F0");
                     if (attDef.Tag == "LLAVE-N°0" && pt.Type == "SWITCH") attRef.TextString = pt.SwitchId ?? "";
+                    if (attDef.Tag == "ROT1") attRef.TextString = RotationHelper.ToDegreesString(cadRotation);
 
                     br.AttributeCollection.AppendAttribute(attRef);
                     tr.AddNewlyCreatedDBObject(attRef, true);
