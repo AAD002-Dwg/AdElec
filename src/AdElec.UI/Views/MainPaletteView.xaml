@@ -598,7 +598,7 @@
                             </StackPanel>
                         </Border>
 
-                        <Expander Header="Acciones del Tablero" IsExpanded="True" Style="{StaticResource DarkExpander}">
+                        <Expander Header="Acciones del Tablero" IsExpanded="True" Style="{StaticResource AdeExpander}">
                             <StackPanel Margin="0,8,0,0">
                                 <Button Content="⚡ Generar Unifilar (ADE_UNIFILAR)"
                                         Style="{StaticResource BtnPrimary}"
