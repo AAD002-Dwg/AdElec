@@ -31,6 +31,24 @@ Motivo detrás de las elecciones de diseño o solución implementada.
 
 ## 📜 Historial de Registros
 
+### [2026-10-24] — Corrección de Recurso XAML en Paleta (AdeExpander)
+**Tipo:** `Fix`  
+**Autor / Asistente:** Antigravity / Usuario
+
+#### 🎯 Objetivo
+- Resolver la excepción `System.Windows.StaticResourceExtension` en línea 601 de [MainPaletteView.xaml](file:///g:/PROYECTOS%20AD/AD-ELEC/src/AdElec.UI/Views/MainPaletteView.xaml) al ejecutar el comando `ADE_PANEL`.
+
+#### 🛠️ Cambios realizados
+- `src/AdElec.UI/Views/MainPaletteView.xaml`:
+  - Corregido el estilo del Expander de acciones de tablero: reemplazado `DarkExpander` por la clave declarada existente `AdeExpander`.
+  - Verificada la consistencia de todos los `StaticResource` del archivo con 0 referencias faltantes.
+
+#### 💡 Decisiones técnicas
+- La excepción en runtime de WPF se producía al no encontrar la clave de recurso estático durante la instanciación de la vista. Se validó la totalidad de recursos mediante script automatizado.
+
+#### 📌 Próximos pasos pendientes
+- Reiniciar sesión de AutoCAD para liberar las DLLs en memoria y cargar la versión compilada sin bloqueos.
+
 ### [2026-10-24] — Aprendizaje de Hábitos de Nomenclatura, Rediseño Profesional de Tableros y Circuitos (ADE_PANEL), y Sincronización DWG
 **Tipo:** `Feature` / `Fix` / `Refactor`  
 **Autor / Asistente:** Antigravity / Usuario
