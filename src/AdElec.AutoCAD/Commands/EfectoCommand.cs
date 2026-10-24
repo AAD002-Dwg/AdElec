@@ -118,7 +118,10 @@ namespace AdElec.AutoCAD.Commands
 
             SetDynamicProperty(switchBr, "Visibilidad1", targetVis);
 
+            var userPrefs = AdElec.Core.Models.UserPreferences.Cargar();
+            string nomSugerida = userPrefs.ObtenerNomenclaturaParaEfectos(efectos.Count);
             ed.WriteMessage($"\n✓ Interruptor configurado: {efectos.Count} efecto(s) [{string.Join(", ", efectos)}] con visibilidad '{targetVis}'.");
+            ed.WriteMessage($"\n💡 Nomenclatura física de cable sugerida: {nomSugerida} (aprendido según sus preferencias).");
 
             // Opción: Vincular luminarias inmediatamente
             var pko = new PromptKeywordOptions("\n¿Desea seleccionar las luminarias para vincularlas? [Si/No] <S>: ");

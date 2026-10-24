@@ -30,8 +30,8 @@
 (if (not *ADE:NOM:MODO*)     (setq *ADE:NOM:MODO*     "Luminarias"))
 (if (not *ADE:NOM:CX*)       (setq *ADE:NOM:CX*       "C1"))
 (if (not *ADE:NOM:CABLES-L*) (setq *ADE:NOM:CABLES-L* "2x1,5+T"))
-(if (not *ADE:NOM:CABLES-T*) (setq *ADE:NOM:CABLES-T* "3x2,5+T"))
-(if (not *ADE:NOM:CABLES-R*) (setq *ADE:NOM:CABLES-R* "F+R+T"))
+(if (not *ADE:NOM:CABLES-T*) (setq *ADE:NOM:CABLES-T* "2x2,5+T"))
+(if (not *ADE:NOM:CABLES-R*) (setq *ADE:NOM:CABLES-R* "2x1,5+T"))
 (if (not *ADE:NOM:CANERIA*)  (setq *ADE:NOM:CANERIA*  "RS"))
 
 (setq *ADE:NOM:BLK-NAME* "I.E-AD-Nomenclatura_Cables")
@@ -344,23 +344,28 @@
     )
   )
 
-  ;; -- 3. Cables (default segun modo) -------------------------
-  (setq cables
-    (cond
-      ((= modo "Tomas")    *ADE:NOM:CABLES-T*)
-      ((= modo "Retornos") *ADE:NOM:CABLES-R*)
-      (t                   *ADE:NOM:CABLES-L*)))
-
-  (setq cables (getstring (strcat "\nCables [" cables "]: ")))
-  (cond
-    ((= cables "")
-     (setq cables (cond
-                    ((= modo "Tomas")    *ADE:NOM:CABLES-T*)
-                    ((= modo "Retornos") *ADE:NOM:CABLES-R*)
-                    (t                   *ADE:NOM:CABLES-L*))))
-    ((= modo "Tomas")    (setq *ADE:NOM:CABLES-T* cables))
-    ((= modo "Retornos") (setq *ADE:NOM:CABLES-R* cables))
-    (t                   (setq *ADE:NOM:CABLES-L* cables))
+  ;; -- 3. Cables (segun modo y aprendizaje de habitos) -------
+  (if (= modo "Retornos")
+    (progn
+      (initget "1 2 3 Combinacion Manual")
+      (setq opt-ef (getkword "\nEfectos de llave [1 (2x1,5+T) / 2 (3x1,5+T) / 3 (4x1,5+T) / Combinacion / Manual] <1>: "))
+      (cond
+        ((or (null opt-ef) (= opt-ef "1")) (setq cables "2x1,5+T"))
+        ((= opt-ef "2")                     (setq cables "3x1,5+T"))
+        ((= opt-ef "3")                     (setq cables "4x1,5+T"))
+        ((= opt-ef "Combinacion")           (setq cables "3x1,5+T"))
+        ((= opt-ef "Manual")
+         (setq cables (getstring (strcat "\nNomenclatura personalizada [" *ADE:NOM:CABLES-R* "]: ")))
+         (if (= cables "") (setq cables *ADE:NOM:CABLES-R*)))
+      )
+      (setq *ADE:NOM:CABLES-R* cables)
+    )
+    (progn
+      (setq cables (if (= modo "Tomas") *ADE:NOM:CABLES-T* *ADE:NOM:CABLES-L*))
+      (setq cables-in (getstring (strcat "\nCables [" cables "]: ")))
+      (if (not (= cables-in "")) (setq cables cables-in))
+      (if (= modo "Tomas") (setq *ADE:NOM:CABLES-T* cables) (setq *ADE:NOM:CABLES-L* cables))
+    )
   )
 
   ;; -- 4. Caneria ---------------------------------------------

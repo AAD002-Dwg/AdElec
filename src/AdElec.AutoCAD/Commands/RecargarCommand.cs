@@ -71,16 +71,20 @@ namespace AdElec.AutoCAD.Commands
             var panelDict = existingPanels.ToDictionary(p => p.Name, p => p, StringComparer.OrdinalIgnoreCase);
 
             // Estructura para acumular bocas por tablero y circuito:
-            // tableroName -> circuitName -> lista de bocas (tipo, potencia)
-            var tableroBocas = new Dictionary<string, Dictionary<string, List<(string Tipo, double Potencia)>>>(StringComparer.OrdinalIgnoreCase);
+            // tableroName -> circuitName -> lista de bocas (tipo, potencia, local)
+            var tableroBocas = new Dictionary<string, Dictionary<string, List<(string Tipo, double Potencia, string Local)>>>(StringComparer.OrdinalIgnoreCase);
 
             // Tableros explícitos encontrados como bloques (ej. ID_TABLERO, I.E-AD-04)
             var tablerosEncontrados = new Dictionary<string, (string Ubicacion, int Fases, double Sup)>(StringComparer.OrdinalIgnoreCase);
+
+            // Locales para inferir destinos de circuitos
+            var locales = new List<(Autodesk.AutoCAD.Geometry.Point2d Pos, string Nombre)>();
 
             using (var tr = db.TransactionManager.StartOpenCloseTransaction())
             {
                 var space = (BlockTableRecord)tr.GetObject(db.CurrentSpaceId, OpenMode.ForRead);
 
+                // Paso 1: Recolectar locales y tableros
                 foreach (ObjectId entId in space)
                 {
                     var ent = tr.GetObject(entId, OpenMode.ForRead);
@@ -90,10 +94,21 @@ namespace AdElec.AutoCAD.Commands
                         ? ((BlockTableRecord)tr.GetObject(br.DynamicBlockTableRecord, OpenMode.ForRead)).Name
                         : ((BlockTableRecord)tr.GetObject(br.BlockTableRecord, OpenMode.ForRead)).Name;
 
-                    // 1. Detectar bloques de tablero en el plano (ID_TABLERO o I.E-AD-04)
-                    if (string.Equals(bName, "ID_TABLERO", StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(bName, "I.E-AD-04", StringComparison.OrdinalIgnoreCase) ||
-                        bName.IndexOf("TABLERO", StringComparison.OrdinalIgnoreCase) >= 0)
+                    if (string.Equals(bName, "ID_LOCALES", StringComparison.OrdinalIgnoreCase))
+                    {
+                        string locName = "";
+                        foreach (ObjectId attId in br.AttributeCollection)
+                        {
+                            var a = (AttributeReference)tr.GetObject(attId, OpenMode.ForRead);
+                            if (string.Equals(a.Tag, "LOCAL", StringComparison.OrdinalIgnoreCase))
+                                locName = a.TextString?.Trim() ?? "";
+                        }
+                        if (!string.IsNullOrEmpty(locName))
+                            locales.Add((new Autodesk.AutoCAD.Geometry.Point2d(br.Position.X, br.Position.Y), locName));
+                    }
+                    else if (string.Equals(bName, "ID_TABLERO", StringComparison.OrdinalIgnoreCase) ||
+                             string.Equals(bName, "I.E-AD-04", StringComparison.OrdinalIgnoreCase) ||
+                             bName.IndexOf("TABLERO", StringComparison.OrdinalIgnoreCase) >= 0)
                     {
                         string tabName = "";
                         string tabUbic = "";
@@ -106,19 +121,31 @@ namespace AdElec.AutoCAD.Commands
                             string tag = a.Tag?.ToUpperInvariant() ?? "";
                             string val = a.TextString?.Trim() ?? "";
 
-                            if (tag == "TABLERO" || tag == "NOMBRE" || tag == "NAME" || tag == "ID") tabName = val;
+                            if (tag == "TABLERO" || tag == "NOMBRE" || tag == "NAME" || tag == "ID" || tag == "TX-X") tabName = val;
                             else if (tag == "UBICACION" || tag == "UF" || tag == "LOCAL") tabUbic = val;
                             else if (tag == "FASES" || tag == "FASE") { if (val.Contains("3")) tabFases = 3; }
                             else if (tag == "AREA" || tag == "SUPERFICIE") { double.TryParse(val.Replace("m²", "").Trim(), out tabSup); }
                         }
 
-                        if (!string.IsNullOrEmpty(tabName) && !tablerosEncontrados.ContainsKey(tabName))
+                        if (string.IsNullOrEmpty(tabName)) tabName = "TD1";
+
+                        if (!tablerosEncontrados.ContainsKey(tabName))
                         {
                             tablerosEncontrados[tabName] = (tabUbic, tabFases, tabSup);
                         }
                     }
+                }
 
-                    // 2. Detectar bocas eléctricas con atributos D y CX
+                // Paso 2: Recolectar bocas eléctricas
+                foreach (ObjectId entId in space)
+                {
+                    var ent = tr.GetObject(entId, OpenMode.ForRead);
+                    if (ent is not BlockReference br) continue;
+
+                    string bName = br.IsDynamicBlock
+                        ? ((BlockTableRecord)tr.GetObject(br.DynamicBlockTableRecord, OpenMode.ForRead)).Name
+                        : ((BlockTableRecord)tr.GetObject(br.BlockTableRecord, OpenMode.ForRead)).Name;
+
                     string tipo = "";
                     if (BlockTipoMap.TryGetValue(bName, out string? mappedTipo)) tipo = mappedTipo;
                     else if (bName.IndexOf("TOMA", StringComparison.OrdinalIgnoreCase) >= 0) tipo = "TUG";
@@ -145,9 +172,14 @@ namespace AdElec.AutoCAD.Commands
                         }
                     }
 
-                    if (string.IsNullOrEmpty(attrD) || string.IsNullOrEmpty(attrCX)) continue;
+                    if (string.IsNullOrEmpty(attrCX)) continue;
 
-                    // Si no determinó tipo por nombre de bloque, inferir por prefijo de CX o default
+                    // Si no tiene D asignado, asociar al tablero existente o default TD1
+                    if (string.IsNullOrEmpty(attrD))
+                    {
+                        attrD = tablerosEncontrados.Keys.FirstOrDefault() ?? "TD1";
+                    }
+
                     if (string.IsNullOrEmpty(tipo))
                     {
                         if (attrCX.IndexOf("L", StringComparison.OrdinalIgnoreCase) >= 0 || attrCX.IndexOf("IL", StringComparison.OrdinalIgnoreCase) >= 0) tipo = "IUG";
@@ -155,28 +187,38 @@ namespace AdElec.AutoCAD.Commands
                         else tipo = "IUG";
                     }
 
-                    // Potencias reglamentarias mínimas según AEA 90364
                     if (pot <= 0)
                     {
-                        if (tipo == "IUG" || tipo == "IUE") pot = 60;   // 60 VA por boca
-                        else if (tipo == "TUG") pot = 150;              // 150 VA estimado por boca
-                        else if (tipo == "TUE") pot = 500;              // 500 VA
+                        if (tipo == "IUG" || tipo == "IUE") pot = 60;
+                        else if (tipo == "TUG") pot = 150;
+                        else if (tipo == "TUE") pot = 500;
                         else pot = 100;
+                    }
+
+                    // Encontrar local más cercano
+                    string localBoca = "";
+                    if (locales.Count > 0)
+                    {
+                        double bx = br.Position.X;
+                        double by = br.Position.Y;
+                        localBoca = locales
+                            .OrderBy(l => { double dx = l.Pos.X - bx; double dy = l.Pos.Y - by; return dx * dx + dy * dy; })
+                            .First().Nombre;
                     }
 
                     if (!tableroBocas.TryGetValue(attrD, out var circDict))
                     {
-                        circDict = new Dictionary<string, List<(string Tipo, double Potencia)>>(StringComparer.OrdinalIgnoreCase);
+                        circDict = new Dictionary<string, List<(string Tipo, double Potencia, string Local)>>(StringComparer.OrdinalIgnoreCase);
                         tableroBocas[attrD] = circDict;
                     }
 
                     if (!circDict.TryGetValue(attrCX, out var bocasList))
                     {
-                        bocasList = new List<(string Tipo, double Potencia)>();
+                        bocasList = new List<(string Tipo, double Potencia, string Local)>();
                         circDict[attrCX] = bocasList;
                     }
 
-                    bocasList.Add((tipo, pot));
+                    bocasList.Add((tipo, pot, localBoca));
                 }
 
                 tr.Commit();
@@ -187,6 +229,12 @@ namespace AdElec.AutoCAD.Commands
             foreach (var k in panelDict.Keys) todosLosTablerosNombres.Add(k);
             foreach (var k in tableroBocas.Keys) todosLosTablerosNombres.Add(k);
             foreach (var k in tablerosEncontrados.Keys) todosLosTablerosNombres.Add(k);
+
+            // Garantizar al menos un tablero base TD1 para que la interfaz nunca quede vacía
+            if (todosLosTablerosNombres.Count == 0)
+            {
+                todosLosTablerosNombres.Add("TD1");
+            }
 
             var resultadoPanels = new List<Panel>();
 
@@ -205,7 +253,7 @@ namespace AdElec.AutoCAD.Commands
                     panelDict[tName] = p;
                 }
 
-                // Si encontramos circuitos en el plano para este tablero, actualizarlos con precisión
+                // Si encontramos circuitos en el plano para este tablero, actualizarlos preservando configuraciones previas
                 if (tableroBocas.TryGetValue(tName, out var circDict) && circDict.Count > 0)
                 {
                     var updatedCircuits = new ObservableCollection<Circuit>();
@@ -215,7 +263,6 @@ namespace AdElec.AutoCAD.Commands
                         string cName = kvp.Key;
                         var bocas = kvp.Value;
 
-                        // Determinar tipo predominante del circuito
                         bool esEspecial = bocas.Any(b => b.Tipo == "TUE" || b.Tipo == "IUE");
                         bool esLuz = bocas.Count(b => b.Tipo == "IUG" || b.Tipo == "IUE") >= bocas.Count(b => b.Tipo == "TUG" || b.Tipo == "TUE");
 
@@ -223,10 +270,8 @@ namespace AdElec.AutoCAD.Commands
                         if (esEspecial) finalTipo = esLuz ? "IUE" : "TUE";
                         else finalTipo = esLuz ? "IUG" : "TUG";
 
-                        // Sumar potencia total
                         double loadVa = bocas.Sum(b => b.Potencia);
 
-                        // Si es TUG y la suma dio baja, el mínimo simultáneo de circuito TUG según norma es 2200 VA
                         if (finalTipo == "TUG" && loadVa < 2200 && bocas.Count > 0)
                         {
                             loadVa = Math.Max(loadVa, 2200);
@@ -236,8 +281,13 @@ namespace AdElec.AutoCAD.Commands
                             loadVa = Math.Max(loadVa, 150);
                         }
 
-                        double breaker = (finalTipo == "IUG") ? 10 : (finalTipo == "TUG" ? 16 : 20);
-                        double wire = (finalTipo == "IUG") ? 1.5 : (finalTipo == "TUG" ? 2.5 : 4.0);
+                        // Buscar si el usuario ya tenía configurado este circuito previamente
+                        var existingCircuit = p.Circuits.FirstOrDefault(c => string.Equals(c.Name, cName, StringComparison.OrdinalIgnoreCase));
+
+                        double breaker = existingCircuit?.BreakerAmps ?? ((finalTipo == "IUG") ? 10 : (finalTipo == "TUG" ? 16 : 20));
+                        double wire = existingCircuit?.WireSectionMm2 ?? ((finalTipo == "IUG") ? 1.5 : (finalTipo == "TUG" ? 2.5 : 4.0));
+                        char phase = existingCircuit?.Phase ?? 'R';
+                        string destinations = string.Join("\n", bocas.Select(b => b.Local).Where(l => !string.IsNullOrEmpty(l)).Distinct());
 
                         updatedCircuits.Add(new Circuit
                         {
@@ -246,12 +296,22 @@ namespace AdElec.AutoCAD.Commands
                             LoadVA = loadVa,
                             BreakerAmps = breaker,
                             WireSectionMm2 = wire,
-                            Phase = 'R'
+                            Phase = phase,
+                            PhaseString = p.PhaseCount == 3 ? phase.ToString() : "SN",
+                            ArtefactCount = bocas.Count,
+                            Destinations = !string.IsNullOrEmpty(destinations) ? destinations : (existingCircuit?.Destinations ?? "LOCAL"),
+                            Curve = existingCircuit?.Curve ?? "C",
+                            Poles = p.PhaseCount == 3 ? 4 : 2,
+                            Norma = "IRAM 62267",
+                            Description = (finalTipo == "IUG" || finalTipo == "IUE") ? "ILUMINACION" : "TOMAS"
                         });
                     }
 
                     p.Circuits = updatedCircuits;
                 }
+
+                // Garantizar reserva normativa
+                AdElec.Core.Algorithms.AeaRules.EnsureReserveCircuit(p);
 
                 // Guardar en el DWG
                 panelRepo.SavePanel(p);

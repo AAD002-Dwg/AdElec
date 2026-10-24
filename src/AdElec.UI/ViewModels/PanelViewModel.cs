@@ -40,6 +40,26 @@ public sealed class PanelViewModel : INotifyPropertyChanged
     public ObservableCollection<Panel> Panels { get; } = [];
     public ObservableCollection<Circuit> Circuits { get; } = [];
 
+    public ObservableCollection<string> CircuitTypesList { get; } = ["IUG", "TUG", "IUE", "TUE", "AP", "ACU", "RESERVA"];
+    public ObservableCollection<double> WireOptionsList { get; } = [1.5, 2.5, 4.0, 6.0, 10.0, 16.0];
+    public ObservableCollection<double> BreakerOptionsList { get; } = [10, 16, 20, 25, 32, 40, 50, 63];
+    public ObservableCollection<char> PhaseOptionsList { get; } = ['R', 'S', 'T'];
+
+    private Circuit? _selectedCircuit;
+    public Circuit? SelectedCircuit
+    {
+        get => _selectedCircuit;
+        set
+        {
+            if (_selectedCircuit == value) return;
+            _selectedCircuit = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasSelectedCircuit));
+            if (EliminarCircuitoCommand is RelayCommand rc) rc.RaiseCanExecuteChanged();
+        }
+    }
+    public bool HasSelectedCircuit => _selectedCircuit is not null;
+
     public Panel? SelectedPanel
     {
         get => _selectedPanel;
@@ -159,6 +179,9 @@ public sealed class PanelViewModel : INotifyPropertyChanged
     public ICommand RecargarDocumentoCommand { get; }
     public ICommand GenerarUnifilarCommand { get; }
     public ICommand EfectosCommand { get; }
+    public ICommand AgregarCircuitoCommand { get; }
+    public ICommand EliminarCircuitoCommand { get; }
+    public ICommand GuardarCircuitosCommand { get; }
 
     // ── Constructor ─────────────────────────────────────────────────────────
 
@@ -204,6 +227,9 @@ public sealed class PanelViewModel : INotifyPropertyChanged
         RecargarDocumentoCommand = new RelayCommand(() => _onRecargarDocumento?.Invoke(), () => !IsBusy);
         GenerarUnifilarCommand = new RelayCommand(() => _onGenerarUnifilar?.Invoke(SelectedPanel?.Name ?? ""), () => HasPanel);
         EfectosCommand = new RelayCommand(() => _onEfectos?.Invoke());
+        AgregarCircuitoCommand = new RelayCommand(AgregarCircuito, () => HasPanel);
+        EliminarCircuitoCommand = new RelayCommand(EliminarCircuito, () => HasSelectedCircuit);
+        GuardarCircuitosCommand = new RelayCommand(GuardarCircuitos, () => HasPanel);
 
         _projectId = _projectRepo.GetProjectId();
         _projectName = _projectRepo.GetProjectName();
@@ -312,12 +338,92 @@ public sealed class PanelViewModel : INotifyPropertyChanged
     private void RefreshCircuits()
     {
         Circuits.Clear();
-        if (_selectedPanel is null) return;
+        if (_selectedPanel is null)
+        {
+            SelectedCircuit = null;
+            return;
+        }
         foreach (var c in _selectedPanel.Circuits)
             Circuits.Add(c);
+
+        SelectedCircuit = Circuits.FirstOrDefault();
         OnPropertyChanged(nameof(TotalLoadVA));
         OnPropertyChanged(nameof(TotalLoadKVA));
         OnPropertyChanged(nameof(HasCircuits));
+    }
+
+    private void AgregarCircuito()
+    {
+        if (_selectedPanel == null) return;
+
+        int num = 1;
+        while (_selectedPanel.Circuits.Any(c => string.Equals(c.Name, $"C{num}", StringComparison.OrdinalIgnoreCase)))
+        {
+            num++;
+        }
+        string nuevoNombre = $"C{num}";
+
+        bool tieneIug = _selectedPanel.Circuits.Any(c => c.Type.StartsWith("IUG", StringComparison.OrdinalIgnoreCase));
+        string tipo = (!tieneIug) ? "IUG" : "TUG";
+        double seccion = tipo == "IUG" ? 1.5 : 2.5;
+        double termica = tipo == "IUG" ? 10 : 16;
+        double carga = tipo == "IUG" ? 150 : 2200;
+
+        char fase = 'R';
+        if (_selectedPanel.PhaseCount > 1)
+        {
+            char[] fases = ['R', 'S', 'T'];
+            fase = fases[_selectedPanel.Circuits.Count % _selectedPanel.PhaseCount];
+        }
+
+        var nuevo = new Circuit
+        {
+            Name = nuevoNombre,
+            Type = tipo,
+            WireSectionMm2 = seccion,
+            LoadVA = carga,
+            BreakerAmps = termica,
+            Phase = fase,
+            PointsCount = 1,
+            Destinations = !string.IsNullOrWhiteSpace(_selectedPanel.Location) ? _selectedPanel.Location : "General"
+        };
+
+        _selectedPanel.Circuits.Add(nuevo);
+        Circuits.Add(nuevo);
+        SelectedCircuit = nuevo;
+
+        _repo.SavePanel(_selectedPanel);
+
+        OnPropertyChanged(nameof(TotalLoadVA));
+        OnPropertyChanged(nameof(TotalLoadKVA));
+        OnPropertyChanged(nameof(HasCircuits));
+        StatusMessage = $"✓ Agregado circuito '{nuevo.Name}' ({tipo}) al tablero '{_selectedPanel.Name}'.";
+    }
+
+    private void EliminarCircuito()
+    {
+        if (_selectedCircuit == null || _selectedPanel == null) return;
+
+        string nombre = _selectedCircuit.Name;
+        _selectedPanel.Circuits.Remove(_selectedCircuit);
+        Circuits.Remove(_selectedCircuit);
+        SelectedCircuit = Circuits.FirstOrDefault();
+
+        _repo.SavePanel(_selectedPanel);
+
+        OnPropertyChanged(nameof(TotalLoadVA));
+        OnPropertyChanged(nameof(TotalLoadKVA));
+        OnPropertyChanged(nameof(HasCircuits));
+        StatusMessage = $"✓ Circuito '{nombre}' eliminado.";
+    }
+
+    private void GuardarCircuitos()
+    {
+        if (_selectedPanel == null) return;
+        _repo.SavePanel(_selectedPanel);
+        OnPropertyChanged(nameof(TotalLoadVA));
+        OnPropertyChanged(nameof(TotalLoadKVA));
+        StatusMessage = $"✓ Tablero '{_selectedPanel.Name}' con {Circuits.Count} circuito(s) guardado en el DWG.";
     }
 
     private void ConfirmarNuevoTablero()
@@ -719,6 +825,9 @@ public sealed class PanelViewModel : INotifyPropertyChanged
         ((RelayCommand)RecargarDocumentoCommand).RaiseCanExecuteChanged();
         ((RelayCommand)GenerarUnifilarCommand).RaiseCanExecuteChanged();
         ((RelayCommand)EfectosCommand).RaiseCanExecuteChanged();
+        ((RelayCommand)AgregarCircuitoCommand).RaiseCanExecuteChanged();
+        ((RelayCommand)EliminarCircuitoCommand).RaiseCanExecuteChanged();
+        ((RelayCommand)GuardarCircuitosCommand).RaiseCanExecuteChanged();
     }
 
     // ── INotifyPropertyChanged ───────────────────────────────────────────────

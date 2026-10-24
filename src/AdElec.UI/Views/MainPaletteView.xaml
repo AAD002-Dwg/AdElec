@@ -556,7 +556,7 @@
                                     </StackPanel>
                                 </Grid>
 
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
                                     <Button Content="Descartar" Style="{StaticResource BtnSecondary}"
                                             Command="{Binding CancelarNuevoTableroCommand}"
                                             Margin="0,0,8,0" Padding="12,6"/>
@@ -582,25 +582,24 @@
                                         <TextBlock Text="{Binding TotalLoadKVA, StringFormat='{}{0:F1} kVA'}"
                                                    Style="{StaticResource BigValue}" FontSize="15" Margin="0,2,0,0"/>
                                     </StackPanel>
-                                    <StackPanel Grid.Column="1" HorizontalAlignment="Center">
+                                    <StackPanel Grid.Column="1" Margin="5,0,5,0">
                                         <TextBlock Text="GRADO" Foreground="#8A91A1" FontSize="9" FontWeight="Bold"/>
-                                        <TextBlock Text="{Binding LastGrado, FallbackValue='—'}"
-                                                   Style="{StaticResource BigValue}" FontSize="15" Foreground="#55AAFF" Margin="0,2,0,0"/>
+                                        <TextBlock Text="{Binding ElectrificationDegree, FallbackValue='Medio'}"
+                                                   Style="{StaticResource BigValue}" FontSize="15" Margin="0,2,0,0"
+                                                   Foreground="#55AAFF"/>
                                     </StackPanel>
-                                    <StackPanel Grid.Column="2" HorizontalAlignment="Right">
-                                        <TextBlock Text="NORMA" Foreground="#8A91A1" FontSize="9" FontWeight="Bold" HorizontalAlignment="Right"/>
-                                        <TextBlock Text="{Binding CumpleNormaText, FallbackValue='—'}"
-                                                   FontSize="11" FontWeight="Bold"
-                                                   Foreground="{Binding CumpleNormaColor}" Margin="0,4,0,0"/>
+                                    <StackPanel Grid.Column="2" Margin="5,0,0,0">
+                                        <TextBlock Text="NORMA" Foreground="#8A91A1" FontSize="9" FontWeight="Bold"/>
+                                        <TextBlock Text="{Binding NormStatus, FallbackValue='OK'}"
+                                                   Style="{StaticResource BigValue}" FontSize="15" Margin="0,2,0,0"
+                                                   Foreground="#4CAF50"/>
                                     </StackPanel>
                                 </Grid>
                             </StackPanel>
                         </Border>
 
-                        <!-- ── OPERACIONES Y ASISTENTES ─────────────────────── -->
-                        <Expander Header="OPERACIONES Y ASISTENTES" Style="{StaticResource AdeExpander}" IsExpanded="True">
-                            <StackPanel Margin="0,5,0,0">
-                                <TextBlock Text="Acciones Principales" Foreground="#5A6170" FontSize="9" Margin="0,0,0,6"/>
+                        <Expander Header="Acciones del Tablero" IsExpanded="True" Style="{StaticResource DarkExpander}">
+                            <StackPanel Margin="0,8,0,0">
                                 <Button Content="⚡ Generar Unifilar (ADE_UNIFILAR)"
                                         Style="{StaticResource BtnPrimary}"
                                         Command="{Binding GenerarUnifilarCommand}"
@@ -657,41 +656,118 @@
             <TabItem Header="Circuitos" Style="{StaticResource AdeTab}">
                 <Grid>
                     <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
-                    <DataGrid Grid.Row="0"
+                    <!-- ── BARRA DE HERRAMIENTAS DE CIRCUITOS ───────────── -->
+                    <Border Grid.Row="0" Background="#1a202c" Padding="8,6"
+                            BorderBrush="#343B48" BorderThickness="0,0,0,1">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="4"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="4"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="4"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Button Grid.Column="0" Content="+ Circuito"
+                                    Style="{StaticResource BtnSecondary}"
+                                    Command="{Binding AgregarCircuitoCommand}"
+                                    Padding="8,4" FontSize="10" FontWeight="SemiBold"
+                                    ToolTip="Agregar nuevo circuito normativo a este tablero"/>
+
+                            <Button Grid.Column="2" Content="🗑 Eliminar"
+                                    Style="{StaticResource BtnSecondary}"
+                                    Command="{Binding EliminarCircuitoCommand}"
+                                    Padding="8,4" FontSize="10"
+                                    ToolTip="Eliminar el circuito seleccionado"/>
+
+                            <Button Grid.Column="4" Content="💾 Guardar"
+                                    Style="{StaticResource BtnPrimary}"
+                                    Command="{Binding GuardarCircuitosCommand}"
+                                    Padding="10,4" FontSize="10" FontWeight="Bold"
+                                    ToolTip="Guardar cambios de circuitos en el DWG"/>
+
+                            <Button Grid.Column="6" Content="↺ DWG"
+                                    Style="{StaticResource BtnSecondary}"
+                                    Command="{Binding RecargarCircuitosCommand}"
+                                    Padding="8,4" FontSize="10"
+                                    ToolTip="Escanear y sincronizar circuitos desde los bloques del DWG"/>
+
+                            <Button Grid.Column="8" Content="⚡ AEA"
+                                    Style="{StaticResource BtnAction}"
+                                    Command="{Binding CalcularAeaCommand}"
+                                    Padding="8,4" FontSize="10"
+                                    ToolTip="Validar y calcular dimensionamiento con AEA-MOTOR"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- ── DATAGRID EDITABLE DE CIRCUITOS ───────────────── -->
+                    <DataGrid Grid.Row="1"
                               Style="{StaticResource AdeDataGrid}"
                               ItemsSource="{Binding Circuits}"
+                              SelectedItem="{Binding SelectedCircuit, Mode=TwoWay}"
                               AutoGenerateColumns="False"
-                              IsReadOnly="True"
+                              IsReadOnly="False"
                               CanUserResizeRows="False"
                               CanUserAddRows="False"
                               SelectionMode="Single"
+                              SelectionUnit="FullRow"
                               Margin="0">
+                        <DataGrid.Resources>
+                            <Style TargetType="TextBox">
+                                <Setter Property="Background" Value="#141c2b"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                                <Setter Property="CaretBrush" Value="#55AAFF"/>
+                                <Setter Property="BorderBrush" Value="#55AAFF"/>
+                                <Setter Property="BorderThickness" Value="1"/>
+                                <Setter Property="Padding" Value="4,2"/>
+                                <Setter Property="FontSize" Value="11"/>
+                            </Style>
+                        </DataGrid.Resources>
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Circuito" Binding="{Binding Name}" Width="60"/>
-                            <DataGridTextColumn Header="Tipo"     Binding="{Binding Type}" Width="45"/>
-                            <DataGridTextColumn Header="mm²"      Binding="{Binding WireSectionMm2, StringFormat='{}{0:F1}'}" Width="40"/>
-                            <DataGridTextColumn Header="VA"       Binding="{Binding LoadVA, StringFormat='{}{0:F0}'}" Width="55"/>
-                            <DataGridTextColumn Header="A"        Binding="{Binding BreakerAmps, StringFormat='{}{0:F0}'}" Width="35"/>
-                            <DataGridTextColumn Header="Fase"     Binding="{Binding Phase}" Width="35"/>
+                            <DataGridTextColumn Header="Circuito" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Width="52"/>
+                            <DataGridTextColumn Header="Tipo"     Binding="{Binding Type, UpdateSourceTrigger=PropertyChanged}" Width="50"/>
+                            <DataGridTextColumn Header="Bocas"    Binding="{Binding PointsCount, UpdateSourceTrigger=PropertyChanged}" Width="42"/>
+                            <DataGridTextColumn Header="VA"       Binding="{Binding LoadVA, UpdateSourceTrigger=PropertyChanged, StringFormat='{}{0:F0}'}" Width="50"/>
+                            <DataGridTextColumn Header="mm²"      Binding="{Binding WireSectionMm2, UpdateSourceTrigger=PropertyChanged, StringFormat='{}{0:F1}'}" Width="42"/>
+                            <DataGridTextColumn Header="A"        Binding="{Binding BreakerAmps, UpdateSourceTrigger=PropertyChanged, StringFormat='{}{0:F0}'}" Width="38"/>
+                            <DataGridTextColumn Header="Fase"     Binding="{Binding Phase, UpdateSourceTrigger=PropertyChanged}" Width="38"/>
+                            <DataGridTextColumn Header="Destinos" Binding="{Binding Destinations, UpdateSourceTrigger=PropertyChanged}" Width="*"/>
                         </DataGrid.Columns>
                     </DataGrid>
 
                     <!-- Placeholder vacío -->
-                    <TextBlock Grid.Row="0" Text="Sin circuitos — usá ADE_PROPUESTA o ↺ DWG"
+                    <TextBlock Grid.Row="1" Text="Sin circuitos — usá [+ Circuito], ADE_PROPUESTA o ↺ DWG"
                                Foreground="#5A6170" FontSize="11" TextWrapping="Wrap"
                                HorizontalAlignment="Center" VerticalAlignment="Center"
                                TextAlignment="Center" Margin="20"
                                Visibility="{Binding HasCircuits, Converter={StaticResource InverseBoolVis}}"/>
 
                     <!-- Footer circuitos -->
-                    <Border Grid.Row="1" Background="#14161b" Padding="10,6"
+                    <Border Grid.Row="2" Background="#14161b" Padding="10,6"
                             BorderBrush="#343B48" BorderThickness="0,1,0,0">
-                        <TextBlock Foreground="#8A91A1" FontSize="10"
-                                   Text="{Binding Circuits.Count, StringFormat='{}{0} circuito(s)'}"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Foreground="#8A91A1" FontSize="10"
+                                       Text="{Binding Circuits.Count, StringFormat='{}{0} circuito(s)'}"/>
+                            <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                <TextBlock Text="Carga Total: " Foreground="#8A91A1" FontSize="10"/>
+                                <TextBlock Text="{Binding TotalLoadVA, StringFormat='{}{0:F0} VA'}" Foreground="#55AAFF" FontSize="10" FontWeight="Bold"/>
+                                <TextBlock Text="{Binding TotalLoadKVA, StringFormat='{} ({0:F2} kVA)'}" Foreground="#8A91A1" FontSize="10"/>
+                            </StackPanel>
+                        </Grid>
                     </Border>
                 </Grid>
             </TabItem>

@@ -56,14 +56,32 @@ namespace AdElec.AutoCAD.Commands
 
                     Action<string> onRecargarCircuitos = (panelName) =>
                     {
-                        Application.DocumentManager.MdiActiveDocument
-                            ?.SendStringToExecute($"ADE_RECARGAR\n{panelName}\n", false, false, true);
-
-                        System.Threading.Tasks.Task.Delay(900).ContinueWith(_ =>
+                        var docAct = Application.DocumentManager.MdiActiveDocument;
+                        if (docAct != null)
                         {
-                            System.Windows.Application.Current?.Dispatcher.Invoke(
-                                () => _vm?.RefreshFromRepo(panelName));
-                        });
+                            try
+                            {
+                                var pRepo = new DwgPanelRepository();
+                                var panels = RecargarCommand.SincronizarTablerosDesdeDwg(docAct.Database, pRepo);
+                                if (_view != null && _view.Dispatcher != null)
+                                {
+                                    _view.Dispatcher.Invoke(() =>
+                                    {
+                                        _vm?.ReloadWithPreloadedData(
+                                            Path.GetFileNameWithoutExtension(docAct.Name),
+                                            new DwgProjectRepository().GetProjectId(),
+                                            new DwgProjectRepository().GetProjectName(),
+                                            new DwgProjectRepository().GetSyncMode(),
+                                            panels);
+                                        _vm?.RefreshFromRepo(panelName);
+                                    });
+                                }
+                            }
+                            catch (System.Exception ex)
+                            {
+                                docAct.Editor.WriteMessage($"\n[ADE_PANEL] Error al recargar tableros: {ex.Message}\n");
+                            }
+                        }
                     };
 
                     Action onPullFromWeb = () =>
@@ -151,8 +169,11 @@ namespace AdElec.AutoCAD.Commands
                 // Sincronizar de forma autónoma tableros y circuitos desde el DWG
                 var panels = RecargarCommand.SincronizarTablerosDesdeDwg(doc.Database, panelRepo);
 
-                System.Windows.Application.Current?.Dispatcher.BeginInvoke(
-                    () => _vm?.ReloadWithPreloadedData(dwgName, projectId, projectName, syncMode, panels));
+                if (_view != null && _view.Dispatcher != null)
+                {
+                    _view.Dispatcher.Invoke(() =>
+                        _vm?.ReloadWithPreloadedData(dwgName, projectId, projectName, syncMode, panels));
+                }
             }
             catch { /* ignorar si el doc no está listo */ }
         }

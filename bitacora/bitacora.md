@@ -31,6 +31,52 @@ Motivo detrás de las elecciones de diseño o solución implementada.
 
 ## 📜 Historial de Registros
 
+### [2026-10-24] — Aprendizaje de Hábitos de Nomenclatura, Rediseño Profesional de Tableros y Circuitos (ADE_PANEL), y Sincronización DWG
+**Tipo:** `Feature` / `Fix` / `Refactor`  
+**Autor / Asistente:** Antigravity / Usuario
+
+#### 🎯 Objetivo
+- Diagnosticar y solucionar integralmente el funcionamiento de `ADE_PANEL`: carga de tableros desde bloques `I.E-AD-04` (atributo `TX-X`), corrección del problema de Dispatcher en AutoCAD (`System.Windows.Application.Current` es nulo en el entorno de AutoCAD), y activación del cuadro de circuitos con edición directa, agregado y eliminación.
+- Incorporar un sistema inteligente de aprendizaje y adaptación a los hábitos del proyectista: permitir la nomenclatura física directa de conductores (ej: `2x1,5+T`, `3x1,5+T`, `4x1,5+T` para retornos y `2x2,5+T` para tomas) sin forzar códigos abstractos (`F+R+T`), persistiendo y aprendiendo de las decisiones del usuario tanto en C# como en AutoLISP.
+- Alinear el sistema de cálculo y exportación con el motor normativo AEA-MOTOR (`G:\PROYECTOS AD\AEA 90364-B\AEA-MOTOR-RESTORED`).
+
+#### 🛠️ Cambios realizados
+- `src/AdElec.Core/Models/UserPreferences.cs`:
+  - Creado modelo de preferencias de usuario y aprendizaje automático (`AprenderDecision`, `ObtenerNomenclaturaRetorno`).
+  - Persistencia global en JSON (`%AppData%\AdElec\user_preferences.json`).
+  - Soporte para estilos de rotulación: Sección Física (`2x1,5+T`, `3x1,5+T`, `4x1,5+T`) y Funcional.
+- `src/AdElec.Core/Models/Circuit.cs`:
+  - Implementado `INotifyPropertyChanged` con `SetField` reactivo para cambios en tiempo real en la UI.
+  - Añadido alias `PointsCount` <-> `ArtefactCount` para vinculación con tablas y plantillas.
+- `src/AdElec.AutoCAD/Commands/RecargarCommand.cs`:
+  - Corregida y potenciada la detección de tableros desde bloques `I.E-AD-04` escaneando el atributo específico `TX-X`.
+  - Si una boca no tiene asignado tablero o circuito (`D` vacío), se asigna de forma inteligente al tablero activo (`TD1`).
+  - Mapeo espacial de ambientes a cada circuito para poblar automáticamente la columna de destinos.
+  - Preservación de atributos editados previamente por el usuario al sincronizar desde el plano.
+- `src/AdElec.AutoCAD/Commands/PaletteCommand.cs`:
+  - Corregido el despachador de subprocesos: reemplazado `System.Windows.Application.Current?.Dispatcher` por `_view?.Dispatcher` asegurando la ejecución fluida en el hilo UI de AutoCAD.
+  - Sincronización directa y segura de circuitos en el hilo de AutoCAD mediante `_view?.Dispatcher.Invoke(...)`.
+- `src/AdElec.UI/ViewModels/PanelViewModel.cs`:
+  - Incorporadas colecciones observables para listas desplegables normativas (`CircuitTypesList`, `WireOptionsList`, `BreakerOptionsList`, `PhaseOptionsList`).
+  - Implementados comandos interactivos: `AgregarCircuitoCommand`, `EliminarCircuitoCommand` y `GuardarCircuitosCommand`.
+  - Recálculo automático de potencia total en VA y kVA al modificar circuitos.
+- `src/AdElec.UI/Views/MainPaletteView.xaml`:
+  - Rediseñada la pestaña "Circuitos" con barra de herramientas (`+ Circuito`, `🗑 Eliminar`, `💾 Guardar`, `↺ DWG`, `⚡ AEA`) y `DataGrid` editable oscuro con celdas de alta legibilidad (`#141c2b`, texto blanco, borde azul celeste).
+  - Limpieza de etiquetas redundantes y unificación visual con el tema oscuro del complemento.
+- `lisp/ade_nomenclatura.lsp`:
+  - Actualizado el flujo de rotulación para sugerir por defecto nomenclatura física: `2x1,5+T` para 1 efecto, `3x1,5+T` para 2 efectos, `4x1,5+T` para 3 efectos y `2x2,5+T` para tomas.
+  - Opciones rápidas interactivas: `[1 (2x1,5+T) / 2 (3x1,5+T) / 3 (4x1,5+T) / Combinacion / Manual]`.
+- `src/AdElec.AutoCAD/Commands/EfectoCommand.cs`:
+  - Vinculación interactiva con el modelo de preferencias para sugerir la nomenclatura física aprendida al vincular llaves y efectos.
+
+#### 💡 Decisiones técnicas
+- En AutoCAD, las ventanas WPF no siempre disponen de `System.Windows.Application.Current` porque el ejecutable anfitrión es `acad.exe` y no una aplicación WPF nativa. Usar `_view?.Dispatcher` garantiza la ejecución en el hilo correcto evitando excepciones silenciosas o interfaces congeladas.
+- En la práctica profesional argentina bajo AEA 90364-771, los planos eléctricos ejecutivos indican secciones físicas de conductores (`2x1,5+T`, `3x1,5+T`) en lugar de códigos abstractos (`F+R`), ya que son las que el instalador y el calculista necesitan para cómputo métrico y verificación de ocupación de cañerías.
+
+#### 📌 Próximos pasos pendientes
+- Continuar refinando el asistente de distribución de cañerías automáticas entre bocas agrupadas por circuito.
+- Agregar exportación directa de cómputo métrico de cables y cañerías a Excel / CSV.
+
 ### [2026-10-24] — Generador Automático de Diagramas Unifilares (ADE_UNIFILAR), Asistente de Interruptores (ADE_EFECTO) y Validación Normativa AEA 90364-771
 **Tipo:** `Feature` / `Refactor`  
 **Autor / Asistente:** Antigravity / Usuario
