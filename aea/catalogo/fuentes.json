@@ -1,0 +1,20 @@
+{
+  "$comentario": "Documentos fuente. Los PDF NO se versionan (copyright AEA). El verificador los busca en AEA_NORMATIVA/ (o en la variable de entorno AEA_PDF_DIR) y compara el SHA-256 para asegurar que se verifica contra la misma edición.",
+  "documentos": {
+    "AEA-770-2017": {
+      "titulo": "AEA 90364-7-770 Edición 2017 — Viviendas unifamiliares hasta 63 A",
+      "archivo": "_AEA 90364-7-770-2017.pdf",
+      "sha256": "B34D7C780BC1DD4F806108A2B60C6D047EAFCC9E71A07A8EEE38DB0B85D21FCD"
+    },
+    "AEA-771-2006": {
+      "titulo": "AEA 90364-7-771 Edición 2006 — Viviendas, oficinas y locales (unitarios)",
+      "archivo": "_AEA 90364-7-771-2006.pdf",
+      "sha256": "C601A9EE4F83AB2C80F8927826E58A08DAC950168D814F58A1B608EC744AE5A5"
+    },
+    "AEA-772-2019": {
+      "titulo": "AEA 90364-7-772 Edición 2019 — Servicios generales de inmuebles",
+      "archivo": "_AEA-90364-7-772-2019.pdf",
+      "sha256": "DA9B2FB197B5C0F069888CBBF32EBFD9902C2BEAD0F0653882F131F005224AA0"
+    }
+  }
+}

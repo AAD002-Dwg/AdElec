@@ -1,0 +1,22 @@
+{
+  "id": "770.7.I",
+  "titulo": "Resumen de los grados de electrificación",
+  "fuente": { "doc": "AEA-770-2017", "pagina_pdf": 23, "clausula": "770.7.3" },
+  "estado": "borrador",
+  "verificacion": {
+    "inicio": "Tabla 770.7.I - Resumen de los grados de electrificación",
+    "fin": "770.7.4",
+    "citas": [
+      "la superficie a considerar, también denominada límite de aplicación, es la superficie cubierta del inmueble más el cincuenta por ciento (50 %) de la superficie semicubierta."
+    ]
+  },
+  "parametros": {
+    "factor_semicubierta": 0.5
+  },
+  "datos": [
+    { "grado": "minimo",   "sup_mayor_que_m2": null, "sup_hasta_m2": 60 },
+    { "grado": "medio",    "sup_mayor_que_m2": 60,   "sup_hasta_m2": 130 },
+    { "grado": "elevado",  "sup_mayor_que_m2": 130,  "sup_hasta_m2": 200 },
+    { "grado": "superior", "sup_mayor_que_m2": 200,  "sup_hasta_m2": null }
+  ]
+}

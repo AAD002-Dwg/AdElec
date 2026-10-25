@@ -1,0 +1,19 @@
+{
+  "id": "770.6.I",
+  "titulo": "Resumen de tipos de circuitos",
+  "fuente": { "doc": "AEA-770-2017", "pagina_pdf": 20, "clausula": "770.6" },
+  "estado": "borrador",
+  "verificacion": {
+    "inicio": "Tabla 770.6.I - Resumen de tipos de circuitos",
+    "fin": "Consultar con AEA",
+    "citas": [
+      "Estos circuitos deben contar con protecciones en ambos polos para una corriente no mayor de 16 A y el número máximo de bocas de salida debe ser de quince (15).",
+      "Estos circuitos deben contar con protecciones en ambos polos para una corriente no mayor de 20 A y el número máximo de bocas de salida debe ser de quince (15)."
+    ]
+  },
+  "datos": [
+    { "sigla": "IUG", "max_bocas": 15, "max_in_a": 16 },
+    { "sigla": "TUG", "max_bocas": 15, "max_in_a": 20 },
+    { "sigla": "TUE", "max_bocas": 15, "max_in_a": 32 }
+  ]
+}

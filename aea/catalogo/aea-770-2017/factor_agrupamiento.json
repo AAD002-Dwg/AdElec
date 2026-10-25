@@ -1,0 +1,19 @@
+{
+  "id": "770.12.II",
+  "titulo": "Factor de corrección por agrupamiento de circuitos en una misma canalización",
+  "fuente": { "doc": "AEA-770-2017", "pagina_pdf": 48, "clausula": "770.12.2.2" },
+  "estado": "borrador",
+  "verificacion": {
+    "inicio": "Se aplica a Tabla 770.12.I",
+    "fin": "Nota 1: Los conductores de protección",
+    "citas": [
+      "Nota 1: Los conductores de protección PE no se contabilizan como cables cargados."
+    ]
+  },
+  "datos": [
+    { "circuitos": 2, "tipo": "monofasico", "hasta_cables_cargados": 4, "factor": 0.80, "columna": 1 },
+    { "circuitos": 3, "tipo": "monofasico", "hasta_cables_cargados": 6, "factor": 0.70, "columna": 1 },
+    { "circuitos": 2, "tipo": "trifasico",  "hasta_cables_cargados": 6, "factor": 0.80, "columna": 2 },
+    { "circuitos": 3, "tipo": "trifasico",  "hasta_cables_cargados": 9, "factor": 0.70, "columna": 2 }
+  ]
+}

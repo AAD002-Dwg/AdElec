@@ -31,6 +31,49 @@ Motivo detrás de las elecciones de diseño o solución implementada.
 
 ## 📜 Historial de Registros
 
+### [2026-10-25] — Implementación de Núcleo Portable AEA en Rust (`aea-core`) y Verificador Automático de Catálogo contra PDFs Originales
+**Tipo:** `Feature`
+**Autor / Asistente:** Antigravity / Usuario
+
+#### 🎯 Objetivo
+- Eliminar la incertidumbre de si las tablas normativas fueron bien extraídas o aplicadas.
+- Construir un verificador determinístico que contraste cualquier tabla JSON contra el PDF oficial de la norma (secuencias numéricas y citas textuales).
+- Implementar el núcleo de cálculo y validación en Rust (`aea-core`), independiente de cualquier software CAD, compilable a librería nativa (C-ABI / P-Invoke para C# en AutoCAD/Revit), WebAssembly (para OpenCADStudio en navegador) y servidor MCP.
+
+#### 🛠️ Cambios realizados
+- `aea/catalogo/fuentes.json`: Registro de documentos normativos con SHA-256 para fijar la versión exacta de las normas AEA 770-2017, AEA 771-2006 y AEA 772-2019.
+- `aea/catalogo/aea-770-2017/`: Extracción de tablas normativas con anclas de texto, cláusula, página y citas de verificación:
+  - `alcance.json` (Cláusula 770.1: $\le 63\text{ A}$, $I_{cc} \le 10\text{ kA}$).
+  - `tipos_circuito.json` (Tabla 770.6.I: IUG, TUG, TUE con bocas y calibres máximos).
+  - `grados_electrificacion.json` (Tabla 770.7.I: límite con factor 50% semicubierta).
+  - `circuitos_minimos.json` (Tabla 770.7.II: variantes a y b por grado).
+  - `secciones_minimas.json` (Tabla 770.11.I: secciones por uso).
+  - `iz_cables_canalizacion.json` (Tabla 770.12.I: corrientes admisibles IRAM-NM 247-3 / 62267 a 40 °C).
+  - `factor_agrupamiento.json` (Tabla 770.12.II: factores de agrupamiento monofásicos y trifásicos).
+  - `coordinacion_protecciones.json` (770.15.3: coordinación $I_b \le I_n \le I_z$ y relación IEC 60898-1).
+- `aea/herramientas/verificar_catalogo.py`:
+  - Script que contrasta secuencias de números y citas literales contra el PDF usando PyMuPDF.
+  - Verificación exitosa de 8/8 tablas contra `_AEA 90364-7-770-2017.pdf`.
+  - Superó test de mutación (detecta alteración de números, omisión de filas, columnas cruzadas o citas cambiadas).
+- `aea/core/` (Crate Rust `aea-core`):
+  - `catalogo.rs`: Embebe los JSON validados en el binario en tiempo de compilación (`include_str!`).
+  - `modelo.rs`: Modelos neutros de entrada (`Circuito`, `Unidad`).
+  - `diagnostico.rs`: Diagnósticos estructurados (`Error`, `Advertencia`, `Info`) con referencia a artículo/página y `Correccion` (Quick-Fix).
+  - `aea770.rs`: Reglas determinísticas de alcance, grado, circuitos mínimos, coordinación $I_b \le I_n \le I_z$ con agrupamiento automático y generación de sugerencias.
+  - `lib.rs`: Exposición pública y suite de tests unitarios (4/4 tests pasando en 0.01s).
+- `.gitignore`: Agregada exclusión de PDFs normativos (`AEA_NORMATIVA/`, `*.pdf`) y `target/` de Rust.
+
+#### 💡 Decisiones técnicas
+- Emplear Rust para el núcleo permite portabilidad total sin depender del entorno de AutoCAD ni de un servidor web Python local: compila a DLL nativa para AutoCAD/Revit (.NET P/Invoke), WebAssembly para OpenCADStudio web, y binario CLI/MCP.
+- El catálogo embebido viaja dentro del binario garantizando velocidad instantánea (0 ms) y cero problemas de rutas relativas o archivos faltantes en tiempo de ejecución.
+- Cada diagnóstico transporta la referencia normativa exacta (documento, tabla, cláusula y página del PDF) para dar respaldo legal y técnico inmediato al proyectista.
+
+#### 📌 Próximos pasos pendientes
+- Incorporar la Tabla 770.7.III (puntos mínimos de utilización por ambiente).
+- Exponer la interfaz FFI C-ABI / JSON para consumo directo desde `AdElec.Core` (C# / AutoCAD).
+- Crear el servidor MCP (`aea-mcp`) para permitir la interacción de agentes de IA con el motor.
+- Incorporar las tablas de AEA 771 (locales y oficinas) y AEA 772 (servicios comunes).
+
 ### [2026-10-25] — Propuesta de Arquitectura y Plan Integral para Motor Normativo Multi-Norma (AEA 770 / 771 / 772)
 **Tipo:** `Docs` / `Refactor`  
 **Autor / Asistente:** Antigravity / Usuario

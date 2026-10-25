@@ -1,0 +1,30 @@
+{
+  "id": "770.7.II",
+  "titulo": "Resumen de los números mínimos de circuitos",
+  "fuente": { "doc": "AEA-770-2017", "pagina_pdf": 24, "clausula": "770.7.4" },
+  "estado": "borrador",
+  "verificacion": {
+    "inicio": "Tabla 770.7.II - Resumen de los números mínimos de circuitos",
+    "fin": "770.7.5",
+    "citas": [
+      { "texto": "En ambas variantes, el sexto circuito es de libre elección.", "pagina": 23 }
+    ]
+  },
+  "datos": [
+    { "grado": "minimo", "cantidad_minima": 2, "variantes": [
+      { "id": "unica", "iug": 1, "tug": 1, "libre": null }
+    ]},
+    { "grado": "medio", "cantidad_minima": 3, "variantes": [
+      { "id": "a", "iug": 2, "tug": 1, "libre": null },
+      { "id": "b", "iug": 1, "tug": 2, "libre": null }
+    ]},
+    { "grado": "elevado", "cantidad_minima": 5, "variantes": [
+      { "id": "a", "iug": 2, "tug": 3, "libre": null },
+      { "id": "b", "iug": 3, "tug": 2, "libre": null }
+    ]},
+    { "grado": "superior", "cantidad_minima": 6, "variantes": [
+      { "id": "a", "iug": 2, "tug": 3, "libre": 1 },
+      { "id": "b", "iug": 3, "tug": 2, "libre": 1 }
+    ]}
+  ]
+}

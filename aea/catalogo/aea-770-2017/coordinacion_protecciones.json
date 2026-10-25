@@ -1,0 +1,19 @@
+{
+  "id": "770.15.3",
+  "titulo": "Coordinación entre cables y dispositivos de protección",
+  "fuente": { "doc": "AEA-770-2017", "pagina_pdf": 58, "clausula": "770.15.3" },
+  "estado": "borrador",
+  "verificacion": {
+    "inicio": null,
+    "fin": null,
+    "citas": [
+      "Coordinación entre cables y dispositivos de protección",
+      "Se destaca que la protección contra sobrecargas queda asegurada por la exigencia del empleo de interruptores automáticos conforme a IEC 60898-1."
+    ]
+  },
+  "datos": {
+    "condicion": "Ib <= In <= Iz",
+    "factor_i2": 1.45,
+    "nota": "Con interruptores IEC 60898-1 se cumple I2 <= 1,45 In, por lo que In <= Iz asegura I2 <= 1,45 Iz (Figura 770.15.A)."
+  }
+}

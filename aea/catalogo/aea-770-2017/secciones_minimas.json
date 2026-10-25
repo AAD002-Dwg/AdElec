@@ -1,0 +1,24 @@
+{
+  "id": "770.11.I",
+  "titulo": "Secciones nominales mínimas de cables",
+  "fuente": { "doc": "AEA-770-2017", "pagina_pdf": 45, "clausula": "770.11" },
+  "estado": "borrador",
+  "verificacion": {
+    "inicio": "Tabla 770.11.I - Secciones nominales mínimas de cables",
+    "fin": null,
+    "citas": []
+  },
+  "datos": [
+    { "uso": "linea_principal",              "seccion_mm2": 4.0 },
+    { "uso": "circuito_seccional",           "seccion_mm2": 2.5 },
+    { "uso": "IUG",                          "seccion_mm2": 1.5 },
+    { "uso": "TUG",                          "seccion_mm2": 2.5 },
+    { "uso": "IUG_con_tomacorrientes",       "seccion_mm2": 2.5 },
+    { "uso": "TUE",                          "seccion_mm2": 2.5 },
+    { "uso": "especifico",                   "seccion_mm2": 2.5 },
+    { "uso": "especifico_mbtf",              "seccion_mm2": 1.5 },
+    { "uso": "alimentacion_interruptor",     "seccion_mm2": 1.0 },
+    { "uso": "retorno_interruptor",          "seccion_mm2": 1.0 },
+    { "uso": "PE",                           "seccion_mm2": 2.5 }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "id": "770.1",
+  "titulo": "Dominio de aplicación",
+  "fuente": { "doc": "AEA-770-2017", "pagina_pdf": 14, "clausula": "770.1" },
+  "estado": "borrador",
+  "verificacion": {
+    "inicio": "comprende exclusivamente a las viviendas que posean simultáneamente las siguientes características:",
+    "fin": "c) Clasificación de usos y usuarios",
+    "citas": [
+      "a) Máxima corriente: 63 A. Es el máximo valor de corriente nominal del dispositivo de maniobra y protección ubicado en la cabecera del tablero principal.",
+      "b) Valor máximo de la corriente presunta de cortocircuito en el origen de la instalación: 10 kA."
+    ]
+  },
+  "datos": {
+    "max_in_cabecera_a": 63,
+    "max_icc_origen_ka": 10
+  }
+}
