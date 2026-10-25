@@ -18,3 +18,11 @@ Thumbs.db
 [Dd]esktop.ini
 .claude/
 *.local.json
+
+# Normas AEA (material con copyright, no versionar)
+AEA_NORMATIVA/
+*.pdf
+
+# Rust
+target/
+

@@ -31,6 +31,32 @@ Motivo detrás de las elecciones de diseño o solución implementada.
 
 ## 📜 Historial de Registros
 
+### [2026-10-25] — Propuesta de Arquitectura y Plan Integral para Motor Normativo Multi-Norma (AEA 770 / 771 / 772)
+**Tipo:** `Docs` / `Refactor`  
+**Autor / Asistente:** Antigravity / Usuario
+
+#### 🎯 Objetivo
+- Analizar y superar el modelo de codificación normativa puramente basado en `.json` monolítico de `AEA-MOTOR-RESTORED`.
+- Diseñar una arquitectura técnica robusta, modular y de alto rendimiento que integre simultáneamente las 3 reglamentaciones AEA utilizadas: **AEA 90364-7-770 (2017)** (viviendas unifamiliares $\le 63\text{ A}$), **AEA 90364-7-771 (2006)** (viviendas, locales y oficinas) y **AEA 90364-7-772 (2019)** (servicios generales de edificios).
+
+#### 🛠️ Cambios realizados
+- `docs/PLAN_MOTOR_NORMATIVO_AEA.md`:
+  - Creado documento maestro de arquitectura y roadmap.
+  - Definida la arquitectura híbrida en 2 niveles: Catálogos JSON declarativos para tablas de valores + Motor de Especificaciones tipado en C# (in-process, 0 ms) + Backend FastAPI para memorias de cálculo y auditorías profundas.
+  - Detallado el alcance y tratamiento diferenciado de las normas 770, 771 y 772 (viviendas unifamiliares vs colectivas vs servicios comunes como bombas, ascensores y cajas de incendio).
+  - Planteado el esquema de carpetas para catálogos normativos en `src/AdElec.Core/Normativa/`.
+  - Diseñado el patrón de reglas (`Specification Pattern`) con reporte de severidades y botones de corrección automática (`Quick-Fix`).
+
+#### 💡 Decisiones técnicas
+- Mantener los datos numéricos tabulares en archivos `.json` separados y versionados para que sean legibles y editables sin recompilar.
+- No delegar la validación interactiva de AutoCAD a un servidor HTTP externo para evitar bloqueos o dependencias de ejecución de procesos Python durante el dibujo continuo.
+- Diseñar un despachador polimórfico (`INormaStrategy`) que permita seleccionar qué norma rige cada tablero o unidad funcional (ej. departamentos con AEA 770/771 y el tablero de servicios generales con AEA 772).
+
+#### 📌 Próximos pasos pendientes
+- Iniciar la Fase 1: Creación de catálogos JSON normalizados en `src/AdElec.Core/Normativa/`.
+- Implementar las clases de estrategia y validadores para 770, 771 y 772.
+- Incorporar el selector de norma y estado de validación en tiempo real en la paleta `ADE_PANEL`.
+
 ### [2026-10-24] — Rediseño del Gestor de Tableros (Edición, Persistencia, Cálculo Ib/In, Superficie de Ambientes y Corrección de ComboBoxes)
 **Tipo:** `Feature` / `Fix`  
 **Autor / Asistente:** Antigravity / Usuario
