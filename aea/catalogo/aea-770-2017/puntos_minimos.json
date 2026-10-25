@@ -1,0 +1,67 @@
+{
+  "id": "770.7.III",
+  "titulo": "Puntos mínimos de utilización",
+  "fuente": { "doc": "AEA-770-2017", "pagina_pdf": 25, "clausula": "770.7.5" },
+  "estado": "borrador",
+  "verificacion": {
+    "inicio": null,
+    "fin": null,
+    "citas": [
+      "Tabla 770.7.III – Puntos mínimos de utilización",
+      "Sala de estar, comedor, comedor diario, escritorio, estudio, biblioteca o similares",
+      "Una boca cada 18 m² de superficie o fracción (mínimo una)",
+      "Una boca cada 6 m² de superficie o fracción (mínimo dos)",
+      "Dormitorio (Superficie menor a 10 m²)",
+      "Dormitorio (Superficie igual o mayor a 10 m² hasta 36 m²)",
+      "Dormitorio (Superficie mayor a 36 m²)",
+      "Tres bocas más dos módulos de tomacorrientes*",
+      "Tres bocas más tres módulos de tomacorrientes*",
+      "Cuatro bocas más tres módulos de tomacorrientes*",
+      "Baño (para toilette ver 770.7.1 k)",
+      "Vestíbulo, garaje, hall, vestidor o similares",
+      "Una boca cada 12 m² de superficie o fracción (mínimo una boca)",
+      "Una boca por cada 5 m de longitud o fracción (mínimo una boca)",
+      "Una boca por cada 5 m de longitud o fracción (para pasillos de L > 2m)",
+      "Balcones, galerías, atrios o similares espacios semicubiertos y pasillos descubiertos"
+    ]
+  },
+  "datos": {
+    "estar_comedor": {
+      "iug_cada_m2": 18.0, "iug_minimo": 1,
+      "tug_cada_m2": 6.0,  "tug_minimo": 2
+    },
+    "dormitorio_menor_10": {
+      "iug": 1, "tug": 2
+    },
+    "dormitorio_10_a_36": {
+      "iug": 1, "tug": 3
+    },
+    "dormitorio_mayor_36": {
+      "iug": 2, "tug": 3
+    },
+    "cocina": {
+      "minimo":   { "iug": 1, "tug": 3, "modulos_fijos": 2 },
+      "medio":    { "iug": 2, "tug": 3, "modulos_fijos": 2 },
+      "elevado":  { "iug": 2, "tug": 3, "modulos_fijos": 3 },
+      "superior": { "iug": 2, "tug": 4, "modulos_fijos": 3 }
+    },
+    "bano": {
+      "iug": 1, "tug": 1
+    },
+    "vestibulo_garaje": {
+      "minimo": { "iug": 1, "tug": 1 },
+      "medio_o_superior": { "iug_cada_m2": 12.0, "iug_minimo": 1, "tug_cada_m2": 12.0, "tug_minimo": 1 }
+    },
+    "pasillo_cubierto": {
+      "iug_cada_m": 5.0, "iug_minimo": 1,
+      "tug_longitud_min_m": 2.0, "tug_cada_m": 5.0
+    },
+    "lavadero": {
+      "minimo": { "iug": 1, "tug": 1 },
+      "medio_o_superior": { "iug": 1, "tug": 2 }
+    },
+    "balcon_galeria": {
+      "iug_cada_m": 5.0, "tug": 0
+    }
+  }
+}

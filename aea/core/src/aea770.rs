@@ -322,5 +322,125 @@ pub fn validar_unidad(cat: &Catalogo770, u: &Unidad) -> Vec<Diagnostico> {
     for c in &u.circuitos {
         d.extend(validar_circuito(cat, c));
     }
+
+    // 770.7.5 — puntos mínimos de utilización por ambiente
+    let ref_puntos = cat.puntos_minimos.referencia();
+    for amb in &u.ambientes {
+        let req = calcular_puntos_minimos_ambiente(cat, amb, &g.grado);
+        if amb.bocas_iug > 0 && amb.bocas_iug < req.iug_minimo {
+            d.push(Diagnostico {
+                codigo: "770.7.5/bocas_iug",
+                severidad: Severidad::Error,
+                elemento: amb.id.clone(),
+                mensaje: format!(
+                    "Ambiente '{}' ({}, {:.1} m²): tiene {} boca(s) IUG; la Tabla 770.7.III exige al menos {}.",
+                    amb.nombre, amb.tipo, amb.superficie_m2, amb.bocas_iug, req.iug_minimo
+                ),
+                referencia: ref_puntos.clone(),
+                correcciones: vec![],
+            });
+        }
+        if amb.bocas_tug > 0 && amb.bocas_tug < req.tug_minimo {
+            d.push(Diagnostico {
+                codigo: "770.7.5/bocas_tug",
+                severidad: Severidad::Error,
+                elemento: amb.id.clone(),
+                mensaje: format!(
+                    "Ambiente '{}' ({}, {:.1} m²): tiene {} boca(s) TUG; la Tabla 770.7.III exige al menos {}{}.",
+                    amb.nombre, amb.tipo, amb.superficie_m2, amb.bocas_tug, req.tug_minimo,
+                    if req.modulos_fijos > 0 { format!(" (+ {} módulos fijos)", req.modulos_fijos) } else { "".into() }
+                ),
+                referencia: ref_puntos.clone(),
+                correcciones: vec![],
+            });
+        }
+    }
+
     d
 }
+
+/// Calcula los puntos mínimos de utilización reglamentarios para un ambiente según Tabla 770.7.III.
+pub fn calcular_puntos_minimos_ambiente(
+    cat: &Catalogo770,
+    amb: &crate::modelo::Ambiente,
+    grado: &str,
+) -> crate::modelo::PuntosMinimosAmbiente {
+    let d = &cat.puntos_minimos.datos;
+    let tipo = amb.tipo.to_ascii_lowercase();
+
+    let (iug, tug, modulos) = match tipo.as_str() {
+        "sala_estar" | "living_dining" | "estar" | "comedor" | "escritorio" | "estudio" | "biblioteca" => {
+            let r = &d.estar_comedor;
+            let iug = ((amb.superficie_m2 / r.iug_cada_m2).ceil() as u32).max(r.iug_minimo);
+            let tug = ((amb.superficie_m2 / r.tug_cada_m2).ceil() as u32).max(r.tug_minimo);
+            (iug, tug, 0)
+        }
+        "dormitorio" | "bedroom" => {
+            if amb.superficie_m2 < 10.0 {
+                (d.dormitorio_menor_10.iug, d.dormitorio_menor_10.tug, 0)
+            } else if amb.superficie_m2 <= 36.0 {
+                (d.dormitorio_10_a_36.iug, d.dormitorio_10_a_36.tug, 0)
+            } else {
+                (d.dormitorio_mayor_36.iug, d.dormitorio_mayor_36.tug, 0)
+            }
+        }
+        "cocina" | "kitchen" => {
+            let det = match grado {
+                "superior" => &d.cocina.superior,
+                "elevado"  => &d.cocina.elevado,
+                "medio"    => &d.cocina.medio,
+                _          => &d.cocina.minimo,
+            };
+            (det.iug, det.tug, det.modulos_fijos)
+        }
+        "baño" | "bano" | "toilette" | "bathroom" => {
+            (d.bano.iug, d.bano.tug, 0)
+        }
+        "vestibulo" | "garaje" | "hall" | "vestidor" | "garage" | "hallway" => {
+            if grado == "minimo" {
+                (d.vestibulo_garaje.minimo.iug, d.vestibulo_garaje.minimo.tug, 0)
+            } else {
+                let r = &d.vestibulo_garaje.medio_o_superior;
+                let iug = ((amb.superficie_m2 / r.iug_cada_m2).ceil() as u32).max(r.iug_minimo);
+                let tug = ((amb.superficie_m2 / r.tug_cada_m2).ceil() as u32).max(r.tug_minimo);
+                (iug, tug, 0)
+            }
+        }
+        "pasillo" | "corredor" => {
+            let long = amb.longitud_m.unwrap_or_else(|| amb.superficie_m2.sqrt().max(1.0));
+            let r = &d.pasillo_cubierto;
+            let iug = ((long / r.iug_cada_m).ceil() as u32).max(r.iug_minimo);
+            let tug = if grado != "minimo" && long > r.tug_longitud_min_m {
+                ((long / r.tug_cada_m).ceil() as u32).max(1)
+            } else {
+                0
+            };
+            (iug, tug, 0)
+        }
+        "lavadero" | "laundry" => {
+            if grado == "minimo" {
+                (d.lavadero.minimo.iug, d.lavadero.minimo.tug, 0)
+            } else {
+                (d.lavadero.medio_o_superior.iug, d.lavadero.medio_o_superior.tug, 0)
+            }
+        }
+        "balcon" | "galeria" | "atrio" => {
+            let long = amb.longitud_m.unwrap_or_else(|| amb.superficie_m2.sqrt().max(1.0));
+            let iug = ((long / d.balcon_galeria.iug_cada_m).ceil() as u32).max(1);
+            (iug, d.balcon_galeria.tug, 0)
+        }
+        _ => {
+            let iug = if amb.superficie_m2 > 0.0 { 1 } else { 0 };
+            let tug = if amb.superficie_m2 > 0.0 { 1 } else { 0 };
+            (iug, tug, 0)
+        }
+    };
+
+    crate::modelo::PuntosMinimosAmbiente {
+        ambiente_id: amb.id.clone(),
+        iug_minimo: iug,
+        tug_minimo: tug,
+        modulos_fijos: modulos,
+    }
+}
+

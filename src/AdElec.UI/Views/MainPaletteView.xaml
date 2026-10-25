@@ -27,6 +27,7 @@
 
         <BooleanToVisibilityConverter x:Key="BoolVis"/>
         <conv:InverseBoolToVisibilityConverter x:Key="InverseBoolVis"/>
+        <conv:IntToVisibilityConverter x:Key="IntToVis"/>
 
         <!-- ── Botón primario (accent) ─────────────────────────────────── -->
         <Style x:Key="BtnPrimary" TargetType="Button">
@@ -757,6 +758,7 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto" MaxHeight="160"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
@@ -850,8 +852,59 @@
                                TextAlignment="Center" Margin="20"
                                Visibility="{Binding HasCircuits, Converter={StaticResource InverseBoolVis}}"/>
 
+                    <!-- ── PANEL DE DIAGNÓSTICOS NORMATIVOS EN VIVO (AEA CORE) ── -->
+                    <Border Grid.Row="2" Background="#181c24" BorderBrush="#343B48" BorderThickness="0,1,0,0"
+                            Visibility="{Binding HasDiagnostics, Converter={StaticResource BoolVis}}">
+                        <Expander IsExpanded="True" Style="{StaticResource AdeExpander}" Margin="6,2">
+                            <Expander.Header>
+                                <DockPanel LastChildFill="False">
+                                    <TextBlock Text="⚡ Diagnósticos Normativos AEA" FontWeight="Bold" Foreground="#FFA726" FontSize="11"/>
+                                    <TextBlock Text="{Binding DiagnosticsSummary}" Margin="8,0,0,0" Foreground="#8A91A1" FontSize="10" VerticalAlignment="Center"/>
+                                </DockPanel>
+                            </Expander.Header>
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="120" Margin="0,4,0,2">
+                                <ItemsControl ItemsSource="{Binding Diagnostics}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="#212631" CornerRadius="4" BorderBrush="#343B48" BorderThickness="1" Margin="0,2,0,3" Padding="6,4">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Border Grid.Column="0" Background="#3D1A1A" CornerRadius="3" Padding="4,2" Margin="0,0,6,0" VerticalAlignment="Top">
+                                                        <TextBlock Text="{Binding Severidad}" Foreground="#FF5252" FontSize="9" FontWeight="Bold"/>
+                                                    </Border>
+                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Mensaje}" Foreground="#E0E6ED" FontSize="10" TextWrapping="Wrap"/>
+                                                        <TextBlock Foreground="#78909C" FontSize="8" Margin="0,1,0,0">
+                                                            <Run Text="{Binding Referencia.Doc}"/>
+                                                            <Run Text=" · "/>
+                                                            <Run Text="{Binding Referencia.Tabla}"/>
+                                                            <Run Text=" (pág. "/>
+                                                            <Run Text="{Binding Referencia.PaginaPdf}"/>
+                                                            <Run Text=")"/>
+                                                        </TextBlock>
+                                                    </StackPanel>
+                                                    <Button Grid.Column="2" Content="⚡ Solucionar"
+                                                            Style="{StaticResource BtnAction}"
+                                                            Command="{Binding DataContext.AplicarCorreccionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding}"
+                                                            Visibility="{Binding Correcciones.Count, Converter={StaticResource IntToVis}}"
+                                                            Padding="6,2" FontSize="9" Margin="6,0,0,0" VerticalAlignment="Center"
+                                                            ToolTip="Aplica la corrección sugerida directamente al circuito"/>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Expander>
+                    </Border>
+
                     <!-- Footer circuitos -->
-                    <Border Grid.Row="2" Background="#14161b" Padding="10,6"
+                    <Border Grid.Row="3" Background="#14161b" Padding="10,6"
                             BorderBrush="#343B48" BorderThickness="0,1,0,0">
                         <Grid>
                             <Grid.ColumnDefinitions>

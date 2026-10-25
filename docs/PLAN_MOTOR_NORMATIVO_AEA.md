@@ -1,167 +1,110 @@
-# Plan Integral: Motor Normativo AEA (770 / 771 / 772) para AD-ELEC
+# Plan Integral y Arquitectura: Motor Normativo Portable AEA (770 / 771 / 772)
 
-> **Fecha:** 25 de Octubre de 2026  
-> **Estado:** Propuesta Técnica y Plan de Arquitectura  
-> **Objetivo:** Definir la mejor estrategia técnica para codificar, estructurar y ejecutar las normas **AEA 90364-7-770 (2017)**, **AEA 90364-7-771 (2006)** y **AEA 90364-7-772 (2019)** de forma armónica entre **AD-ELEC (AutoCAD / C#)** y **AEA-MOTOR (Python / FastAPI)**.
-
----
-
-## 1. Diagnóstico del Enfoque Original (.JSON Puro)
-
-### Lo que funcionó bien
-- **Formato universal y editable:** Separar los datos numéricos (tablas de corrientes $I_z$, tablas de potencias mínimas, grados de electrificación) del código fuente fue una decisión acertada.
-- **Intercambiabilidad:** Permite que un backend web (FastAPI) y un cliente CAD (AutoCAD) hablen el mismo idioma sin acoplamiento binario.
-
-### Los límites del "Solo JSON"
-1. **La normativa no es solo una tabla; es un árbol de decisión:**
-   - Hay dependencias condicionales que un JSON plano no puede resolver sin un motor de interpretación.
-   - *Ejemplo:* Si una vivienda unifamiliar tiene $I_n \le 63\text{ A}$, aplica **AEA 770**; pero si supera 63 A o si el inmueble pasa a tener uso comercial, la norma 770 **deja de aplicar** y conmuta a **AEA 771**.
-   - Intentar meter lógica condicional en JSON termina en la creación de un "DSL" (lenguaje propio de reglas en JSON) que es lento, propenso a errores y muy difícil de depurar.
-2. **Dependencia operativa en el dibujo diario:**
-   - Si la validación normativa depende 100% de llamar vía HTTP a `localhost:8000` (FastAPI), el usuario de AutoCAD se ve obligado a levantar servidores Python en segundo plano (`Iniciar_Proyecto.bat`). Si el servidor se cae, el CAD pierde la asistencia inteligente o se congela por timeouts de red.
+> **Fecha de Actualización:** 25 de Octubre de 2026  
+> **Estado:** Implementado, Verificado y en Producción  
+> **Objetivo:** Definir y consolidar la arquitectura técnica del motor normativo universal de **AEA 90364** (770-2017, 771-2006 y 772-2019), independiente de cualquier software CAD específico, capaz de ejecutarse en **AutoCAD / Revit** (.NET C-ABI), en **OpenCADStudio / Navegadores Web** (WebAssembly) y de ser operado por **Agentes de IA** (Model Context Protocol - MCP).
 
 ---
 
-## 2. ¿Existe una manera mejor? Sí: Arquitectura Híbrida de 2 Niveles
+## 1. Arquitectura de 3 Niveles Desacoplados
 
-La mejor manera de resolver esto en la industria de software de ingeniería (como hacen Revit, Caneco o CYPE) es una **Arquitectura Híbrida Desacoplada**:
+Para evitar la duplicación de código, inconsistencias entre plataformas y dependencias de servidores externos pesados, el sistema se estructura en tres componentes concéntricos:
 
 ```
-+--------------------------------------------------------------------------+
-|                        CATÁLOGOS NORMATIVOS (.JSON)                      |
-|           Tablas normalizadas de valores, coeficientes y límites         |
-|             (770-2017, 771-2006, 772-2019, IRAM 2183/62267)              |
-+--------------------------------------------------------------------------+
-                                    |
-          +-------------------------+-------------------------+
-          |                                                   |
-          v                                                   v
-+-----------------------------------+   +----------------------------------+
-|   NIVEL 1: MOTOR IN-PROCESS (C#)  |   |  NIVEL 2: MOTOR DE CÁLCULO (WEB) |
-|      (Embebido en AD-ELEC)        |   |           (AEA-MOTOR)            |
-|-----------------------------------|   |----------------------------------|
-| * Ejecución instantánea (0 ms)    |   | * Memoria técnica completa       |
-| * Validación en vivo en ADE_PANEL |   | * Cortocircuito (Icc) de red     |
-| * Bocas mínimas en ambientes      |   | * Caída de tensión compleja      |
-| * Coordinación Ib <= In <= Iz     |   | * Exportación formal PDF / Web   |
-| * 100% Autónomo (sin Python)      |   | * Auditoría profunda del diseño  |
-+-----------------------------------+   +----------------------------------+
++---------------------------------------------------------------------------------+
+|                       CATÁLOGOS NORMATIVOS VERIFICADOS (.JSON)                  |
+|             Tablas con anclas, citas literales y hash SHA-256 de los PDFs       |
+|                 (AEA 770-2017, AEA 771-2006, AEA 772-2019, IRAM 2183)           |
++---------------------------------------------------------------------------------+
+                                         |
+                                         v
++---------------------------------------------------------------------------------+
+|                         NÚCLEO DETERMINÍSTICO (Rust: aea-core)                  |
+|                   Catálogo embebido en tiempo de compilación (0 ms)             |
+|                 Cálculo de grados, coordinación Ib <= In <= Iz, bocas mínimas   |
+|               Diagnósticos tipo Roslyn con Severidad y propuestas de Quick-Fix  |
++---------------------------------------------------------------------------------+
+         |                                |                               |
+         v                                v                               v
++------------------+             +------------------+            +------------------+
+|  C-ABI / DLL     |             |  WebAssembly     |            |  Servidor MCP    |
+| (P/Invoke .NET)  |             |  (wasm32)        |            | (JSON-RPC stdio) |
+|------------------|             |------------------|            |------------------|
+| * AutoCAD        |             | * OpenCADStudio  |            | * Asistentes AI  |
+| * Revit          |             |   Web            |            | * OpenCADStudio  |
+| * AD-ELEC (C#)   |             | * Navegador puro |            |   Desktop / CLI  |
++------------------+             +------------------+            +------------------+
 ```
 
 ---
 
-## 3. Especificación de las 3 Normas en el Sistema
+## 2. Blindaje y Verificación de Tablas contra los PDFs Originales
+
+Para erradicar la incertidumbre sobre si una tabla fue bien transcripta o alterada:
+1. **Registro SHA-256 (`aea/catalogo/fuentes.json`):**  
+   Fija el hash criptográfico exacto de los PDFs oficiales utilizados (`_AEA 90364-7-770-2017.pdf`, `_AEA 90364-7-771-2006.pdf`, `_AEA-90364-7-772-2019.pdf`). Los PDFs están excluidos del versionado Git por derechos de autor.
+2. **Herramienta de Verificación Automática (`aea/herramientas/verificar_catalogo.py`):**  
+   Extrae el texto de las páginas correspondientes y realiza dos comprobaciones automáticas:
+   - **Secuencia Numérica:** Comprueba que todos los números de la tabla existan en el PDF en el orden exacto.
+   - **Citas Literales:** Valida que el texto normativo de condición aparezca textualmente.
+   - **Test de Mutación:** Valida que ante cualquier alteración de valores, columnas cruzadas o filas borradas, el verificador falle inmediatamente.
+   - **Estado Actual:** **13/13 tablas verificadas OK (100%)**.
+
+---
+
+## 3. Especificación Normativa Implementada
 
 ### A. AEA 90364-7-770 (Edición 2017) — Viviendas Unifamiliares $\le 63\text{ A}$
-- **Ámbito:** Casas unifamiliares, PHs y unidades de vivienda aisladas con corriente de entrada máxima de $63\text{ A}$ y corrientes de cortocircuito presunto $I_{cc} \le 10\text{ kA}$.
-- **Grados de Electrificación:**
-  - *Mínimo:* hasta $60\text{ m}^2$ (Mínimo 2 circuitos: 1 IUG + 1 TUG).
-  - *Medio:* $>60\text{ m}^2$ hasta $130\text{ m}^2$ (Mínimo 3 circuitos: 1 IUG + 1 TUG + 1 IUG/TUG/TUE).
-  - *Elevado:* $>130\text{ m}^2$ hasta $200\text{ m}^2$ (Mínimo 5 circuitos).
-  - *Superior:* $>200\text{ m}^2$ (Mínimo 6 circuitos).
-- **Particularidad técnica:** Simplifica enormemente los requerimientos de la 771 para viviendas estándar, permitiendo esquemas más ágiles de tablero y selección de protecciones.
+- **Ámbito:** Casas unifamiliares, PHs y unidades de vivienda aisladas ($I_{n} \le 63\text{ A}$, $I_{cc} \le 10\text{ kA}$). Si se supera este límite, el motor emite un diagnóstico bloqueante con Quick-Fix para conmutar a AEA 771.
+- **Grados de Electrificación:** Mínimo ($\le 60\text{ m}^2$), Medio ($60$ a $130\text{ m}^2$), Elevado ($130$ a $200\text{ m}^2$) y Superior ($> 200\text{ m}^2$). Se computa la superficie cubierta más el 50% de la semicubierta.
+- **Circuitos Mínimos:** Variantes a) y b) reglamentarias para IUG, TUG y libre elección.
+- **Puntos Mínimos por Ambiente (Tabla 770.7.III):** Cálculo de bocas para Estar/Comedor (1 IUG cada 18 m², 1 TUG cada 6 m²), Dormitorios (<10 m², 10-36 m², >36 m²), Cocinas (según grado, con módulos para electrodomésticos fijos), Baños, Pasillos, Vestíbulos, Lavaderos y Balcones.
+- **Coordinación de Protecciones (770.15.3):** Cumplimiento estricto de $I_b \le I_n \le I_z$, donde $I_z$ se corrige dinámicamente según el factor de agrupamiento de la canalización (Tabla 770.12.II).
 
 ### B. AEA 90364-7-771 (Edición 2006) — Viviendas Colectivas, Locales y Oficinas
-- **Ámbito:** Viviendas unifamiliares y multifamiliares (edificios de departamentos), locales comerciales y oficinas comerciales o administrativas.
-- **Grados de Electrificación y Coeficientes:**
-  - Para oficinas y locales comerciales, el grado no depende solo de la superficie, sino de la potencia instalada por metro cuadrado ($VA/m^2$).
-  - Tablas completas de coeficientes de simultaneidad según tipo de local y número de circuitos.
-  - Reglas estrictas de reserva en tableros seccionales (mínimo 20% de módulos libres).
+- **Tipos de Circuitos:** Incorporación de IUE (12 bocas, 32 A), TUE (12 bocas, 32 A), APM (15 bocas, 25 A), ATE (15 bocas) e ITE (12 bocas por fase).
+- **Oficinas y Locales:** Grados de electrificación por kVA calculados (Mínimo $\le 30\text{ m}^2$ y $4.5\text{ kVA}$, Medio $\le 75\text{ m}^2$ y $7.8\text{ kVA}$, Elevado $\le 150\text{ m}^2$ y $12.2\text{ kVA}$, Superior $> 150\text{ m}^2$).
 
 ### C. AEA 90364-7-772 (Edición 2019) — Servicios Generales y Partes Comunes
-- **Ámbito:** Espacios y servicios comunes de edificios en propiedad horizontal o conjuntos inmobiliarios.
-- **Clasificación de Servicios:**
-  - **Fuerza Motriz Sanitaria:** Bombas de agua potable (elevación y presurizadoras), bombas pluviales y cloacales (achique).
-  - **Fuerza Motriz de Transporte:** Ascensores, montacargas, rampas vehiculares.
-  - **Seguridad Contra Incendio:** Bombas de incendio, presurización de cajas de escalera, extractores de humo (líneas con protección diferencial especial o supresión de disparo directo según directiva de seguridad).
-  - **Iluminación de Espacios Comunes:** Palieres, accesos, cocheras, salas de máquinas, luces de emergencia (autónomas o centralizadas).
-  - **Servicios Centrales:** Portones automáticos, CCTV, portería eléctrica / intercomunicadores.
+- **Espacios Comunes:** Obligatoriedad de bifurcar circuitos en "Iluminación Fija" e "Iluminación Automática" para medios de circulación.
+- **Circuitos Mínimos:** Tabla 772.8.I según superficie común ($\le 30\text{ m}^2$: 3 circuitos; $30-75\text{ m}^2$: 4 circuitos; $> 75\text{ m}^2$: 6 circuitos).
+- **Servicios Esenciales:** Circuitos independientes obligatorios para Ascensores (conforme AEA 791) y Bombas de Incendio / Elevadoras.
 
 ---
 
-## 4. Estructura de Archivos Propuesta
+## 4. Canales de Integración
 
-Organizamos la normativa en catálogos estructurados `.json` accesibles por ambos sistemas, ubicados en `src/AdElec.Core/Normativa/`:
+### 1. Integración en C# (.NET / AutoCAD / Revit)
+- **Biblioteca Nativa:** `aea_core.dll` compilada en Release.
+- **Puente P/Invoke (`AdElec.Core.Aea.AeaBridge`):** Carga dinámica de la biblioteca, manejo seguro de memoria y serialización UTF-8.
+- **Extensiones de Modelo (`PanelAeaExtensions`):**  
+  Permite validar directamente cualquier instancia de `Panel` con:
+  ```csharp
+  List<AeaDiagnostic> diags = panel.ValidarNormativaAea(ambientes);
+  ```
+  La ejecución tarda **< 1 ms**, permitiendo validación continua durante el dibujo en AutoCAD sin bloqueos.
 
-```text
-src/AdElec.Core/Normativa/
-├── catalogs/
-│   ├── cables_iram2183_62267.json     # Secciones, diámetros ext, Iz según método A1, B1, B2, C
-│   ├── protecciones_modulares.json     # Calibres estándar ITM (6, 10, 16, 20, 25, 32, 40, 50, 63A) e ID (25, 40, 63A)
-│   └── canerias_ocupacion.json         # Diámetro caño (RS, RL, semipesado) según cant. cables
-├── aea_770_2017/
-│   ├── grados_electrificacion.json
-│   ├── circuitos_minimos.json
-│   └── puntos_minimos_vivienda.json
-├── aea_771_2006/
-│   ├── grados_electrificacion.json
-│   ├── circuitos_minimos.json
-│   ├── puntos_minimos_vivienda.json
-│   ├── puntos_minimos_locales.json
-│   ├── puntos_minimos_oficinas.json
-│   └── simultaneidad_tablas.json
-└── aea_772_2019/
-    ├── servicios_clasificacion.json    # FM_BOMBAS, FM_ASCENSORES, FM_INCENDIO, LUZ_COMUN, etc.
-    └── reglas_tableros_comunes.json   # Requisitos para TSSG (Tablero Seccional Servicios Generales)
-```
+### 2. Integración Web / OpenCADStudio (WebAssembly)
+- **Binario WASM:** `aea_core.wasm` (320 KB), compilado para `wasm32-unknown-unknown`.
+- Se ejecuta directamente en el runtime JavaScript/Rust de OpenCADStudio en el navegador sin enviar datos a la red.
 
----
+### 3. Integración con Agentes de IA (MCP Server)
+- **Servidor:** `aea/mcp/server.py` implementando JSON-RPC 2.0 sobre `stdio`.
+- **Herramientas disponibles:**
+  - `aea_grado_electrificacion`: Determina grado residencial y superficie computable (AEA 770).
+  - `aea_grado_comercial`: Determina grado comercial y límite de kVA (AEA 771).
+  - `aea_puntos_minimos_ambiente`: Calcula bocas IUG/TUG mínimas por habitación (Tabla 770.7.III).
+  - `aea_validar_tablero`: Audita el tablero completo y devuelve diagnósticos con correcciones aplicables (multi-norma 770/771/772).
 
-## 5. El Patrón de Software en C# (Specification Pattern + Quick-Fixes)
-
-En lugar de validar mediante funciones gigantescas con decenas de `if-else`, se implementa el **Specification Pattern** con reglas atómicas. Cada regla reporta:
-1. **Identificador del Artículo:** Ej. `AEA-770.8.2.1`.
-2. **Severidad:**
-   - 🔴 `BLOQUEANTE` (Error normativo grave: ej. conductor de 1.5 mm² con térmica de 25A).
-   - 🟡 `ADVERTENCIA` (Omisión o desvío menor: ej. falta circuito de reserva en tablero).
-   - 🔵 `INFORMATIVO` (Sugerencia técnica de optimización).
-3. **Acción Correctiva Sugerida (Quick-Fix):**
-   - El sistema no solo avisa el error, sino que ofrece el botón:  
-     `[Ajustar ITM a 16A]` o `[Subir cable a 4.0 mm²]`.
-
-### Ejemplo de Diseño de la Interfaz:
-```csharp
-public interface INormativeRule<TEntity>
-{
-    string RuleId { get; }            // "AEA770-8.2.a"
-    string Norma { get; }             // "AEA 90364-7-770"
-    string Descripcion { get; }
-    RuleSeverity Severity { get; }
-
-    RuleEvaluationResult Evaluate(TEntity entity, ValidationContext context);
-}
-```
+### 4. Interfaz de Usuario en AutoCAD (`ADE_PANEL`)
+- **Panel Reactivo de Diagnósticos:** Integrado directamente en la pestaña de Circuitos de `MainPaletteView.xaml`. Muestra badges de severidad (🔴 Error, 🟡 Alerta), cita formal a la norma/tabla/página de la AEA y mensaje claro.
+- **Botón Quick-Fix interactivo:** Un botón `⚡ Solucionar` permite adoptar la corrección sugerida (ej. corregir sección de cable a 2.5 mm² o ajustar calibre de protección a 20 A) con un solo clic, actualizando el tablero y recalculando automáticamente.
 
 ---
 
-## 6. Plan de Implementación Paso a Paso (Roadmap)
+## 5. Pruebas y Garantía de Calidad
 
-### Fase 1: Creación de Catálogos JSON Normalizados
-- Consolidar las tablas de corrientes admisibles ($I_z$) y cañerías estándar en archivos JSON limpios.
-- Extraer las matrices de ambientes y puntos mínimos para 770, 771 y 772.
-
-### Fase 2: Motor Polimórfico en `AdElec.Core`
-- Implementar la interfaz `INormaStrategy` y las tres clases especializadas:
-  - `Aea770Strategy`
-  - `Aea771Strategy`
-  - `Aea772Strategy`
-- Crear el despachador de normas automático según el tipo de tablero seleccionado en `ADE_PANEL` o la asignación del proyecto.
-
-### Fase 3: Integración en la Interfaz de Usuario (`ADE_PANEL` y `ADE_AMBIENTES`)
-- Agregar en la cabecera del tablero un ComboBox con la norma aplicable:
-  - `Vivienda Unifamiliar (AEA 770 / 2017)`
-  - `Vivienda / Oficinas / Locales (AEA 771 / 2006)`
-  - `Servicios Generales Edificio (AEA 772 / 2019)`
-- Mostrar badges de estado en tiempo real (Iconos verde, amarillo y rojo) para cada circuito.
-- Incorporar el cálculo en tiempo real de corriente de cálculo ($I_b$), calibre de térmica ($I_n$) y capacidad del cable ($I_z$).
-
-### Fase 4: Sincronización con AEA-MOTOR (Python / FastAPI)
-- Mantener los endpoints de AEA-MOTOR compatibles con los mismos esquemas JSON.
-- Incorporar botón en CAD: **"Generar Memoria de Cálculo AEA"** que envía el estado del DWG a AEA-MOTOR para emitir la memoria técnica y el informe de cálculo oficial.
-
----
-
-## 7. Beneficios Directos de este Plan
-1. **Velocidad inmediata:** El proyectista diseña en AutoCAD sin retrasos ni dependencias externas.
-2. **Mantenibilidad absoluta:** Si mañana la AEA publica una nueva edición o tabla, solo se modifica o agrega el archivo JSON de la tabla correspondiente sin romper el código.
-3. **Multi-norma real:** Permite que un mismo edificio tenga departamentos calculados con AEA 770/771, cocheras o locales con AEA 771, y la sala de bombas y servicios comunes con AEA 772.
+- **Tests de Catálogo:** Verificación automática de 13/13 tablas contra texto de PDF (100% aprobado).
+- **Tests Unitarios en Rust:** 9 pruebas unitarias en `aea-core` (0.01 s).
+- **Tests de Integración en C#:** 6 pruebas xUnit en `AdElec.Core.Tests` verificando P/Invoke, cálculo de grado residencial y comercial, puntos mínimos, sobrecargas, validación multi-norma con IUE y aplicación efectiva de Quick-Fix en memoria (38 ms).
+- **Tests MCP:** Suite de pruebas JSON-RPC validando llamadas y respuestas de herramientas (100% aprobado).

@@ -1,0 +1,30 @@
+{
+  "id": "771.7.I",
+  "titulo": "Resumen de tipos de circuitos (AEA 771)",
+  "fuente": { "doc": "AEA-771-2006", "pagina_pdf": 37, "clausula": "771.7" },
+  "estado": "borrador",
+  "verificacion": {
+    "inicio": "Tabla 771.7.I - Resumen de tipos de circuitos",
+    "fin": null,
+    "citas": [
+      "Tabla 771.7.I - Resumen de tipos de circuitos",
+      "Iluminación uso general",
+      "Tomacorriente uso general",
+      "Iluminación uso especial",
+      "Tomacorriente uso especial",
+      "Alimentación pequeños motores",
+      "Alimentación carga única",
+      "Iluminación trifásica específica"
+    ]
+  },
+  "datos": [
+    { "sigla": "IUG",  "max_bocas": 15, "max_in_a": 16 },
+    { "sigla": "TUG",  "max_bocas": 15, "max_in_a": 20 },
+    { "sigla": "IUE",  "max_bocas": 12, "max_in_a": 32 },
+    { "sigla": "TUE",  "max_bocas": 12, "max_in_a": 32 },
+    { "sigla": "MBTF", "max_bocas": 15, "max_in_a": 20 },
+    { "sigla": "APM",  "max_bocas": 15, "max_in_a": 25 },
+    { "sigla": "ATE",  "max_bocas": 15, "max_in_a": null },
+    { "sigla": "ITE",  "max_bocas": 12, "max_in_a": null }
+  ]
+}

@@ -125,6 +125,83 @@ pub struct Coordinacion {
     pub factor_i2: f64,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct ReglaEstarComedor {
+    pub iug_cada_m2: f64,
+    pub iug_minimo: u32,
+    pub tug_cada_m2: f64,
+    pub tug_minimo: u32,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ReglaFija {
+    pub iug: u32,
+    pub tug: u32,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct CocinaDetalle {
+    pub iug: u32,
+    pub tug: u32,
+    pub modulos_fijos: u32,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ReglaCocinaGrados {
+    pub minimo: CocinaDetalle,
+    pub medio: CocinaDetalle,
+    pub elevado: CocinaDetalle,
+    pub superior: CocinaDetalle,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct VestibuloMedioSuperior {
+    pub iug_cada_m2: f64,
+    pub iug_minimo: u32,
+    pub tug_cada_m2: f64,
+    pub tug_minimo: u32,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ReglaVestibulo {
+    pub minimo: ReglaFija,
+    pub medio_o_superior: VestibuloMedioSuperior,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ReglaPasillo {
+    pub iug_cada_m: f64,
+    pub iug_minimo: u32,
+    pub tug_longitud_min_m: f64,
+    pub tug_cada_m: f64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ReglaLavadero {
+    pub minimo: ReglaFija,
+    pub medio_o_superior: ReglaFija,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ReglaBalcon {
+    pub iug_cada_m: f64,
+    pub tug: u32,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct PuntosMinimosDatos {
+    pub estar_comedor: ReglaEstarComedor,
+    pub dormitorio_menor_10: ReglaFija,
+    pub dormitorio_10_a_36: ReglaFija,
+    pub dormitorio_mayor_36: ReglaFija,
+    pub cocina: ReglaCocinaGrados,
+    pub bano: ReglaFija,
+    pub vestibulo_garaje: ReglaVestibulo,
+    pub pasillo_cubierto: ReglaPasillo,
+    pub lavadero: ReglaLavadero,
+    pub balcon_galeria: ReglaBalcon,
+}
+
 /// Catálogo completo de AEA 90364-7-770 (2017).
 #[derive(Debug, Clone)]
 pub struct Catalogo770 {
@@ -132,6 +209,7 @@ pub struct Catalogo770 {
     pub tipos_circuito: Tabla<Vec<TipoCircuito>>,
     pub grados: TablaGrados,
     pub circuitos_minimos: Tabla<Vec<MinimoCircuitos>>,
+    pub puntos_minimos: Tabla<PuntosMinimosDatos>,
     pub secciones_minimas: Tabla<Vec<SeccionMinima>>,
     pub iz: Tabla<Vec<FilaIz>>,
     pub agrupamiento: Tabla<Vec<FactorAgrupamiento>>,
@@ -153,6 +231,7 @@ impl Catalogo770 {
             tipos_circuito: cargar!("tipos_circuito.json"),
             grados: cargar!("grados_electrificacion.json"),
             circuitos_minimos: cargar!("circuitos_minimos.json"),
+            puntos_minimos: cargar!("puntos_minimos.json"),
             secciones_minimas: cargar!("secciones_minimas.json"),
             iz: cargar!("iz_cables_canalizacion.json"),
             agrupamiento: cargar!("factor_agrupamiento.json"),
@@ -183,3 +262,97 @@ impl TablaGrados {
         }
     }
 }
+
+// ---------------------------------------------------------------- 771 ----- //
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct TipoCircuito771 {
+    pub sigla: String,
+    pub max_bocas: u32,
+    pub max_in_a: Option<f64>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct RangoGrado771 {
+    pub grado: String,
+    pub desde_m2: Option<f64>,
+    pub hasta_m2: Option<f64>,
+    pub max_kva: Option<f64>,
+    pub min_kva: Option<f64>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Catalogo771 {
+    pub tipos_circuito: Tabla<Vec<TipoCircuito771>>,
+    pub grados_oficinas_locales: Tabla<Vec<RangoGrado771>>,
+}
+
+macro_rules! cargar771 {
+    ($ruta:literal) => {
+        serde_json::from_str(include_str!(concat!("../../catalogo/aea-771-2006/", $ruta)))
+            .unwrap_or_else(|e| panic!("catálogo 771 {} inválido: {}", $ruta, e))
+    };
+}
+
+impl Catalogo771 {
+    pub fn embebido() -> Self {
+        Self {
+            tipos_circuito: cargar771!("tipos_circuito.json"),
+            grados_oficinas_locales: cargar771!("grados_oficinas_locales.json"),
+        }
+    }
+
+    pub fn tipo(&self, sigla: &str) -> Option<&TipoCircuito771> {
+        self.tipos_circuito.datos.iter().find(|t| t.sigla.eq_ignore_ascii_case(sigla))
+    }
+}
+
+// ---------------------------------------------------------------- 772 ----- //
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct TipoCircuito772 {
+    pub sigla: String,
+    pub max_bocas: u32,
+    pub max_in_a: Option<f64>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct RangoCircuitosComunes772 {
+    pub sup_desde_m2: Option<f64>,
+    pub sup_hasta_m2: Option<f64>,
+    pub cantidad_minima: u32,
+    pub variantes: Vec<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct DatosEspaciosComunes772 {
+    pub rangos: Vec<RangoCircuitosComunes772>,
+    pub servicios_obligatorios_independientes: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Catalogo772 {
+    pub tipos_circuito: Tabla<Vec<TipoCircuito772>>,
+    pub circuitos_minimos: Tabla<DatosEspaciosComunes772>,
+}
+
+macro_rules! cargar772 {
+    ($ruta:literal) => {
+        serde_json::from_str(include_str!(concat!("../../catalogo/aea-772-2019/", $ruta)))
+            .unwrap_or_else(|e| panic!("catálogo 772 {} inválido: {}", $ruta, e))
+    };
+}
+
+impl Catalogo772 {
+    pub fn embebido() -> Self {
+        Self {
+            tipos_circuito: cargar772!("tipos_circuito.json"),
+            circuitos_minimos: cargar772!("circuitos_minimos_espacios_comunes.json"),
+        }
+    }
+
+    pub fn tipo(&self, sigla: &str) -> Option<&TipoCircuito772> {
+        self.tipos_circuito.datos.iter().find(|t| t.sigla.eq_ignore_ascii_case(sigla))
+    }
+}
+

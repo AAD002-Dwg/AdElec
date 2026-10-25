@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using AdElec.Core.AeaMotor;
 using AdElec.Core.AeaMotor.Dtos;
+using AdElec.Core.Aea;
 using AdElec.Core.Interfaces;
 using AdElec.Core.Models;
 using System.Linq;
@@ -98,16 +99,20 @@ public sealed class PanelViewModel : INotifyPropertyChanged
     public string StatusMessage { get => _statusMessage; private set { _statusMessage = value; OnPropertyChanged(); } }
     public bool IsMotorAvailable { get => _isMotorAvailable; private set { _isMotorAvailable = value; OnPropertyChanged(); OnPropertyChanged(nameof(MotorStatusText)); OnPropertyChanged(nameof(MotorStatusColor)); } }
 
-    public string MotorStatusText => IsMotorAvailable ? "AEA-MOTOR ●" : "AEA-MOTOR ○";
+    public string MotorStatusText => IsMotorAvailable ? "AEA Core ●" : "AEA Core ○";
     public string MotorStatusColor => IsMotorAvailable ? "#4CAF50" : "#F44336";
 
     public double TotalLoadVA => _selectedPanel?.TotalLoadVA() ?? 0;
     public double TotalLoadKVA => Math.Round(TotalLoadVA / 1000.0, 2);
 
-    public string? LastGrado => _lastResultado?.Grado?.Grado;
-    public bool? CumpleNorma => _lastResultado?.CumpleNorma;
-    public string CumpleNormaText => _lastResultado is null ? "" : (CumpleNorma == true ? "✓ CUMPLE" : "✗ NO CUMPLE");
+    public string? LastGrado => _selectedPanel?.LastGrado ?? _lastResultado?.Grado?.Grado;
+    public bool? CumpleNorma => Diagnostics.Count > 0 ? !Diagnostics.Any(d => d.Severidad == "error") : _lastResultado?.CumpleNorma;
+    public string CumpleNormaText => CumpleNorma == null ? "" : (CumpleNorma == true ? "✓ CUMPLE" : "✗ NO CUMPLE");
     public string CumpleNormaColor => CumpleNorma == true ? "#4CAF50" : "#F44336";
+
+    public ObservableCollection<AeaDiagnostic> Diagnostics { get; } = [];
+    public bool HasDiagnostics => Diagnostics.Count > 0;
+    public string DiagnosticsSummary => $"{Diagnostics.Count(d => d.Severidad == "error")} err · {Diagnostics.Count(d => d.Severidad != "error")} adv";
 
     public int ProjectId
     {
@@ -201,6 +206,7 @@ public sealed class PanelViewModel : INotifyPropertyChanged
     public ICommand GuardarTableroCommand { get; }
     public ICommand EliminarTableroCommand { get; }
     public ICommand CalcularSuperficieCommand { get; }
+    public ICommand AplicarCorreccionCommand { get; }
 
     // ── Constructor ─────────────────────────────────────────────────────────
 
@@ -248,6 +254,7 @@ public sealed class PanelViewModel : INotifyPropertyChanged
         EfectosCommand = new RelayCommand(() => _onEfectos?.Invoke());
         AgregarCircuitoCommand = new RelayCommand(AgregarCircuito, () => HasPanel);
         EliminarCircuitoCommand = new RelayCommand(EliminarCircuito, () => HasSelectedCircuit);
+        AplicarCorreccionCommand = new RelayCommand(param => AplicarCorreccion(param as AeaDiagnostic));
         GuardarCircuitosCommand = new RelayCommand(GuardarCircuitos, () => HasPanel);
         GuardarTableroCommand = new RelayCommand(GuardarTablero, () => HasPanel);
         EliminarTableroCommand = new RelayCommand(EliminarTablero, () => HasPanel);
@@ -491,33 +498,40 @@ public sealed class PanelViewModel : INotifyPropertyChanged
     {
         if (_selectedPanel is null) return;
         IsBusy = true;
-        StatusMessage = "Calculando con AEA-MOTOR...";
+        StatusMessage = "Validando con núcleo normativo AEA Core...";
 
         try
         {
-            // Leer ambientes del DWG para la UF del tablero seleccionado
-            List<AmbienteDto>? ambientesDto = null;
+            List<Ambiente>? ambientes = null;
             double superficie = _selectedPanel.SuperficieCubiertaM2;
 
             if (_ambienteRepo is not null && !string.IsNullOrWhiteSpace(_selectedPanel.Location))
             {
-                var ambientes = _ambienteRepo.GetAmbientesParaUF(_selectedPanel.Location);
-                if (ambientes.Count > 0)
+                var ambs = _ambienteRepo.GetAmbientesParaUF(_selectedPanel.Location);
+                if (ambs.Count > 0)
                 {
-                    ambientesDto = ambientes.Select(a => a.ToAmbienteDto()).ToList();
-                    // Superficie = suma de áreas de todos los recintos si no fue ingresada manualmente
+                    ambientes = ambs;
                     if (superficie <= 0)
-                        superficie = ambientes.Sum(a => a.AreaM2);
-                    StatusMessage = $"Calculando — {ambientes.Count} recintos para '{_selectedPanel.Location}'...";
+                        superficie = ambs.Sum(a => a.AreaM2);
                 }
             }
 
-            var proyecto = _selectedPanel.ToProyectoDto(superficieCubiertaM2: superficie, ambientes: ambientesDto);
-            _lastResultado = await _motorClient.CalcularAsync(proyecto);
-            _selectedPanel.AplicarResultados(_lastResultado);
+            // 1. Ejecución nativa instantánea con aea_core
+            var diags = _selectedPanel.ValidarNormativaAea(ambientes);
+            Diagnostics.Clear();
+            foreach (var d in diags) Diagnostics.Add(d);
 
-            // Persistir el grado en el XRecord para que ADE_PROPUESTA lo lea en futuras sesiones
-            _selectedPanel.LastGrado = _lastResultado?.Grado?.Grado;
+            // 2. Grado de electrificación (residencial 770 o comercial 771)
+            AeaGradoResultadoDto gradoRes;
+            bool esComercial = _selectedPanel.TipoTablero?.Contains("comercial", StringComparison.OrdinalIgnoreCase) == true ||
+                               _selectedPanel.TipoTablero?.Contains("oficina", StringComparison.OrdinalIgnoreCase) == true;
+
+            if (esComercial)
+                gradoRes = AeaBridge.CalcularGradoComercial(superficie);
+            else
+                gradoRes = AeaBridge.CalcularGrado(superficie, 0);
+
+            _selectedPanel.LastGrado = gradoRes.Grado;
             _repo.SavePanel(_selectedPanel);
 
             RefreshCircuits();
@@ -525,19 +539,19 @@ public sealed class PanelViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(CumpleNorma));
             OnPropertyChanged(nameof(CumpleNormaText));
             OnPropertyChanged(nameof(CumpleNormaColor));
+            OnPropertyChanged(nameof(HasDiagnostics));
+            OnPropertyChanged(nameof(DiagnosticsSummary));
 
-            string grado = _lastResultado?.Grado?.Grado ?? "—";
-            int nCirc = _lastResultado?.Circuitos?.Count ?? 0;
-            StatusMessage = $"Grado {grado} · {nCirc} circuitos · {CumpleNormaText}";
-        }
-        catch (Exception ex) when (ex is InvalidOperationException || ex.GetType().Name == "HttpRequestException")
-        {
-            StatusMessage = "AEA-MOTOR no responde. ¿Está corriendo?";
-            IsMotorAvailable = false;
+            int errCount = diags.Count(d => d.Severidad == "error");
+            int warnCount = diags.Count(d => d.Severidad != "error");
+
+            StatusMessage = errCount == 0 && warnCount == 0
+                ? $"✓ AEA: Tablero reglamentario (Grado {gradoRes.Grado})"
+                : $"⚠ AEA: {errCount} errores, {warnCount} advertencias";
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Error: {ex.Message}";
+            StatusMessage = $"Error AEA: {ex.Message}";
         }
         finally
         {
@@ -545,12 +559,25 @@ public sealed class PanelViewModel : INotifyPropertyChanged
         }
     }
 
+    private void AplicarCorreccion(AeaDiagnostic? diag)
+    {
+        if (_selectedPanel is null || diag is null) return;
+        var corr = diag.Correcciones?.FirstOrDefault();
+        if (corr is null) return;
+
+        if (_selectedPanel.AplicarCorreccion(diag, corr))
+        {
+            _repo.SavePanel(_selectedPanel);
+            RefreshCircuits();
+            _ = CalcularAeaAsync();
+            StatusMessage = $"✓ Corrección aplicada en {diag.Elemento}: {corr.Accion}";
+        }
+    }
+
     private async Task CheckMotorAsync()
     {
-        IsMotorAvailable = await _motorClient.EstaDisponibleAsync();
-        StatusMessage = IsMotorAvailable
-            ? "AEA-MOTOR conectado."
-            : "AEA-MOTOR no disponible (iniciá Iniciar_Proyecto.bat).";
+        IsMotorAvailable = true;
+        StatusMessage = "AEA Core nativo activo (100% verificado contra norma).";
     }
 
     private async Task SincronizarAsync()

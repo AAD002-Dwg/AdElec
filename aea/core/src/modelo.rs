@@ -36,8 +36,36 @@ pub struct Unidad {
     /// Icc presunta en el origen de la instalación [kA].
     #[serde(default)]
     pub icc_origen_ka: Option<f64>,
+    /// Norma o uso: "AEA-770" (residencial), "AEA-771" (comercial/oficinas), "AEA-772" (partes comunes de edificios).
+    #[serde(default)]
+    pub norma: Option<String>,
     #[serde(default)]
     pub circuitos: Vec<Circuito>,
+    #[serde(default)]
+    pub ambientes: Vec<Ambiente>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Ambiente {
+    pub id: String,
+    pub nombre: String,
+    /// Tipo normalizado: "sala_estar", "dormitorio", "cocina", "bano", "pasillo", "lavadero", "garaje", "balcon", etc.
+    pub tipo: String,
+    pub superficie_m2: f64,
+    #[serde(default)]
+    pub longitud_m: Option<f64>,
+    #[serde(default)]
+    pub bocas_iug: u32,
+    #[serde(default)]
+    pub bocas_tug: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PuntosMinimosAmbiente {
+    pub ambiente_id: String,
+    pub iug_minimo: u32,
+    pub tug_minimo: u32,
+    pub modulos_fijos: u32,
 }
 
 fn dos() -> u8 {

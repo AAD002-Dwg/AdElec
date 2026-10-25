@@ -1,0 +1,27 @@
+{
+  "id": "771.8.IV",
+  "titulo": "Resumen de los grados de electrificación de oficinas y locales comerciales proyectados originalmente para tal fin",
+  "fuente": { "doc": "AEA-771-2006", "pagina_pdf": 44, "clausula": "771.8.3.2.1" },
+  "estado": "borrador",
+  "verificacion": {
+    "inicio": "Tabla 771.8.IV",
+    "fin": "771.8.3.2.2",
+    "citas": [
+      "Tabla 771.8.IV – Resumen de los grados de electrificación de oficinas y locales comerciales",
+      "hasta 30 m²",
+      "hasta 4,5 kVA",
+      "más de 30 m² hasta 75 m²",
+      "hasta 7,8 kVA",
+      "más de 75 m² hasta 150 m²",
+      "hasta 12,2 kVA",
+      "más de 150 m²",
+      "más de 12,2 kVA"
+    ]
+  },
+  "datos": [
+    { "grado": "minimo",   "desde_m2": null, "hasta_m2": 30,  "max_kva": 4.5 },
+    { "grado": "medio",    "desde_m2": 30,   "hasta_m2": 75,  "max_kva": 7.8 },
+    { "grado": "elevado",  "desde_m2": 75,   "hasta_m2": 150, "max_kva": 12.2 },
+    { "grado": "superior", "desde_m2": 150,  "hasta_m2": null, "min_kva": 12.2 }
+  ]
+}

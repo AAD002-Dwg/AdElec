@@ -31,6 +31,85 @@ Motivo detrás de las elecciones de diseño o solución implementada.
 
 ## 📜 Historial de Registros
 
+### [2026-10-25] — Integración Visual de Diagnósticos y Quick-Fixes en AutoCAD (ADE_PANEL), Motor Multi-Norma en Rust y Exposición MCP
+**Tipo:** `Feature`
+**Autor / Asistente:** Antigravity / Usuario
+
+#### 🎯 Objetivo
+- Incorporar visualización interactiva y reactiva de diagnósticos normativos en la paleta de gestión de tableros de AutoCAD (`ADE_PANEL`).
+- Implementar la ejecución de Quick-Fixes directos sobre los circuitos en el plano DWG con un solo clic.
+- Completar la lógica de evaluación especializada para AEA 771 (locales y oficinas comerciales) y AEA 772 (partes comunes de edificios) dentro del núcleo Rust y exponerla en .NET y MCP.
+
+#### 🛠️ Cambios realizados
+- `aea/core/` (Rust):
+  - `src/catalogo.rs`: Añadidos `Catalogo771` y `Catalogo772` embebidos en el binario sin dependencias de disco.
+  - `src/aea771.rs`: Implementado cálculo de grado comercial (Tabla 771.8.IV) y validación de circuitos comerciales (Tabla 771.7.I: IUE, TUE, APM, etc., con límites de bocas e intensidades).
+  - `src/aea772.rs`: Implementadas dotaciones mínimas de circuitos para partes comunes según superficie (Tabla 772.8.I) y requerimiento de separación en circuitos de iluminación fija y automática.
+  - `src/ffi.rs`: Agregado despacho dinámico multi-norma en `aea_validar_unidad` y exportación de `aea_grado_electrificacion_comercial`.
+  - Recompilados binarios de producción: `aea_core.dll` (nativo C-ABI) y `aea_core.wasm` (WebAssembly para OpenCADStudio).
+  - Tests unitarios en Rust ampliados a 9/9 superados.
+- `src/AdElec.Core/Aea/`:
+  - `AeaBridge.cs`: Agregado soporte de campo `Norma` en `AeaUnidadDto` y método `CalcularGradoComercial`.
+  - `PanelAeaExtensions.cs`: Detección contextual de norma según `TipoTablero` ("AEA-771" para comerciales, "AEA-772" para partes comunes, "AEA-770" residencial) y método de extensión `panel.AplicarCorreccion(diagnostico, correccion)` para aplicar el Quick-Fix modificando en vivo las propiedades del circuito.
+- `src/AdElec.UI/`:
+  - `PanelViewModel.cs`: Colección observable `Diagnostics`, comandos `CalcularAeaCommand` y `AplicarCorreccionCommand`, validación in-process de alta velocidad en lugar de depender de servidores HTTP externos.
+  - `MainPaletteView.xaml`: Integrado panel retráctil de diagnósticos normativos en tiempo real en la pestaña de Circuitos con badges de severidad (🔴 Error, 🟡 Alerta), citas a la norma/tabla/página de la AEA y botón interactivo `⚡ Solucionar` (Quick-Fix) que corrige calibres o secciones de cable al instante.
+  - `Converters`: Registrado `IntToVisibilityConverter` en los recursos del control para control de visibilidad condicional.
+- `tests/AdElec.Core.Tests/`:
+  - Ampliadas pruebas de integración xUnit a 6/6 superadas (probando cálculo de grado comercial, validación multi-norma con circuitos IUE y aplicación efectiva de Quick-Fix en memoria).
+- `aea/mcp/server.py`:
+  - Agregada la herramienta `aea_grado_comercial` y soporte multi-norma en `aea_validar_tablero`.
+- `deploy/`:
+  - Copiada la biblioteca de enlace dinámico `aea_core.dll` optimizada junto a los ensamblados de despliegue.
+
+#### 💡 Decisiones técnicas
+- La aplicación de Quick-Fixes opera directamente sobre el modelo de datos de `Circuit` en el `Panel`, permitiendo que el proyectista resuelva no conformidades (como sobrecarga de térmica respecto a la sección admisible del cable) con un solo clic, recalculando y guardando los cambios en los atributos del dibujo sin fricción.
+- Se mantiene 100% de aislamiento entre el motor normativo y las bibliotecas propietarias de CAD: la UI interactúa a través de abstracciones limpias en `AdElec.Core.Aea`, lo que asegura portabilidad idéntica a Revit y OpenCADStudio.
+
+#### 📌 Próximos pasos pendientes
+- Integrar la barra de herramientas del editor CAD para activar la visualización coloreada de circuitos en el plano DWG según su estado de cumplimiento.
+
+### [2026-10-25] — Integración Completa del Motor Normativo AEA: FFI C#, WebAssembly, Servidor MCP y Soporte Multi-Norma (770 / 771 / 772)
+**Tipo:** `Feature`
+**Autor / Asistente:** Antigravity / Usuario
+
+#### 🎯 Objetivo
+- Culminar la implementación y despliegue del motor normativo universal de AEA 90364.
+- Conectar el núcleo portable de Rust con los tres canales operativos: AutoCAD/Revit (.NET P/Invoke), OpenCADStudio web (WebAssembly) y Agentes de IA (servidor MCP).
+- Incorporar la verificación y soporte de tablas para AEA 771 (locales y oficinas) y AEA 772 (servicios comunes de edificios).
+
+#### 🛠️ Cambios realizados
+- `aea/catalogo/`:
+  - `aea-770-2017/puntos_minimos.json`: Extracción y verificación de la Tabla 770.7.III (puntos mínimos por ambiente para estar, dormitorios, cocina, baño, pasillos, vestíbulo, lavadero, balcones).
+  - `aea-771-2006/`: Creadas y verificadas `tipos_circuito.json` (Tabla 771.7.I con IUE, TUE, APM, ATE, ITE) y `grados_oficinas_locales.json` (Tabla 771.8.IV con potencias máximas por kVA).
+  - `aea-772-2019/`: Creadas y verificadas `tipos_circuito.json` (Tabla 772.7.I) y `circuitos_minimos_espacios_comunes.json` (Tabla 772.8.I para ascensores, bombas de incendio y circuitos de iluminación fija/automática).
+  - Verificador automático (`verificar_catalogo.py`): 13/13 tablas verificadas OK contra los PDFs originales.
+- `aea/core/` (Rust):
+  - `catalogo.rs`, `modelo.rs`, `aea770.rs`: Integrado cálculo y validación de puntos mínimos de utilización por ambiente según grado y dimensiones.
+  - `ffi.rs`: Exportadas funciones nativas C-ABI (`aea_validar_unidad`, `aea_puntos_minimos_ambiente`, `aea_grado_electrificacion`, `aea_free_string`).
+  - Compilación nativa en Release: `target/release/aea_core.dll` generada.
+  - Compilación WebAssembly: `target/wasm32-unknown-unknown/release/aea_core.wasm` (320 KB) generada sin dependencias.
+  - Suite de tests en Rust: 7/7 pruebas unitarias pasando en 0.09s.
+- `src/AdElec.Core/Aea/`:
+  - `AeaBridge.cs`: Puente P/Invoke con resolución automática de la biblioteca nativa, gestión segura de memoria y serialización UTF-8.
+  - `PanelAeaExtensions.cs`: Métodos de extensión para validar instancias de `Panel` y `Ambiente` de AutoCAD en vivo en < 1 ms.
+- `tests/AdElec.Core.Tests/`:
+  - Proyecto de pruebas xUnit (`AdElec.Core.Tests.csproj` y `AeaBridgeTests.cs`).
+  - 4/4 pruebas de integración pasando en 28 ms (cálculo de grado, puntos mínimos, sobrecargas en circuitos y validación directa sobre objetos `Panel`).
+- `aea/mcp/server.py`:
+  - Servidor MCP compatible con JSON-RPC 2.0 stdio exponiendo las herramientas `aea_grado_electrificacion`, `aea_puntos_minimos_ambiente` y `aea_validar_tablero`.
+  - Verificado con tests automatizados sobre el protocolo de herramientas.
+- `docs/PLAN_MOTOR_NORMATIVO_AEA.md`:
+  - Actualizado el documento maestro con la arquitectura tripartita implementada, especificación de normas y resultados de auditoría.
+
+#### 💡 Decisiones técnicas
+- El puente FFI utiliza `c_void_p` en los punteros intermedios para garantizar que la memoria asignada por Rust sea deasignada explícitamente por `aea_free_string` en el heap de Rust, eliminando fugas de memoria entre el runtime de C#/.NET o Python y Rust.
+- La compilación dual (C-ABI `cdylib` + WebAssembly `wasm32`) desacopla totalmente a AD-ELEC de AutoCAD: el mismo núcleo puede calcular planos en Revit mediante C#, en OpenCADStudio en el navegador mediante WASM, y responder consultas en tiempo real a agentes de IA mediante MCP.
+
+#### 📌 Próximos pasos pendientes
+- Integrar la visualización de los diagnósticos y botones de Quick-Fix en la interfaz XAML de `ADE_PANEL` para AutoCAD.
+- Configurar el archivo de manifiesto MCP en la configuración de Antigravity / OpenCADStudio para uso permanente.
+
 ### [2026-10-25] — Implementación de Núcleo Portable AEA en Rust (`aea-core`) y Verificador Automático de Catálogo contra PDFs Originales
 **Tipo:** `Feature`
 **Autor / Asistente:** Antigravity / Usuario

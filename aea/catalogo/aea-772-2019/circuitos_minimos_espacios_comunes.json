@@ -1,0 +1,56 @@
+{
+  "id": "772.8.I",
+  "titulo": "Números mínimos de circuitos en espacios comunes",
+  "fuente": { "doc": "AEA-772-2019", "pagina_pdf": 33, "clausula": "772.8.1" },
+  "estado": "borrador",
+  "verificacion": {
+    "inicio": null,
+    "fin": null,
+    "citas": [
+      "Tabla 772.8.I – Números mínimos de circuitos en espacios comunes",
+      "Iluminación uso general “fija”",
+      "Iluminación uso general “auto”",
+      "Tomacorriente uso general",
+      "Iluminación uso especial",
+      "Tomacorriente uso especial",
+      "Hasta 30 m2",
+      "Más de 30 m2 y hasta 75 m2",
+      "Más de 75 m2",
+      "Se destaca ejecutar la alimentación independiente para los ascensores, otros medios de transporte"
+    ]
+  },
+  "datos": {
+    "rangos": [
+      {
+        "sup_hasta_m2": 30,
+        "cantidad_minima": 3,
+        "variantes": [
+          { "id": "unica", "iug_fija": 1, "iug_auto": 1, "tug": 1 }
+        ]
+      },
+      {
+        "sup_desde_m2": 30,
+        "sup_hasta_m2": 75,
+        "cantidad_minima": 4,
+        "variantes": [
+          { "id": "a", "iug_fija": 1, "iug_auto": 1, "tug": 1, "iue": 1 },
+          { "id": "b", "iug_fija": 1, "iug_auto": 1, "tug": 1, "tue": 1 },
+          { "id": "c", "iug_fija": 2, "iug_auto": 2, "tug": 1 },
+          { "id": "d", "iug_fija": 1, "iug_auto": 1, "tug": 2 }
+        ]
+      },
+      {
+        "sup_desde_m2": 75,
+        "cantidad_minima": 6,
+        "variantes": [
+          { "id": "unica", "iug_fija": 2, "iug_auto": 2, "tug": 2, "libre_eleccion": 1 }
+        ]
+      }
+    ],
+    "servicios_obligatorios_independientes": [
+      "ascensores",
+      "bombas_elevadoras",
+      "bombas_incendio"
+    ]
+  }
+}
