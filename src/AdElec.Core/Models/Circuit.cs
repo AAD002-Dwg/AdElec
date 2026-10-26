@@ -18,6 +18,7 @@ public class Circuit : INotifyPropertyChanged
     private int _poles = 2;
     private string _norma = "IRAM 62267";
     private string _description = string.Empty;
+    private double _lengthMeters = 0.0;
 
     public string Name
     {
@@ -47,6 +48,12 @@ public class Circuit : INotifyPropertyChanged
     {
         get => _loadVA;
         set => SetField(ref _loadVA, value);
+    }
+
+    public double LengthMeters
+    {
+        get => _lengthMeters;
+        set => SetField(ref _lengthMeters, value);
     }
 
     public char Phase

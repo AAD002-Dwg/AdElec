@@ -22,6 +22,12 @@ pub struct Circuito {
     /// Cantidad de circuitos que comparten la canalización (incluido este).
     #[serde(default = "uno")]
     pub circuitos_en_canalizacion: u32,
+    /// Longitud en metros del circuito (desde tablero hasta la carga más alejada).
+    #[serde(default)]
+    pub longitud_m: Option<f64>,
+    /// Factor de potencia (cos phi). Por defecto 0.9.
+    #[serde(default)]
+    pub cos_phi: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

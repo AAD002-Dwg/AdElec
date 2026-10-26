@@ -233,4 +233,53 @@ public class AeaBridgeTests
         Assert.Equal(1, pBalcon.IugMinimo);
         Assert.Equal(0, pBalcon.TugMinimo);
     }
+
+    [Fact]
+    public void Test_CaidaTension_Y_QuickFix_EnCsharp()
+    {
+        // 1. Test llamada directa FFI
+        double dv = AeaBridge.CalcularCaidaTension(longitudM: 40.0, corrienteA: 10.0, seccionMm2: 1.5, cablesCargados: 2, cosPhi: 0.9);
+        // ΔV = 2 * 0.0212 * 40 * 10 * 0.9 / 1.5 = 10.176 V -> 10.176 / 220 = 4.625%
+        Assert.True(dv > 4.6 && dv < 4.7);
+
+        // 2. Test integración con Panel y Quick-Fix
+        var panel = new Models.Panel
+        {
+            Name = "TG",
+            SuperficieCubiertaM2 = 50,
+            PhaseCount = 1,
+            PowerFactor = 0.9
+        };
+
+        var circLargo = new Models.Circuit
+        {
+            Name = "C1",
+            Type = "IUG",
+            BreakerAmps = 10,
+            WireSectionMm2 = 1.5,
+            ArtefactCount = 8,
+            LengthMeters = 40.0, // Longitud de 40 metros
+            LoadVA = 1980 // 10 A @ 220V con cos(phi)=0.9 (1980 / (220*0.9) = 10.0 A)
+        };
+        panel.Circuits.Add(circLargo);
+
+        var diags = panel.ValidarNormativaAea();
+        var diagDv = diags.FirstOrDefault(d => d.Codigo == "770.12/caida_tension");
+        Assert.NotNull(diagDv);
+        Assert.Contains("supera el límite reglamentario", diagDv.Mensaje);
+
+        // Debe sugerir cambiar sección a 2.5 mm²
+        var corr = diagDv.Correcciones?.FirstOrDefault(c => c.Accion == "cambiar_seccion");
+        Assert.NotNull(corr);
+        Assert.Equal(2.5, corr.SeccionMm2);
+
+        // Aplicar Quick-Fix
+        bool ok = panel.AplicarCorreccion(diagDv, corr);
+        Assert.True(ok);
+        Assert.Equal(2.5, circLargo.WireSectionMm2);
+
+        // Revalidar: caída de tensión resuelta
+        var diagsPost = panel.ValidarNormativaAea();
+        Assert.DoesNotContain(diagsPost, d => d.Codigo == "770.12/caida_tension");
+    }
 }

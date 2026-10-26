@@ -43,7 +43,9 @@ public static class PanelAeaExtensions
                     IbA = ib,
                     Bocas = Math.Max(0, c.ArtefactCount),
                     CablesCargados = panel.PhaseCount >= 3 ? 3 : 2,
-                    CircuitosEnCanalizacion = 1
+                    CircuitosEnCanalizacion = 1,
+                    LongitudM = c.LengthMeters > 0 ? c.LengthMeters : null,
+                    CosPhi = panel.PowerFactor > 0 ? panel.PowerFactor : 0.9
                 };
             }).ToList()
         };

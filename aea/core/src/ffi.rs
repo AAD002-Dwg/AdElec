@@ -116,6 +116,18 @@ pub extern "C" fn aea_grado_electrificacion_comercial(superficie_m2: c_double) -
     to_c_string(&res)
 }
 
+/// Calculates voltage drop percentage (ΔV%) using standard copper resistivity at 70°C.
+#[no_mangle]
+pub extern "C" fn aea_calcular_caida_tension(
+    longitud_m: c_double,
+    corriente_a: c_double,
+    seccion_mm2: c_double,
+    cables_cargados: u8,
+    cos_phi: c_double,
+) -> c_double {
+    aea770::calcular_caida_tension(longitud_m, corriente_a, seccion_mm2, cables_cargados, cos_phi)
+}
+
 #[cfg(test)]
 mod ffi_tests {
     use super::*;

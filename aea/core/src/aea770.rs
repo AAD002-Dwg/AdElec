@@ -145,6 +145,13 @@ pub fn validar_circuito(cat: &Catalogo770, c: &Circuito) -> Vec<Diagnostico> {
 
     // 770.15.3 — coordinación Ib <= In <= Iz
     d.extend(validar_coordinacion(cat, c, tipo.max_in_a));
+
+    // Caída de tensión reglamentaria (AEA 770 / 771: máx 3% iluminación, 5% otros usos)
+    if let Some(l) = c.longitud_m {
+        if l > 0.0 {
+            d.extend(validar_caida_tension(cat, c, &tipo.sigla));
+        }
+    }
     d
 }
 
@@ -237,6 +244,71 @@ fn menor_seccion_para(cat: &Catalogo770, c: &Circuito, in_a: f64) -> Option<f64>
             iz_corregida(cat, s, c.cables_cargados, c.circuitos_en_canalizacion)
                 .map_or(false, |r| r.iz_a + EPS >= in_a)
         })
+}
+
+/// Calcula la caída de tensión porcentual (ΔV%) según física eléctrica estándar
+/// para conductores de cobre con aislación termoplástica (temperatura de régimen 70 °C,
+/// resistividad rho = 0.0212 Ohm*mm²/m).
+pub fn calcular_caida_tension(
+    longitud_m: f64,
+    corriente_a: f64,
+    seccion_mm2: f64,
+    cables_cargados: u8,
+    cos_phi: f64,
+) -> f64 {
+    if seccion_mm2 <= 0.0 || longitud_m <= 0.0 || corriente_a <= 0.0 {
+        return 0.0;
+    }
+    let rho = 0.0212; // Resistencia de Cu a 70°C [Ohm * mm^2 / m]
+    let cos_p = if cos_phi > 0.0 && cos_phi <= 1.0 { cos_phi } else { 0.9 };
+    if cables_cargados >= 3 {
+        // Trifásico 380 V entre fases: ΔV = sqrt(3) * rho * L * I * cos(phi) / S
+        let v_n = 380.0;
+        let delta_v = 1.7320508 * rho * longitud_m * corriente_a * cos_p / seccion_mm2;
+        (delta_v / v_n) * 100.0
+    } else {
+        // Monofásico 220 V fase-neutro: ΔV = 2 * rho * L * I * cos(phi) / S
+        let v_n = 220.0;
+        let delta_v = 2.0 * rho * longitud_m * corriente_a * cos_p / seccion_mm2;
+        (delta_v / v_n) * 100.0
+    }
+}
+
+fn validar_caida_tension(cat: &Catalogo770, c: &Circuito, tipo_sigla: &str) -> Vec<Diagnostico> {
+    let l = match c.longitud_m {
+        Some(val) if val > 0.0 => val,
+        _ => return vec![],
+    };
+    let i_calc = c.ib_a.unwrap_or(c.in_a);
+    let cos_p = c.cos_phi.unwrap_or(0.9);
+    let delta_v_pct = calcular_caida_tension(l, i_calc, c.seccion_mm2, c.cables_cargados, cos_p);
+
+    let es_iluminacion = tipo_sigla.to_uppercase().starts_with('I');
+    let max_pct = if es_iluminacion { 3.0 } else { 5.0 };
+
+    if delta_v_pct > max_pct + EPS {
+        let mut correcciones = Vec::new();
+        let secciones_posibles = [1.5, 2.5, 4.0, 6.0, 10.0, 16.0, 25.0, 35.0];
+        if let Some(&s_ok) = secciones_posibles.iter().find(|&&s| {
+            s > c.seccion_mm2 && calcular_caida_tension(l, i_calc, s, c.cables_cargados, cos_p) <= max_pct + EPS
+        }) {
+            correcciones.push(Correccion::CambiarSeccion { seccion_mm2: s_ok });
+        }
+
+        vec![Diagnostico {
+            codigo: "770.12/caida_tension",
+            severidad: Severidad::Error,
+            elemento: c.id.clone(),
+            mensaje: format!(
+                "Caída de tensión de {:.2}% en circuito {} (L = {:.1} m, S = {} mm², I = {:.1} A): supera el límite reglamentario de {:.1}%.",
+                delta_v_pct, c.tipo, l, c.seccion_mm2, i_calc, max_pct
+            ),
+            referencia: cat.coordinacion.referencia(),
+            correcciones,
+        }]
+    } else {
+        vec![]
+    }
 }
 
 // ------------------------------------------------------------- unidad ----- //

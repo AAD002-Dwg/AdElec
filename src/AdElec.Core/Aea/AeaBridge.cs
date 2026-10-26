@@ -57,6 +57,8 @@ public class AeaCircuitoDto
     [JsonPropertyName("bocas")] public int Bocas { get; set; }
     [JsonPropertyName("cables_cargados")] public int CablesCargados { get; set; } = 2;
     [JsonPropertyName("circuitos_en_canalizacion")] public int CircuitosEnCanalizacion { get; set; } = 1;
+    [JsonPropertyName("longitud_m")] public double? LongitudM { get; set; }
+    [JsonPropertyName("cos_phi")] public double? CosPhi { get; set; }
 }
 
 public class AeaAmbienteDto
@@ -148,6 +150,14 @@ public static class AeaBridge
 
     [DllImport(LibName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "aea_puntos_minimos_ambiente")]
     private static extern IntPtr NativePuntosMinimosAmbiente(IntPtr jsonInput);
+
+    [DllImport(LibName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "aea_calcular_caida_tension")]
+    private static extern double NativeCalcularCaidaTension(double longitudM, double corrienteA, double seccionMm2, byte cablesCargados, double cosPhi);
+
+    public static double CalcularCaidaTension(double longitudM, double corrienteA, double seccionMm2, int cablesCargados = 2, double cosPhi = 0.9)
+    {
+        return NativeCalcularCaidaTension(longitudM, corrienteA, seccionMm2, (byte)cablesCargados, cosPhi);
+    }
 
     public static AeaGradoResultadoDto CalcularGrado(double cubiertaM2, double semicubiertaM2)
     {

@@ -31,6 +31,42 @@ Motivo detrás de las elecciones de diseño o solución implementada.
 
 ## 📜 Historial de Registros
 
+### [2026-10-25] — Física de Caída de Tensión (ΔV%), Comandos de Planilla de Cargas en AutoCAD (ADE_TABLA_CARGAS) y Auditoría Espacial de Bocas
+**Tipo:** `Feature`
+**Autor / Asistente:** Antigravity / Usuario
+
+#### 🎯 Objetivo
+- Implementar el cálculo físico riguroso de caída de tensión porcentual ($\Delta V\%$) en conductores de cobre según AEA 90364 (límites del 3% en iluminación y 5% en tomas/usos específicos) con sugerencia automática de aumento de sección.
+- Dotar a AutoCAD del comando `ADE_TABLA_CARGAS` para insertar entidades nativas de tabla (Planilla de Cargas y Resumen de Potencia) directamente en el dibujo.
+- Incorporar el comando `ADE_AUDITORIA_BOCAS` para comparar recintos del plano contra los mínimos de utilización reglamentarios.
+- Documentar el plan maestro de mejoras y hoja de ruta en `docs/HOJA_DE_RUTA_MEJORAS_AD_ELEC.md`.
+
+#### 🛠️ Cambios realizados
+- `aea/core/` (Rust):
+  - `src/modelo.rs`: Añadidos campos opcionales `longitud_m` y `cos_phi` a la estructura `Circuito`.
+  - `src/aea770.rs`: Implementadas las funciones `calcular_caida_tension` (considerando resistividad del cobre a $70^\circ\text{C}$ de $0.0212\,\Omega\cdot\text{mm}^2/\text{m}$ para sistemas monofásicos de 220V y trifásicos de 380V) y `validar_caida_tension` con emisión de diagnóstico y Quick-Fix a la sección mínima que satisfaga la caída límite.
+  - `src/ffi.rs`: Expuesta la función nativa C-ABI `aea_calcular_caida_tension`.
+  - `src/lib.rs`: Incorporado test unitario `test_caida_tension_y_quick_fix` (11/11 tests aprobados).
+- `src/AdElec.Core/` (C#):
+  - `Models/Circuit.cs`: Añadido campo y propiedad `LengthMeters`.
+  - `Aea/AeaBridge.cs`: Mapeo de `LongitudM` y `CosPhi` en `AeaCircuitoDto`, e importación P/Invoke de `CalcularCaidaTension`.
+  - `Aea/PanelAeaExtensions.cs`: Mapeo de `LengthMeters` y `PowerFactor` hacia el DTO analítico de Rust.
+- `src/AdElec.AutoCAD/`:
+  - `Commands/TablaCargasCommand.cs`: Creado comando `ADE_TABLA_CARGAS` que dibuja una tabla profesional en el DWG con resumen de potencias, corrientes, protecciones, longitudes, $\Delta V\%$ y estado normativo, y comando `ADE_AUDITORIA_BOCAS` para verificar bocas mínimas en recintos.
+- `tests/AdElec.Core.Tests/`:
+  - `AeaBridgeTests.cs`: Agregado `Test_CaidaTension_Y_QuickFix_EnCsharp` validando tanto la función FFI directa como la auto-corrección sobre `Models.Panel` (9/9 tests aprobados).
+- `deploy/`:
+  - Binarios regenerados y sincronizados (`AdElec.AutoCAD.dll`, `AdElec.Core.dll`, `AdElec.UI.dll`, `aea_core.dll`).
+
+#### 💡 Decisiones técnicas
+- La fórmula de caída de tensión adoptada es la establecida por la AEA y la norma IRAM 2183 / NM 247-3 para conductores de cobre bajo régimen permanente de temperatura ($70^\circ\text{C}$), garantizando que las instalaciones proyectadas no sufran pérdidas de tensión excesivas en alimentadores largos.
+- La tabla de AutoCAD se genera usando la API nativa `Autodesk.AutoCAD.DatabaseServices.Table`, lo que permite que sea editable, escalable y estilizada según los estilos de tabla del usuario.
+
+#### 📌 Próximos pasos pendientes
+- Probar la inserción de la tabla en un plano DWG complejo y continuar con el trazado automático de canalizaciones.
+
+---
+
 ### [2026-10-25] — Auditoría Exhaustiva de Calidad, Endurecimiento de Rust Core, Portabilidad de DLL y Quick-Fixes de Tablero
 **Tipo:** `Fix`
 **Autor / Asistente:** Antigravity / Usuario

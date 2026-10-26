@@ -73,6 +73,8 @@ mod tests {
             bocas: 10,
             cables_cargados: 2,
             circuitos_en_canalizacion: 1,
+            longitud_m: None,
+            cos_phi: None,
         };
 
         let diag = aea770::validar_circuito(&cat, &c);
@@ -202,6 +204,8 @@ mod tests {
             bocas: 10,
             cables_cargados: 2,
             circuitos_en_canalizacion: 1,
+            longitud_m: None,
+            cos_phi: None,
         };
         let diags_iue = aea771::validar_circuito_771(&cat771, &c_iue);
         assert!(diags_iue.is_empty(), "IUE reglamentario debe tener 0 diagnósticos");
@@ -216,6 +220,8 @@ mod tests {
             bocas: 15,
             cables_cargados: 2,
             circuitos_en_canalizacion: 1,
+            longitud_m: None,
+            cos_phi: None,
         };
         let diags_iue_exc = aea771::validar_circuito_771(&cat771, &c_iue_exc);
         assert!(diags_iue_exc.iter().any(|d| d.codigo == "771.7/max_bocas"));
@@ -244,6 +250,8 @@ mod tests {
                     bocas: 8,
                     cables_cargados: 2,
                     circuitos_en_canalizacion: 1,
+                    longitud_m: None,
+                    cos_phi: None,
                 },
                 Circuito {
                     id: "C2".into(),
@@ -254,6 +262,8 @@ mod tests {
                     bocas: 6,
                     cables_cargados: 2,
                     circuitos_en_canalizacion: 1,
+                    longitud_m: None,
+                    cos_phi: None,
                 },
             ],
             ambientes: vec![],
@@ -262,6 +272,33 @@ mod tests {
         // Tiene 2 circuitos, requiere 4 -> diagnóstico 772.8.1/circuitos_minimos
         let diags = aea772::validar_unidad_772(&cat772, &cat770, &u);
         assert!(diags.iter().any(|d| d.codigo == "772.8.1/circuitos_minimos"));
+    }
+
+    #[test]
+    fn test_caida_tension_y_quick_fix() {
+        let cat = Catalogo770::embebido();
+        // Circuito IUG monofásico con L = 40 m, Ib = 10 A, cable 1.5 mm2
+        // ΔV = 2 * 0.0212 * 40 * 10 * 0.9 / 1.5 = 10.176 V -> 10.176 / 220 = 4.62% (> 3.0% máx para IUG)
+        let c = Circuito {
+            id: "C_LARGO".into(),
+            tipo: "IUG".into(),
+            seccion_mm2: 1.5,
+            in_a: 10.0,
+            ib_a: Some(10.0),
+            bocas: 8,
+            cables_cargados: 2,
+            circuitos_en_canalizacion: 1,
+            longitud_m: Some(40.0),
+            cos_phi: Some(0.9),
+        };
+
+        let diags = aea770::validar_circuito(&cat, &c);
+        let diag_dv = diags.iter().find(|d| d.codigo == "770.12/caida_tension");
+        assert!(diag_dv.is_some(), "Debe detectar caída de tensión excesiva");
+        let d = diag_dv.unwrap();
+        assert!(d.mensaje.contains("supera el límite reglamentario"));
+        // Con 2.5 mm2 -> ΔV = 2.77% <= 3.0%
+        assert!(d.correcciones.iter().any(|corr| matches!(corr, Correccion::CambiarSeccion { seccion_mm2 } if *seccion_mm2 == 2.5)));
     }
 }
 
