@@ -282,4 +282,41 @@ public class AeaBridgeTests
         var diagsPost = panel.ValidarNormativaAea();
         Assert.DoesNotContain(diagsPost, d => d.Codigo == "770.12/caida_tension");
     }
+
+    [Fact]
+    public void Test_Cortocircuito_Termico_Y_PoderDeCorte_EnCsharp()
+    {
+        // 1. Verificación térmica analítica de cortocircuito en conductor:
+        // Icc = 3 kA, t = 0.02 s, cable 1.5 mm2, PVC
+        var res1 = AeaBridge.VerificarCortocircuito(iccKa: 3.0, tiempoS: 0.02, seccionMm2: 1.5, aislacionPvc: true);
+        Assert.False(res1.Cumple);
+        Assert.Equal(3.69, res1.SeccionMinimaMm2);
+
+        // Con 4.0 mm2 -> Cumple
+        var res2 = AeaBridge.VerificarCortocircuito(iccKa: 3.0, tiempoS: 0.02, seccionMm2: 4.0, aislacionPvc: true);
+        Assert.True(res2.Cumple);
+
+        // 2. Verificación de Icn en circuito vs Icc del tablero:
+        var panel = new Models.Panel
+        {
+            Name = "TG-EDIFICIO",
+            SuperficieCubiertaM2 = 80,
+            PhaseCount = 3
+        };
+        panel.Circuits.Add(new Models.Circuit
+        {
+            Name = "C1",
+            Type = "IUG",
+            BreakerAmps = 10,
+            WireSectionMm2 = 1.5,
+            ArtefactCount = 8
+        });
+
+        var unidadDto = panel.ToAeaUnidad();
+        unidadDto.IccOrigenKa = 4.5; // Tablero con Icc presunta de 4.5 kA
+        unidadDto.Circuitos[0].IcnKa = 3.0; // Interruptor con Icn de 3.0 kA
+
+        var diags = AeaBridge.ValidarUnidad(unidadDto);
+        Assert.Contains(diags, d => d.Codigo == "770.16/poder_de_corte");
+    }
 }

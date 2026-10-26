@@ -47,6 +47,13 @@ public record AeaPuntosMinimosDto(
     [property: JsonPropertyName("modulos_fijos")] int ModulosFijos
 );
 
+public record AeaResultadoCortocircuitoDto(
+    [property: JsonPropertyName("seccion_minima_mm2")] double SeccionMinimaMm2,
+    [property: JsonPropertyName("energia_admisible_a2s")] double EnergiaAdmisibleA2s,
+    [property: JsonPropertyName("energia_defecto_a2s")] double EnergiaDefectoA2s,
+    [property: JsonPropertyName("cumple")] bool Cumple
+);
+
 public class AeaCircuitoDto
 {
     [JsonPropertyName("id")] public string Id { get; set; } = string.Empty;
@@ -59,6 +66,7 @@ public class AeaCircuitoDto
     [JsonPropertyName("circuitos_en_canalizacion")] public int CircuitosEnCanalizacion { get; set; } = 1;
     [JsonPropertyName("longitud_m")] public double? LongitudM { get; set; }
     [JsonPropertyName("cos_phi")] public double? CosPhi { get; set; }
+    [JsonPropertyName("icn_ka")] public double? IcnKa { get; set; }
 }
 
 public class AeaAmbienteDto
@@ -154,9 +162,27 @@ public static class AeaBridge
     [DllImport(LibName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "aea_calcular_caida_tension")]
     private static extern double NativeCalcularCaidaTension(double longitudM, double corrienteA, double seccionMm2, byte cablesCargados, double cosPhi);
 
+    [DllImport(LibName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "aea_verificar_cortocircuito_conductor")]
+    private static extern IntPtr NativeVerificarCortocircuito(double iccKa, double tiempoS, double seccionMm2, bool aislacionPvc);
+
     public static double CalcularCaidaTension(double longitudM, double corrienteA, double seccionMm2, int cablesCargados = 2, double cosPhi = 0.9)
     {
         return NativeCalcularCaidaTension(longitudM, corrienteA, seccionMm2, (byte)cablesCargados, cosPhi);
+    }
+
+    public static AeaResultadoCortocircuitoDto VerificarCortocircuito(double iccKa, double tiempoS, double seccionMm2, bool aislacionPvc = true)
+    {
+        IntPtr ptr = NativeVerificarCortocircuito(iccKa, tiempoS, seccionMm2, aislacionPvc);
+        try
+        {
+            string json = PtrToStringUtf8(ptr);
+            return JsonSerializer.Deserialize<AeaResultadoCortocircuitoDto>(json)
+                   ?? throw new InvalidOperationException("Respuesta nula del motor de cortocircuito");
+        }
+        finally
+        {
+            NativeFreeString(ptr);
+        }
     }
 
     public static AeaGradoResultadoDto CalcularGrado(double cubiertaM2, double semicubiertaM2)

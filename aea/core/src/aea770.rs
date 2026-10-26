@@ -311,6 +311,40 @@ fn validar_caida_tension(cat: &Catalogo770, c: &Circuito, tipo_sigla: &str) -> V
     }
 }
 
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct ResultadoCortocircuito {
+    pub seccion_minima_mm2: f64,
+    pub energia_admisible_a2s: f64,
+    pub energia_defecto_a2s: f64,
+    pub cumple: bool,
+}
+
+/// Comprueba la condición térmica del conductor ante cortocircuito (I²·t ≤ k²·S²).
+/// Para conductores de cobre aislados en PVC (IRAM NM 247-3), k = 115.
+/// Para aislación termoestable (XLPE / IRAM 62266), k = 143.
+/// t: tiempo de despeje del interruptor automático (por defecto 0.02 s = 1 ciclo).
+pub fn verificar_cortocircuito_conductor(
+    icc_ka: f64,
+    tiempo_despeje_s: f64,
+    seccion_mm2: f64,
+    aislacion_pvc: bool,
+) -> ResultadoCortocircuito {
+    let k = if aislacion_pvc { 115.0 } else { 143.0 };
+    let i_a = icc_ka.max(0.0) * 1000.0;
+    let t = if tiempo_despeje_s > 0.0 { tiempo_despeje_s } else { 0.02 };
+    let s_min = (i_a * t.sqrt()) / k;
+    let energia_admisible = (k * seccion_mm2).powi(2);
+    let energia_defecto = i_a.powi(2) * t;
+    let cumple = seccion_mm2 + EPS >= s_min;
+
+    ResultadoCortocircuito {
+        seccion_minima_mm2: (s_min * 100.0).round() / 100.0,
+        energia_admisible_a2s: energia_admisible,
+        energia_defecto_a2s: energia_defecto,
+        cumple,
+    }
+}
+
 // ------------------------------------------------------------- unidad ----- //
 
 /// Valida una vivienda completa: alcance (770.1), circuitos mínimos (770.7.4)
@@ -347,6 +381,24 @@ pub fn validar_unidad(cat: &Catalogo770, u: &Unidad) -> Vec<Diagnostico> {
                 referencia: alc.referencia(),
                 correcciones: vec![Correccion::CambiarNorma { norma: "AEA-771-2006".into() }],
             });
+        }
+
+        // 770.16.1 — Poder de corte mínimo (Icn >= Icc en origen)
+        for c in &u.circuitos {
+            let icn = c.icn_ka.unwrap_or(3.0); // 3.0 kA por defecto residencial
+            if icc > icn + EPS {
+                d.push(Diagnostico {
+                    codigo: "770.16/poder_de_corte",
+                    severidad: Severidad::Error,
+                    elemento: c.id.clone(),
+                    mensaje: format!(
+                        "Poder de corte asignado Icn = {:.1} kA del circuito {} es inferior a la Icc presunta de {:.1} kA en el origen. Debe ser Icn ≥ Icc.",
+                        icn, c.id, icc
+                    ),
+                    referencia: alc.referencia(),
+                    correcciones: vec![],
+                });
+            }
         }
     }
 

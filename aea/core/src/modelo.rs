@@ -28,6 +28,27 @@ pub struct Circuito {
     /// Factor de potencia (cos phi). Por defecto 0.9.
     #[serde(default)]
     pub cos_phi: Option<f64>,
+    /// Poder de corte asignado de la protección (Icn) en [kA]. Por defecto 3.0 kA.
+    #[serde(default)]
+    pub icn_ka: Option<f64>,
+}
+
+impl Default for Circuito {
+    fn default() -> Self {
+        Self {
+            id: String::new(),
+            tipo: "TUG".into(),
+            seccion_mm2: 2.5,
+            in_a: 16.0,
+            ib_a: None,
+            bocas: 0,
+            cables_cargados: 2,
+            circuitos_en_canalizacion: 1,
+            longitud_m: None,
+            cos_phi: None,
+            icn_ka: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

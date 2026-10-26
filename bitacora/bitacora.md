@@ -31,6 +31,43 @@ Motivo detrás de las elecciones de diseño o solución implementada.
 
 ## 📜 Historial de Registros
 
+### [2026-10-25] — Verificación Térmica de Cortocircuito (I²·t ≤ k²·S²), Poder de Corte (Icn ≥ Icc), Marcas de Revisión en DWG y Exportación CSV
+**Tipo:** `Feature`
+**Autor / Asistente:** Antigravity / Usuario
+
+#### 🎯 Objetivo
+- Implementar la comprobación analítica de estrés térmico del conductor ante cortocircuito ($I^2 \cdot t \le k^2 \cdot S^2$) para PVC ($k=115$) y XLPE ($k=143$), y la validación de poder de corte asignado mínimo ($I_{cn} \ge I_{cc}$) según AEA 770 cláusula 770.16.
+- Dotar al comando `ADE_AUDITORIA_BOCAS` de marcado visual espacial automático en AutoCAD (círculos y textos de advertencia en la capa dedicada `ELEC-REVISIONES`).
+- Añadir el comando `ADE_EXPORTAR_PLANILLA` para generar archivos CSV estructurados con memorias técnicas de cargas y protecciones.
+- Exponer herramientas de cálculo de caída de tensión y cortocircuito en el servidor FastMCP (`aea/mcp/server.py`).
+
+#### 🛠️ Cambios realizados
+- `aea/core/` (Rust):
+  - `src/modelo.rs`: Añadido campo `icn_ka` y `Default` para `Circuito`.
+  - `src/aea770.rs`: Implementada función `verificar_cortocircuito_conductor` ($S_{\text{mín}} = \frac{I_{cc} \cdot \sqrt{t}}{k}$) y verificación en `validar_unidad` de $I_{cn} \ge I_{cc}$ (diagnóstico `770.16/poder_de_corte`).
+  - `src/ffi.rs`: Expuesto `aea_verificar_cortocircuito_conductor` vía C-ABI.
+  - `src/lib.rs`: Test unitario `test_cortocircuito_termico_y_poder_de_corte` (12/12 tests aprobados).
+- `src/AdElec.Core/` (C#):
+  - `Aea/AeaBridge.cs`: Incorporado `AeaResultadoCortocircuitoDto`, propiedad `IcnKa` en `AeaCircuitoDto` y método P/Invoke `VerificarCortocircuito`.
+  - `tests/AdElec.Core.Tests/AeaBridgeTests.cs`: Test `Test_Cortocircuito_Termico_Y_PoderDeCorte_EnCsharp` (10/10 tests aprobados).
+- `src/AdElec.AutoCAD/`:
+  - `Commands/TablaCargasCommand.cs`:
+    - `ADE_AUDITORIA_BOCAS`: Cruce espacial real de bloques `IUG` y `TUG` por recinto y dibujo de marcadores de advertencia en capa `ELEC-REVISIONES`.
+    - `ADE_EXPORTAR_PLANILLA`: Exportación automática de la planilla de cargas y resumen de potencia a archivo `.csv` en el directorio del DWG o en el Escritorio.
+- `aea/mcp/server.py`:
+  - Agregadas las herramientas MCP `aea_calcular_caida_tension` y `aea_verificar_cortocircuito` (6 herramientas operativas).
+- `deploy/`:
+  - Binarios regenerados y sincronizados (`AdElec.AutoCAD.dll`, `AdElec.Core.dll`, `AdElec.UI.dll`, `aea_core.dll`).
+
+#### 💡 Decisiones técnicas
+- La comprobación térmica ante cortocircuito protege los conductores de daños irreversibles por calentamiento adiabático durante los 20 ms que tarda en abrir la protección magnética.
+- Las marcas de revisión en el plano DWG se generan en la capa `ELEC-REVISIONES` en color rojo para permitir que el proyectista identifique y corrija visualmente los déficits de bocas sin alterar las capas de arquitectura o electricidad definitiva.
+
+#### 📌 Próximos pasos pendientes
+- Continuar con el algoritmo de enrutamiento y trazado automático de canalizaciones y cañerías 2D/3D.
+
+---
+
 ### [2026-10-25] — Física de Caída de Tensión (ΔV%), Comandos de Planilla de Cargas en AutoCAD (ADE_TABLA_CARGAS) y Auditoría Espacial de Bocas
 **Tipo:** `Feature`
 **Autor / Asistente:** Antigravity / Usuario

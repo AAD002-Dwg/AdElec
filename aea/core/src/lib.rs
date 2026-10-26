@@ -73,8 +73,7 @@ mod tests {
             bocas: 10,
             cables_cargados: 2,
             circuitos_en_canalizacion: 1,
-            longitud_m: None,
-            cos_phi: None,
+            ..Default::default()
         };
 
         let diag = aea770::validar_circuito(&cat, &c);
@@ -204,8 +203,7 @@ mod tests {
             bocas: 10,
             cables_cargados: 2,
             circuitos_en_canalizacion: 1,
-            longitud_m: None,
-            cos_phi: None,
+            ..Default::default()
         };
         let diags_iue = aea771::validar_circuito_771(&cat771, &c_iue);
         assert!(diags_iue.is_empty(), "IUE reglamentario debe tener 0 diagnósticos");
@@ -220,8 +218,7 @@ mod tests {
             bocas: 15,
             cables_cargados: 2,
             circuitos_en_canalizacion: 1,
-            longitud_m: None,
-            cos_phi: None,
+            ..Default::default()
         };
         let diags_iue_exc = aea771::validar_circuito_771(&cat771, &c_iue_exc);
         assert!(diags_iue_exc.iter().any(|d| d.codigo == "771.7/max_bocas"));
@@ -250,8 +247,7 @@ mod tests {
                     bocas: 8,
                     cables_cargados: 2,
                     circuitos_en_canalizacion: 1,
-                    longitud_m: None,
-                    cos_phi: None,
+                    ..Default::default()
                 },
                 Circuito {
                     id: "C2".into(),
@@ -262,8 +258,7 @@ mod tests {
                     bocas: 6,
                     cables_cargados: 2,
                     circuitos_en_canalizacion: 1,
-                    longitud_m: None,
-                    cos_phi: None,
+                    ..Default::default()
                 },
             ],
             ambientes: vec![],
@@ -290,6 +285,7 @@ mod tests {
             circuitos_en_canalizacion: 1,
             longitud_m: Some(40.0),
             cos_phi: Some(0.9),
+            ..Default::default()
         };
 
         let diags = aea770::validar_circuito(&cat, &c);
@@ -299,6 +295,46 @@ mod tests {
         assert!(d.mensaje.contains("supera el límite reglamentario"));
         // Con 2.5 mm2 -> ΔV = 2.77% <= 3.0%
         assert!(d.correcciones.iter().any(|corr| matches!(corr, Correccion::CambiarSeccion { seccion_mm2 } if *seccion_mm2 == 2.5)));
+    }
+
+    #[test]
+    fn test_cortocircuito_termico_y_poder_de_corte() {
+        let cat = Catalogo770::embebido();
+
+        // 1. Verificación analítica de cortocircuito en conductor:
+        // Icc = 3 kA (3000 A), t = 0.02 s, cable 1.5 mm2, PVC (k=115)
+        // S_min = 3000 * sqrt(0.02) / 115 = 3000 * 0.14142 / 115 = 3.69 mm2
+        let res1 = aea770::verificar_cortocircuito_conductor(3.0, 0.02, 1.5, true);
+        assert!(!res1.cumple);
+        assert_eq!(res1.seccion_minima_mm2, 3.69);
+
+        // Con 4.0 mm2 -> cumple
+        let res2 = aea770::verificar_cortocircuito_conductor(3.0, 0.02, 4.0, true);
+        assert!(res2.cumple);
+
+        // 2. Verificación de Icn en circuito vs Icc presunta en tablero:
+        let u = Unidad {
+            id: "U_ICC".into(),
+            superficie_cubierta_m2: 50.0,
+            superficie_semicubierta_m2: 0.0,
+            in_cabecera_a: Some(32.0),
+            icc_origen_ka: Some(4.5), // Icc 4.5 kA
+            norma: Some("AEA-770".into()),
+            circuitos: vec![
+                Circuito {
+                    id: "C1".into(),
+                    tipo: "IUG".into(),
+                    seccion_mm2: 1.5,
+                    in_a: 10.0,
+                    icn_ka: Some(3.0), // 3.0 kA < 4.5 kA
+                    ..Default::default()
+                },
+            ],
+            ambientes: vec![],
+        };
+
+        let diags = aea770::validar_unidad(&cat, &u);
+        assert!(diags.iter().any(|d| d.codigo == "770.16/poder_de_corte"));
     }
 }
 

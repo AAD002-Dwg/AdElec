@@ -128,6 +128,19 @@ pub extern "C" fn aea_calcular_caida_tension(
     aea770::calcular_caida_tension(longitud_m, corriente_a, seccion_mm2, cables_cargados, cos_phi)
 }
 
+/// Verifies conductor thermal stress under short-circuit (I²·t ≤ k²·S²).
+/// Returns JSON-serialized ResultadoCortocircuito.
+#[no_mangle]
+pub unsafe extern "C" fn aea_verificar_cortocircuito_conductor(
+    icc_ka: c_double,
+    tiempo_s: c_double,
+    seccion_mm2: c_double,
+    aislacion_pvc: bool,
+) -> *mut c_char {
+    let res = aea770::verificar_cortocircuito_conductor(icc_ka, tiempo_s, seccion_mm2, aislacion_pvc);
+    to_c_string(&res)
+}
+
 #[cfg(test)]
 mod ffi_tests {
     use super::*;

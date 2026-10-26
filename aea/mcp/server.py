@@ -41,6 +41,12 @@ core.aea_validar_unidad.restype = ctypes.c_void_p
 core.aea_puntos_minimos_ambiente.argtypes = [ctypes.c_char_p]
 core.aea_puntos_minimos_ambiente.restype = ctypes.c_void_p
 
+core.aea_calcular_caida_tension.argtypes = [ctypes.c_double, ctypes.c_double, ctypes.c_double, ctypes.c_uint8, ctypes.c_double]
+core.aea_calcular_caida_tension.restype = ctypes.c_double
+
+core.aea_verificar_cortocircuito_conductor.argtypes = [ctypes.c_double, ctypes.c_double, ctypes.c_double, ctypes.c_bool]
+core.aea_verificar_cortocircuito_conductor.restype = ctypes.c_void_p
+
 
 def call_grado(cubierta: float, semicubierta: float = 0.0) -> dict:
     ptr = core.aea_grado_electrificacion(ctypes.c_double(cubierta), ctypes.c_double(semicubierta))
@@ -73,6 +79,40 @@ def call_validar(unidad: dict) -> list | dict:
 def call_puntos_minimos(ambiente: dict, grado: str = "medio") -> dict:
     payload = json.dumps({"ambiente": ambiente, "grado": grado}).encode("utf-8")
     ptr = core.aea_puntos_minimos_ambiente(payload)
+    try:
+        raw = ctypes.string_at(ptr).decode("utf-8")
+        return json.loads(raw)
+    finally:
+        core.aea_free_string(ptr)
+
+
+def call_caida_tension(longitud_m: float, corriente_a: float, seccion_mm2: float, cables_cargados: int = 2, cos_phi: float = 0.9) -> dict:
+    dv = float(core.aea_calcular_caida_tension(
+        ctypes.c_double(longitud_m),
+        ctypes.c_double(corriente_a),
+        ctypes.c_double(seccion_mm2),
+        ctypes.c_uint8(cables_cargados),
+        ctypes.c_double(cos_phi)
+    ))
+    return {
+        "longitud_m": longitud_m,
+        "corriente_a": corriente_a,
+        "seccion_mm2": seccion_mm2,
+        "cables_cargados": cables_cargados,
+        "cos_phi": cos_phi,
+        "caida_tension_porcentaje": round(dv, 2),
+        "cumple_iluminacion_3pct": dv <= 3.0,
+        "cumple_otros_usos_5pct": dv <= 5.0
+    }
+
+
+def call_cortocircuito(icc_ka: float, tiempo_s: float, seccion_mm2: float, aislacion_pvc: bool = True) -> dict:
+    ptr = core.aea_verificar_cortocircuito_conductor(
+        ctypes.c_double(icc_ka),
+        ctypes.c_double(tiempo_s),
+        ctypes.c_double(seccion_mm2),
+        ctypes.c_bool(aislacion_pvc)
+    )
     try:
         raw = ctypes.string_at(ptr).decode("utf-8")
         return json.loads(raw)
@@ -194,6 +234,35 @@ TOOLS = [
             },
             "required": ["unidad"]
         }
+    },
+    {
+        "name": "aea_calcular_caida_tension",
+        "description": "Calcula analíticamente la caída de tensión porcentual (ΔV%) según física eléctrica estándar de cobre a 70°C (220V monofásico o 380V trifásico) y verifica cumplimiento AEA (3% iluminación, 5% tomas).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "longitud_m": { "type": "number", "description": "Longitud del circuito en metros" },
+                "corriente_a": { "type": "number", "description": "Corriente de proyecto o calibre nominal en Amperes" },
+                "seccion_mm2": { "type": "number", "description": "Sección del conductor en mm²" },
+                "cables_cargados": { "type": "integer", "enum": [2, 3], "default": 2, "description": "2 para monofásico (220V), 3 para trifásico (380V)" },
+                "cos_phi": { "type": "number", "default": 0.9, "description": "Factor de potencia (cos phi)" }
+            },
+            "required": ["longitud_m", "corriente_a", "seccion_mm2"]
+        }
+    },
+    {
+        "name": "aea_verificar_cortocircuito",
+        "description": "Comprueba el estrés térmico del conductor ante cortocircuito (I²·t ≤ k²·S²) según norma IRAM NM 247-3 / AEA 770.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "icc_ka": { "type": "number", "description": "Corriente de cortocircuito presunta en kA" },
+                "tiempo_despeje_s": { "type": "number", "default": 0.02, "description": "Tiempo de apertura del interruptor automático (ej: 0.02 s)" },
+                "seccion_mm2": { "type": "number", "description": "Sección del conductor en mm²" },
+                "aislacion_pvc": { "type": "boolean", "default": True, "description": "True para PVC (k=115), False para XLPE (k=143)" }
+            },
+            "required": ["icc_ka", "seccion_mm2"]
+        }
     }
 ]
 
@@ -253,6 +322,19 @@ def main():
                 elif tool_name == "aea_validar_tablero":
                     unidad = args.get("unidad", {})
                     res = call_validar(unidad)
+                elif tool_name == "aea_calcular_caida_tension":
+                    l = float(args.get("longitud_m", 0))
+                    i = float(args.get("corriente_a", 0))
+                    s = float(args.get("seccion_mm2", 0))
+                    cargados = int(args.get("cables_cargados", 2))
+                    cos_p = float(args.get("cos_phi", 0.9))
+                    res = call_caida_tension(l, i, s, cargados, cos_p)
+                elif tool_name == "aea_verificar_cortocircuito":
+                    icc = float(args.get("icc_ka", 0))
+                    t = float(args.get("tiempo_despeje_s", 0.02))
+                    s = float(args.get("seccion_mm2", 0))
+                    pvc = bool(args.get("aislacion_pvc", True))
+                    res = call_cortocircuito(icc, t, s, pvc)
                 else:
                     send_response(req_id, error={"code": -32601, "message": f"Tool '{tool_name}' no encontrada"})
                     continue
