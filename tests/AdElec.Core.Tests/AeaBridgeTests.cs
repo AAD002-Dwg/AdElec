@@ -179,4 +179,58 @@ public class AeaBridgeTests
         // IUE con 10 bocas y 25A en 4.0mm2 cumple plenamente AEA 771 (máx 12 bocas, 32A)
         Assert.DoesNotContain(diags, d => d.Severidad == "error");
     }
+
+    [Fact]
+    public void Test_AplicarCorreccion_AgregarCircuitos_NivelTablero()
+    {
+        // Panel con 0 circuitos: exige mínimo 2 circuitos (1 IUG + 1 TUG)
+        var panel = new Models.Panel
+        {
+            Name = "TD1",
+            SuperficieCubiertaM2 = 50.0,
+            MainBreakerAmps = 25.0
+        };
+
+        var diags = panel.ValidarNormativaAea();
+        var diagMin = diags.FirstOrDefault(d => d.Codigo == "770.7.4/circuitos_minimos");
+        Assert.NotNull(diagMin);
+        Assert.NotNull(diagMin.Correcciones);
+        Assert.NotEmpty(diagMin.Correcciones);
+
+        // Aplicar corrección: auto-agrega el primer circuito faltante
+        var corr = diagMin.Correcciones.First();
+        bool ok = panel.AplicarCorreccion(diagMin, corr);
+        Assert.True(ok);
+        Assert.NotEmpty(panel.Circuits);
+        Assert.Contains(panel.Circuits, c => c.Type == "IUG" || c.Type == "TUG");
+    }
+
+    [Fact]
+    public void Test_PuntosMinimos_ConAcentos_EnCsharp()
+    {
+        // Baño en mayúsculas con virgulilla
+        var ambBano = new AeaAmbienteDto
+        {
+            Id = "B1",
+            Nombre = "Baño Suite",
+            Tipo = "BAÑO",
+            SuperficieM2 = 4.0
+        };
+        var pBano = AeaBridge.CalcularPuntosMinimos(ambBano, "medio");
+        Assert.Equal(1, pBano.IugMinimo);
+        Assert.Equal(1, pBano.TugMinimo);
+
+        // Balcón en mayúsculas con tilde
+        var ambBalcon = new AeaAmbienteDto
+        {
+            Id = "BAL1",
+            Nombre = "Balcón Principal",
+            Tipo = "BALCÓN",
+            SuperficieM2 = 8.0,
+            LongitudM = 4.0
+        };
+        var pBalcon = AeaBridge.CalcularPuntosMinimos(ambBalcon, "medio");
+        Assert.Equal(1, pBalcon.IugMinimo);
+        Assert.Equal(0, pBalcon.TugMinimo);
+    }
 }

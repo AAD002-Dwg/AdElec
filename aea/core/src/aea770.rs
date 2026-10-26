@@ -29,7 +29,7 @@ pub struct ResultadoGrado {
 /// Grado de electrificación según 770.7.3 / Tabla 770.7.I.
 pub fn grado_electrificacion(cat: &Catalogo770, cubierta_m2: f64, semicubierta_m2: f64) -> ResultadoGrado {
     let t = &cat.grados;
-    let sup = cubierta_m2 + t.parametros.factor_semicubierta * semicubierta_m2;
+    let sup = (cubierta_m2 + t.parametros.factor_semicubierta * semicubierta_m2).max(0.0);
     let rango = t
         .datos
         .iter()
@@ -38,7 +38,7 @@ pub fn grado_electrificacion(cat: &Catalogo770, cubierta_m2: f64, semicubierta_m
             let bajo_max = r.sup_hasta_m2.map_or(true, |m| sup <= m + EPS);
             sobre_min && bajo_max
         })
-        .expect("la Tabla 770.7.I cubre todo el rango de superficies");
+        .unwrap_or_else(|| &t.datos[0]);
     ResultadoGrado { grado: rango.grado.clone(), superficie_limite_m2: sup, referencia: t.referencia() }
 }
 
@@ -291,7 +291,7 @@ pub fn validar_unidad(cat: &Catalogo770, u: &Unidad) -> Vec<Diagnostico> {
                 .variantes
                 .iter()
                 .min_by_key(|v| v.iug.saturating_sub(iug) + v.tug.saturating_sub(tug))
-                .expect("cada grado tiene al menos una variante");
+                .unwrap_or(&min.variantes[0]);
             let mut correcciones = Vec::new();
             let falta_iug = mejor.iug.saturating_sub(iug);
             let falta_tug = mejor.tug.saturating_sub(tug);
@@ -366,19 +366,28 @@ pub fn calcular_puntos_minimos_ambiente(
     grado: &str,
 ) -> crate::modelo::PuntosMinimosAmbiente {
     let d = &cat.puntos_minimos.datos;
-    let tipo = amb.tipo.to_ascii_lowercase();
+    let mut tipo = amb.tipo.to_lowercase();
+    tipo = tipo
+        .replace('á', "a")
+        .replace('é', "e")
+        .replace('í', "i")
+        .replace('ó', "o")
+        .replace('ú', "u")
+        .replace('ñ', "n");
+
+    let sup = amb.superficie_m2.max(0.0);
 
     let (iug, tug, modulos) = match tipo.as_str() {
         "sala_estar" | "living_dining" | "estar" | "comedor" | "escritorio" | "estudio" | "biblioteca" => {
             let r = &d.estar_comedor;
-            let iug = ((amb.superficie_m2 / r.iug_cada_m2).ceil() as u32).max(r.iug_minimo);
-            let tug = ((amb.superficie_m2 / r.tug_cada_m2).ceil() as u32).max(r.tug_minimo);
+            let iug = ((sup / r.iug_cada_m2).ceil() as u32).max(r.iug_minimo);
+            let tug = ((sup / r.tug_cada_m2).ceil() as u32).max(r.tug_minimo);
             (iug, tug, 0)
         }
         "dormitorio" | "bedroom" => {
-            if amb.superficie_m2 < 10.0 {
+            if sup < 10.0 {
                 (d.dormitorio_menor_10.iug, d.dormitorio_menor_10.tug, 0)
-            } else if amb.superficie_m2 <= 36.0 {
+            } else if sup <= 36.0 {
                 (d.dormitorio_10_a_36.iug, d.dormitorio_10_a_36.tug, 0)
             } else {
                 (d.dormitorio_mayor_36.iug, d.dormitorio_mayor_36.tug, 0)
@@ -393,7 +402,7 @@ pub fn calcular_puntos_minimos_ambiente(
             };
             (det.iug, det.tug, det.modulos_fijos)
         }
-        "baño" | "bano" | "toilette" | "bathroom" => {
+        "bano" | "toilette" | "bathroom" => {
             (d.bano.iug, d.bano.tug, 0)
         }
         "vestibulo" | "garaje" | "hall" | "vestidor" | "garage" | "hallway" => {
@@ -401,13 +410,13 @@ pub fn calcular_puntos_minimos_ambiente(
                 (d.vestibulo_garaje.minimo.iug, d.vestibulo_garaje.minimo.tug, 0)
             } else {
                 let r = &d.vestibulo_garaje.medio_o_superior;
-                let iug = ((amb.superficie_m2 / r.iug_cada_m2).ceil() as u32).max(r.iug_minimo);
-                let tug = ((amb.superficie_m2 / r.tug_cada_m2).ceil() as u32).max(r.tug_minimo);
+                let iug = ((sup / r.iug_cada_m2).ceil() as u32).max(r.iug_minimo);
+                let tug = ((sup / r.tug_cada_m2).ceil() as u32).max(r.tug_minimo);
                 (iug, tug, 0)
             }
         }
         "pasillo" | "corredor" => {
-            let long = amb.longitud_m.unwrap_or_else(|| amb.superficie_m2.sqrt().max(1.0));
+            let long = amb.longitud_m.map(|l| l.max(0.0)).unwrap_or_else(|| sup.sqrt().max(1.0));
             let r = &d.pasillo_cubierto;
             let iug = ((long / r.iug_cada_m).ceil() as u32).max(r.iug_minimo);
             let tug = if grado != "minimo" && long > r.tug_longitud_min_m {
@@ -425,13 +434,13 @@ pub fn calcular_puntos_minimos_ambiente(
             }
         }
         "balcon" | "galeria" | "atrio" => {
-            let long = amb.longitud_m.unwrap_or_else(|| amb.superficie_m2.sqrt().max(1.0));
+            let long = amb.longitud_m.map(|l| l.max(0.0)).unwrap_or_else(|| sup.sqrt().max(1.0));
             let iug = ((long / d.balcon_galeria.iug_cada_m).ceil() as u32).max(1);
             (iug, d.balcon_galeria.tug, 0)
         }
         _ => {
-            let iug = if amb.superficie_m2 > 0.0 { 1 } else { 0 };
-            let tug = if amb.superficie_m2 > 0.0 { 1 } else { 0 };
+            let iug = if sup > 0.0 { 1 } else { 0 };
+            let tug = if sup > 0.0 { 1 } else { 0 };
             (iug, tug, 0)
         }
     };

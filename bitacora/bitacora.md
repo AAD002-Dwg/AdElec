@@ -31,6 +31,41 @@ Motivo detrás de las elecciones de diseño o solución implementada.
 
 ## 📜 Historial de Registros
 
+### [2026-10-25] — Auditoría Exhaustiva de Calidad, Endurecimiento de Rust Core, Portabilidad de DLL y Quick-Fixes de Tablero
+**Tipo:** `Fix`
+**Autor / Asistente:** Antigravity / Usuario
+
+#### 🎯 Objetivo
+- Auditar y verificar exhaustivamente el motor normativo AEA frente a casos de borde, cadenas con tildes/mayúsculas, superficies nulas o negativas, punteros no administrados y portabilidad del plugin en entornos AutoCAD reales.
+- Asegurar 100% de coherencia entre los catálogos JSON, los cálculos analíticos en Rust y las correcciones automáticas en la UI de AutoCAD.
+
+#### 🛠️ Cambios realizados
+- `aea/core/src/aea770.rs`:
+  - Eliminados los `.expect(...)` en `grado_electrificacion` y selección de variantes mínimas, sustituyéndolos por `.unwrap_or(...)` seguros con clamp de superficie a `0.0` para prevenir panics ante `NaN` o valores atípicos.
+  - Normalización Unicode con reemplazo de diacríticos (`á`, `é`, `í`, `ó`, `ú`, `ñ` a ASCII base) en `calcular_puntos_minimos_ambiente` para soportar nombres de ambientes en mayúsculas y con acentos provenientes de capas o bloques CAD (`"BAÑO"`, `"GALERÍA"`, `"BALCÓN"`).
+  - Verificación formal de la tabla 770.7.III: `balcon_galeria` exige 0 TUG y 1 IUG c/5m.
+- `src/AdElec.Core/Aea/AeaBridge.cs`:
+  - Resuelto fallo potencial de carga de `aea_core.dll` en clientes AutoCAD: `AppDomain.CurrentDomain.BaseDirectory` apunta a `C:\Program Files\Autodesk\AutoCAD 2024\`, por lo que se incorporó la resolución mediante `Path.GetDirectoryName(assembly.Location)`.
+  - Reemplazo del loop manual de punteros no administrados por `Marshal.PtrToStringUTF8(ptr)` nativo y seguro.
+- `src/AdElec.Core/Aea/PanelAeaExtensions.cs`:
+  - Protección de conversión ante valores nulos, divisiones por cero en factor de potencia y redondeo de enteros positivos (`u32`) requeridos por Rust.
+  - Soporte de Quick-Fixes a nivel de tablero: `cambiar_norma` y `agregar_circuitos` automáticos directamente en `panel.Circuits`.
+- `src/AdElec.UI/ViewModels/PanelViewModel.cs`:
+  - Limpieza de diagnósticos residuales (`Diagnostics.Clear()`) al cambiar de tablero o conmutar de plano DWG para evitar diagnósticos desfasados.
+- Tests y Verificaciones:
+  - 13/13 tablas de catálogo verificadas contra los PDFs oficiales de la AEA (`python aea/herramientas/verificar_catalogo.py`).
+  - 10/10 tests unitarios en Rust aprobados (`cargo test`).
+  - 8/8 tests xUnit en .NET aprobados en 65 ms (`dotnet test`).
+  - Compilación de `AdElec.sln` con 0 errores y binarios sincronizados en `deploy/`.
+
+#### 💡 Decisiones técnicas
+- En entornos host de AutoCAD (`acad.exe`), los plugins no residen en el directorio de la aplicación anfitriona sino en carpetas de extensiones/plugins de usuario o red. Resolver las DLLs nativas FFI a través de la ubicación del ensamblado invocador garantiza portabilidad universal sin requerir variables de entorno de sistema.
+
+#### 📌 Próximos pasos pendientes
+- Integración en producción durante la próxima sesión de modelado en AutoCAD y pruebas en DWGs reales complejos.
+
+---
+
 ### [2026-10-25] — Integración Visual de Diagnósticos y Quick-Fixes en AutoCAD (ADE_PANEL), Motor Multi-Norma en Rust y Exposición MCP
 **Tipo:** `Feature`
 **Autor / Asistente:** Antigravity / Usuario

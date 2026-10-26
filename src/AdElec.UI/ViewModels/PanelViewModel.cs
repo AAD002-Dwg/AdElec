@@ -72,6 +72,9 @@ public sealed class PanelViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(HasPanel));
             OnPropertyChanged(nameof(TotalLoadVA));
             OnPropertyChanged(nameof(TotalLoadKVA));
+            Diagnostics.Clear();
+            OnPropertyChanged(nameof(HasDiagnostics));
+            OnPropertyChanged(nameof(DiagnosticsSummary));
 
             if (_selectedPanel != null)
             {
@@ -332,6 +335,9 @@ public sealed class PanelViewModel : INotifyPropertyChanged
 
         // Limpiar resultado de cálculo anterior (pertenecía al otro documento)
         _lastResultado = null;
+        Diagnostics.Clear();
+        OnPropertyChanged(nameof(HasDiagnostics));
+        OnPropertyChanged(nameof(DiagnosticsSummary));
         OnPropertyChanged(nameof(LastGrado));
         OnPropertyChanged(nameof(CumpleNorma));
         OnPropertyChanged(nameof(CumpleNormaText));

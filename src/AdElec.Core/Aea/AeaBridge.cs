@@ -99,16 +99,29 @@ public static class AeaBridge
     {
         if (libraryName == LibName)
         {
-            // 1. Probar ruta relativa directa de compilación
             string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-            string[] possiblePaths =
+            string? asmDir = null;
+            try
             {
-                Path.Combine(baseDir, "aea_core.dll"),
-                Path.Combine(baseDir, "runtimes", "win-x64", "native", "aea_core.dll"),
-                Path.GetFullPath(Path.Combine(baseDir, @"..\..\..\..\..\aea\core\target\release\aea_core.dll")),
-                Path.GetFullPath(Path.Combine(baseDir, @"..\..\..\..\aea\core\target\release\aea_core.dll")),
-                @"G:\PROYECTOS AD\AD-ELEC\aea\core\target\release\aea_core.dll"
-            };
+                if (!string.IsNullOrEmpty(assembly.Location))
+                    asmDir = Path.GetDirectoryName(assembly.Location);
+            }
+            catch { }
+
+            var possiblePaths = new List<string>();
+
+            if (!string.IsNullOrEmpty(asmDir))
+            {
+                possiblePaths.Add(Path.Combine(asmDir, "aea_core.dll"));
+                possiblePaths.Add(Path.Combine(asmDir, "runtimes", "win-x64", "native", "aea_core.dll"));
+                possiblePaths.Add(Path.GetFullPath(Path.Combine(asmDir, @"..\..\..\..\aea\core\target\release\aea_core.dll")));
+            }
+
+            possiblePaths.Add(Path.Combine(baseDir, "aea_core.dll"));
+            possiblePaths.Add(Path.Combine(baseDir, "runtimes", "win-x64", "native", "aea_core.dll"));
+            possiblePaths.Add(Path.GetFullPath(Path.Combine(baseDir, @"..\..\..\..\..\aea\core\target\release\aea_core.dll")));
+            possiblePaths.Add(Path.GetFullPath(Path.Combine(baseDir, @"..\..\..\..\aea\core\target\release\aea_core.dll")));
+            possiblePaths.Add(@"G:\PROYECTOS AD\AD-ELEC\aea\core\target\release\aea_core.dll");
 
             foreach (var path in possiblePaths)
             {
@@ -217,11 +230,7 @@ public static class AeaBridge
     private static string PtrToStringUtf8(IntPtr ptr)
     {
         if (ptr == IntPtr.Zero) return string.Empty;
-        int len = 0;
-        while (Marshal.ReadByte(ptr, len) != 0) len++;
-        byte[] buffer = new byte[len];
-        Marshal.Copy(ptr, buffer, 0, len);
-        return Encoding.UTF8.GetString(buffer);
+        return Marshal.PtrToStringUTF8(ptr) ?? string.Empty;
     }
 
     private static IntPtr StringToHGlobalUtf8(string s)

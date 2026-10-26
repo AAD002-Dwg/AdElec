@@ -135,6 +135,43 @@ mod tests {
     }
 
     #[test]
+    fn test_puntos_minimos_con_acentos_y_mayusculas() {
+        let cat = Catalogo770::embebido();
+
+        // 1. "BAÑO" en mayúsculas con virgulilla
+        let bano = modelo::Ambiente {
+            id: "B1".into(),
+            nombre: "Baño Suite".into(),
+            tipo: "BAÑO".into(),
+            superficie_m2: 4.5,
+            longitud_m: None,
+            bocas_iug: 0,
+            bocas_tug: 0,
+        };
+        let p_bano = aea770::calcular_puntos_minimos_ambiente(&cat, &bano, "medio");
+        assert_eq!(p_bano.iug_minimo, 1);
+        assert_eq!(p_bano.tug_minimo, 1);
+
+        // 2. "BALCÓN" con tilde
+        let balcon = modelo::Ambiente {
+            id: "BAL1".into(),
+            nombre: "Balcón Frente".into(),
+            tipo: "BALCÓN".into(),
+            superficie_m2: 6.0,
+            longitud_m: Some(4.0),
+            bocas_iug: 0,
+            bocas_tug: 0,
+        };
+        let p_balcon = aea770::calcular_puntos_minimos_ambiente(&cat, &balcon, "medio");
+        assert_eq!(p_balcon.iug_minimo, 1);
+        assert_eq!(p_balcon.tug_minimo, 0);
+
+        // 3. Superficie 0 o negativa no causa panics
+        let r_cero = aea770::grado_electrificacion(&cat, 0.0, 0.0);
+        assert_eq!(r_cero.grado, "minimo");
+    }
+
+    #[test]
     fn test_aea771_comercial_y_circuitos_especiales() {
         let cat771 = Catalogo771::embebido();
         let _cat770 = Catalogo770::embebido();
