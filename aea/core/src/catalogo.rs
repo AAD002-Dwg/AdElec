@@ -586,3 +586,158 @@ impl Catalogo772 {
         self.tipos_circuito.datos.iter().find(|t| t.sigla.eq_ignore_ascii_case(sigla))
     }
 }
+
+// ------------------------------------------------------- GUÍA AEA 770 ---- //
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct FilaCalibreDomiciliarioGuia770 {
+    pub circuitos_por_cano: u32,
+    pub calibres_max_a: Vec<f64>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct CalibresSubterraneoGuia770 {
+    pub sobre_bandejas_al_aire_a: Vec<f64>,
+    pub dentro_de_canerias_a: Vec<f64>,
+    pub directamente_enterrado_a: Vec<f64>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct CalibreMaxProteccionesGuia770 {
+    pub secciones_mm2: Vec<f64>,
+    pub domiciliario_iram_nm_247_3: Vec<FilaCalibreDomiciliarioGuia770>,
+    pub subterraneo_iram_2178_1: CalibresSubterraneoGuia770,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct CriteriosInterruptoresGuia770 {
+    pub altura_min_m: f64,
+    pub altura_max_m: f64,
+    pub altura_recomendada_m: f64,
+    pub distancia_max_marco_m: f64,
+    pub pasillo_longitud_min_combinacion_m: f64,
+    pub distancia_max_entre_combinados_m: f64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct CriteriosTomacorrientesGuia770 {
+    pub altura_estandar_min_m: f64,
+    pub altura_estandar_max_m: f64,
+    pub altura_garajes_min_m: f64,
+    pub altura_mesada_min_m: f64,
+    pub exclusion_mesada_zonas: Vec<u32>,
+    pub zona_1_mesada_lateral_m: f64,
+    pub zona_1_mesada_vertical_m: f64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct CriteriosBanosGuia770 {
+    pub zona_1_altura_m: f64,
+    pub zona_2_ancho_m: f64,
+    pub ip_minimo_luminaria_zona_2: String,
+    pub zona_permitida_tug: u32,
+    pub hidromasaje_id_exclusivo_max_ma: f64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct CriteriosTablerosPatGuia770 {
+    pub distancia_max_medidor_tp_m: f64,
+    pub espacio_libre_frontal_min_m: f64,
+    pub ip_minimo_tp_intemperie: String,
+    pub seccion_min_pat_mm2: f64,
+    pub separacion_min_jabalinas_factor_l: f64,
+    pub largo_bucle_caja_mm: f64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct CriteriosIntemperieGuia770 {
+    pub ip_minimo_semicubiertos: String,
+    pub ip_minimo_chorro_agua: String,
+    pub ip_minimo_empalmes_subterraneos: String,
+    pub profundidad_min_enterrado_m: f64,
+    pub diametro_min_conducto_enterrado_mm: f64,
+    pub distancia_max_camaras_inspeccion_m: f64,
+    pub profundidad_cinta_advertencia_m: f64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct CriteriosInstalacionGuia770 {
+    pub interruptores: CriteriosInterruptoresGuia770,
+    pub tomacorrientes: CriteriosTomacorrientesGuia770,
+    pub banos: CriteriosBanosGuia770,
+    pub tableros_y_pat: CriteriosTablerosPatGuia770,
+    pub intemperie_y_subterraneo: CriteriosIntemperieGuia770,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct AmbienteProyectoGuia770 {
+    pub nombre: String,
+    pub tipo: String,
+    pub superficie_m2: f64,
+    pub iug: u32,
+    pub tug: u32,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct CircuitoProyectoGuia770 {
+    pub numero: u32,
+    pub tipo: String,
+    pub bocas: u32,
+    pub dpms_va: f64,
+    pub tension_v: f64,
+    pub ib_a: f64,
+    pub seccion_fase_mm2: f64,
+    pub seccion_pe_mm2: f64,
+    pub iz_a: f64,
+    pub in_a: f64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct SeccionalProyectoGuia770 {
+    pub dpms_total_va: f64,
+    pub tension_v: f64,
+    pub ib_a: f64,
+    pub seccion_fase_mm2: f64,
+    pub seccion_pe_mm2: f64,
+    pub seccion_pat_mm2: f64,
+    pub iz_a: f64,
+    pub itm_in_a: f64,
+    pub id_in_a: f64,
+    pub id_sensibilidad_ma: f64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ModeloProyectoGuia770 {
+    pub grado_electrificacion: String,
+    pub superficie_cubierta_m2: f64,
+    pub superficie_semicubierta_m2: f64,
+    pub sla_m2: f64,
+    pub ambientes: Vec<AmbienteProyectoGuia770>,
+    pub circuitos: Vec<CircuitoProyectoGuia770>,
+    pub circuito_seccional: SeccionalProyectoGuia770,
+}
+
+#[derive(Debug, Clone)]
+pub struct CatalogoGuia770 {
+    pub calibre_maximo: Tabla<CalibreMaxProteccionesGuia770>,
+    pub criterios_instalacion: Tabla<CriteriosInstalacionGuia770>,
+    pub proyecto_referencia: Tabla<ModeloProyectoGuia770>,
+}
+
+macro_rules! cargar_guia770 {
+    ($ruta:literal) => {
+        serde_json::from_str(include_str!(concat!("../../catalogo/guia-aea-770-2018/", $ruta)))
+            .unwrap_or_else(|e| panic!("catálogo Guía 770 {} inválido: {}", $ruta, e))
+    };
+}
+
+impl CatalogoGuia770 {
+    pub fn embebido() -> Self {
+        Self {
+            calibre_maximo: cargar_guia770!("calibre_maximo_protecciones.json"),
+            criterios_instalacion: cargar_guia770!("criterios_instalacion.json"),
+            proyecto_referencia: cargar_guia770!("modelo_proyecto_referencia.json"),
+        }
+    }
+}
+

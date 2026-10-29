@@ -21,6 +21,7 @@ public class Panel : INotifyPropertyChanged
     private double _powerFactor = 0.85; // cos phi 0.85
     private int _functionalUnitsCount = 1;
     private double _superficieCubiertaM2 = 0;
+    private double _superficieSemicubiertaM2 = 0;
     private string? _lastGrado;
     private ObservableCollection<Circuit> _circuits = new();
 
@@ -112,6 +113,13 @@ public class Panel : INotifyPropertyChanged
     {
         get => _superficieCubiertaM2;
         set => SetField(ref _superficieCubiertaM2, value);
+    }
+
+    /// <summary>Superficie semicubierta en m² (computa al 50% en el límite de aplicación Sla según AEA 770.7.1).</summary>
+    public double SuperficieSemicubiertaM2
+    {
+        get => _superficieSemicubiertaM2;
+        set => SetField(ref _superficieSemicubiertaM2, value);
     }
 
     /// <summary>Último grado AEA calculado por AEA-MOTOR ("1", "2", "3", "4"). Null si aún no se calculó.</summary>

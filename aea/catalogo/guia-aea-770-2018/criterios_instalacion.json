@@ -1,10 +1,10 @@
 {
   "id": "GUIA.770.UBICACION",
-  "titulo": "Criterios de ubicación física de bocas, interruptores y grado de protección",
+  "titulo": "Criterios de ubicación física de bocas, interruptores, baños, tableros e intemperie",
   "fuente": {
     "doc": "GUIA-AEA-770-2018",
     "pagina_pdf": 40,
-    "clausula": "Guía AEA 770 págs. 36-37 (PDF 40-41)"
+    "clausula": "Guía AEA 770 págs. 14-17, 32-39, 46-47 (PDF 18-21, 36-43, 50-51)"
   },
   "estado": "verificado",
   "verificacion": {
@@ -18,12 +18,64 @@
       "garajes y zonas de acceso vehicular, se recomienda ubicar los tomacorrientes",
       "En espacios semicubiertos (balcones techados, galerías, atrios o porches), se deben instalar artefactos con un grado de protección como mínimo IP44.",
       {
+        "texto": "En los pasillos interiores de más de 3m de longitud se deben prever interruptores de efecto combinado, situados en cada extremo y en cada acceso intermedio de forma tal que la distancia entre interruptores sucesivos no exceda los 6 m.",
+        "pagina": 21
+      },
+      {
+        "texto": "Zona 1 = es el cilindro que se extiende verticalmente 2,25 m desde el fondo de la bañera.",
+        "pagina": 18
+      },
+      {
+        "texto": "Zona 2 = es el cilindro exterior a la zona 1 a 60 cm de la misma y hasta el cielorraso.",
+        "pagina": 18
+      },
+      {
+        "texto": "Se permiten solamente en la Zona 3.",
+        "pagina": 19
+      },
+      {
+        "texto": "Delante de la parte frontal del tablero quedará un espacio libre de por lo menos 0,9 m.",
+        "pagina": 36
+      },
+      {
+        "texto": "a una distancia de la caja de medidor individual o del gabinete colectivo de medidores no superior a los 2 m.",
+        "pagina": 36
+      },
+      {
+        "texto": "2 veces la longitud del electrodo más largo",
+        "pagina": 38
+      },
+      {
         "texto": "Las cajas que contienen los tomacorrientes instalados sobre la mesada de cocinas",
         "pagina": 41
       },
       {
         "texto": "a no menos de 10 cm del nivel de mesada",
         "pagina": 41
+      },
+      {
+        "texto": "Los cables que pasen a través de las cajas, deben formar un bucle con un largo aproximado de 100 mm.",
+        "pagina": 43
+      },
+      {
+        "texto": "Expuestas a chorro de agua: IP55 o superior.",
+        "pagina": 50
+      },
+      {
+        "texto": "Profundidad mínima 0,70 m. respecto del terreno.",
+        "pagina": 51
+      },
+      {
+        "texto": "Diámetro interior mínimo del caño 50 mm.",
+        "pagina": 51
+      },
+      {
+        "texto": "en cada cambio de dirección de la canalización o en tramos rectos cada 25 m.",
+        "pagina": 51
+      },
+      {
+        "texto": "Los empalmes serán estancos y tendrán un grado de protección IP67 como mínimo",
+        "pagina": 51
       }
     ]
   },
@@ -32,16 +84,42 @@
       "altura_min_m": 0.90,
       "altura_max_m": 1.30,
       "altura_recomendada_m": 1.10,
-      "distancia_max_marco_m": 0.15
+      "distancia_max_marco_m": 0.15,
+      "pasillo_longitud_min_combinacion_m": 3.0,
+      "distancia_max_entre_combinados_m": 6.0
     },
     "tomacorrientes": {
+      "altura_estandar_min_m": 0.20,
       "altura_estandar_max_m": 0.90,
       "altura_garajes_min_m": 1.50,
       "altura_mesada_min_m": 0.10,
-      "exclusion_mesada_zonas": [0, 1]
+      "exclusion_mesada_zonas": [0, 1],
+      "zona_1_mesada_lateral_m": 0.15,
+      "zona_1_mesada_vertical_m": 0.40
     },
-    "espacios_semicubiertos": {
-      "ip_minimo": "IP44"
+    "banos": {
+      "zona_1_altura_m": 2.25,
+      "zona_2_ancho_m": 0.60,
+      "ip_minimo_luminaria_zona_2": "IP44",
+      "zona_permitida_tug": 3,
+      "hidromasaje_id_exclusivo_max_ma": 30.0
+    },
+    "tableros_y_pat": {
+      "distancia_max_medidor_tp_m": 2.0,
+      "espacio_libre_frontal_min_m": 0.90,
+      "ip_minimo_tp_intemperie": "IP54",
+      "seccion_min_pat_mm2": 4.0,
+      "separacion_min_jabalinas_factor_l": 2.0,
+      "largo_bucle_caja_mm": 100.0
+    },
+    "intemperie_y_subterraneo": {
+      "ip_minimo_semicubiertos": "IP44",
+      "ip_minimo_chorro_agua": "IP55",
+      "ip_minimo_empalmes_subterraneos": "IP67",
+      "profundidad_min_enterrado_m": 0.70,
+      "diametro_min_conducto_enterrado_mm": 50.0,
+      "distancia_max_camaras_inspeccion_m": 25.0,
+      "profundidad_cinta_advertencia_m": 0.20
     }
   }
 }

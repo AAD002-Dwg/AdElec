@@ -6,7 +6,7 @@ pub mod aea771;
 pub mod aea772;
 pub mod ffi;
 
-pub use catalogo::{Catalogo770, Catalogo771, Catalogo772};
+pub use catalogo::{Catalogo770, Catalogo771, Catalogo772, CatalogoGuia770};
 pub use modelo::{Circuito, ResultadoCaneria, ResultadoDpms, Unidad};
 pub use diagnostico::{Diagnostico, Correccion, Severidad};
 
@@ -479,5 +479,61 @@ mod tests {
 
         let diags = aea770::validar_unidad(&cat, &u);
         assert!(diags.iter().any(|d| d.codigo == "770.16/poder_de_corte"));
+    }
+
+    #[test]
+    fn test_guia_aea770_proyecto_y_calibres() {
+        let cat = Catalogo770::embebido();
+        let guia = CatalogoGuia770::embebido();
+
+        // 1. Validar datos del proyecto modelo de la Guía AEA 770 (Sla = 96 m²)
+        let proy = &guia.proyecto_referencia.datos;
+        assert_eq!(proy.superficie_cubierta_m2, 94.0);
+        assert_eq!(proy.superficie_semicubierta_m2, 4.0);
+        assert_eq!(proy.sla_m2, 96.0);
+        assert_eq!(proy.circuitos.len(), 3);
+        assert_eq!(proy.circuitos[0].bocas, 15);
+        assert_eq!(proy.circuitos[1].bocas, 11);
+        assert_eq!(proy.circuitos[2].bocas, 12);
+
+        // 2. Contrastar Grado de Electrificación contra el motor AEA 770
+        let grado = aea770::grado_electrificacion(&cat, proy.superficie_cubierta_m2, proy.superficie_semicubierta_m2);
+        assert_eq!(grado.grado, proy.grado_electrificacion);
+        assert_eq!(grado.superficie_limite_m2, proy.sla_m2);
+
+        // 3. Contrastar unidad completa del proyecto modelo
+        let u = Unidad {
+            id: "GUIA-770-MODELO".into(),
+            superficie_cubierta_m2: proy.superficie_cubierta_m2,
+            superficie_semicubierta_m2: proy.superficie_semicubierta_m2,
+            in_cabecera_a: Some(proy.circuito_seccional.itm_in_a),
+            circuitos: proy
+                .circuitos
+                .iter()
+                .map(|c| Circuito {
+                    id: format!("C{}", c.numero),
+                    tipo: c.tipo.clone(),
+                    seccion_mm2: c.seccion_fase_mm2,
+                    seccion_pe_mm2: Some(c.seccion_pe_mm2),
+                    in_a: c.in_a,
+                    ib_a: Some(c.ib_a),
+                    bocas: c.bocas,
+                    ..Default::default()
+                })
+                .collect(),
+            ..Default::default()
+        };
+
+        let dpms = aea770::calcular_dpms_770(&cat, &u);
+        assert_eq!(dpms.potencia_sin_simultaneidad_va, proy.circuito_seccional.dpms_total_va);
+
+        let diags = aea770::validar_unidad(&cat, &u);
+        assert!(diags.is_empty(), "El proyecto modelo oficial de la Guía no debe arrojar errores: {:?}", diags);
+
+        // 4. Validar tabla de calibres máximos y criterios de instalación
+        assert_eq!(guia.calibre_maximo.datos.secciones_mm2, vec![1.5, 2.5, 4.0, 6.0]);
+        assert_eq!(guia.criterios_instalacion.datos.tomacorrientes.altura_estandar_min_m, 0.20);
+        assert_eq!(guia.criterios_instalacion.datos.tomacorrientes.altura_estandar_max_m, 0.90);
+        assert_eq!(guia.criterios_instalacion.datos.tableros_y_pat.seccion_min_pat_mm2, 4.0);
     }
 }

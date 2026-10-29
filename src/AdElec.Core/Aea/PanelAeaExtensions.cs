@@ -23,6 +23,7 @@ public static class PanelAeaExtensions
         {
             Id = panel.Name,
             SuperficieCubiertaM2 = Math.Max(0.0, panel.SuperficieCubiertaM2),
+            SuperficieSemicubiertaM2 = Math.Max(0.0, panel.SuperficieSemicubiertaM2),
             InCabeceraA = panel.MainBreakerAmps > 0 ? panel.MainBreakerAmps : null,
             Norma = norma,
             Circuitos = panel.Circuits.Select(c =>

@@ -31,27 +31,38 @@ Motivo detrás de las elecciones de diseño o solución implementada.
 
 ## 📜 Historial de Registros
 
-### [2026-10-29] — Integración de la Guía AEA 770 Edición 2018 (Hasta 10 kW) y Metodología Oficial de Proyecto
-**Tipo:** `Feature`
+### [2026-10-29] — Integración y Auditoría Exhaustiva de la Guía AEA 770 Edición 2018 (26/26 Tablas Verificadas)
+**Tipo:** `Feature` | `Fix`
 **Autor / Asistente:** Antigravity / Usuario
 
 #### 🎯 Objetivo
-- Incorporar al catálogo normativo y a la suite de verificación automatizada el manual oficial `Guia AEA 770-2018-Guia de Instalación Electrica Hasta 10 kw.pdf` ubicado en `AEA_NORMATIVA/`.
-- Extraer y catalogar los criterios de ubicación física (alturas de llaves de efecto, distancias a marcos, tomas sobre mesadas, zonas húmedas 0/1 y grado IP44 en semicubiertos) y el proyecto modelo de referencia (Grado Medio, 94 m², 3 circuitos, DPMS 5000 VA, seccional 4 mm²).
+- Incorporar y auditar página por página el manual oficial `Guia AEA 770-2018-Guia de Instalación Electrica Hasta 10 kw.pdf` (60 páginas) en el catálogo normativo, el motor en Rust (`catalogo.rs`) y el modelo C# (`Panel.cs` / `AeaBridgeTests.cs`).
+- Corregir discrepancias en la transcripción preliminar del proyecto modelo y completar la totalidad de criterios constructivos y tablas de la Guía.
 
 #### 🛠️ Cambios realizados
 - `aea/catalogo/fuentes.json`:
   - Registrado el documento `GUIA-AEA-770-2018` con su hash criptográfico SHA-256 (`6B7A9C66152DFB953EF16A76C36F63044F4ACD44CEF307B4B03659576B7117FB`).
 - `aea/catalogo/guia-aea-770-2018/`:
-  - `criterios_instalacion.json` (`GUIA.770.UBICACION`): Alturas de llaves de efecto ($0.90\text{ m} \le h \le 1.30\text{ m}$, rec. $1.10\text{ m}$, distancia a marco $\le 0.15\text{ m}$), tomas estándar ($\le 0.90\text{ m}$), tomas en garajes ($\ge 1.50\text{ m}$), tomas sobre mesadas ($\ge 0.10\text{ m}$ sobre nivel mesada con exclusión en Zonas 0 y 1 de piletas/bachas) y protección mínima IP44 en semicubiertos.
-  - `modelo_proyecto_referencia.json` (`GUIA.770.PROYECTO`): Parámetros exactos del proyecto modelo oficial (Vivienda Grado Medio, 94 m², C1 IUG 15 bocas = 600 VA, C2 TUG = 2200 VA, C3 TUG = 2200 VA, Total DPMS = 5000 VA, Seccional 4 mm², ITM 25 A, ID 40 A / 30 mA).
-- `aea/herramientas/verificar_catalogo.py`:
-  - Verificación superada al 100% sobre **25/25 tablas** contra los cuatro documentos PDF oficiales.
-- `tests/AdElec.Core.Tests/AeaBridgeTests.cs`:
-  - Incorporada prueba unitaria `Test_GuiaAea770_ProyectoModeloReferencia` validando el dimensionamiento y verificación contra el caso testigo de la Guía AEA 770.
+  - `modelo_proyecto_referencia.json` (`GUIA.770.PROYECTO`): Corregido y completado contra las páginas 10, 24, 29, 31, 33, 34 y 35 del PDF:
+    - Superficie cubierta $94.0\text{ m}^2$ + superficie semicubierta $4.0\text{ m}^2$ (Balcón: $\text{Sup.semic}/2 = 2\text{ m}^2$) $\implies S_{la} = 96.0\text{ m}^2$ (Grado Medio).
+    - Desglose completo de los 9 ambientes + campanilla ($15\text{ bocas IUG} + 23\text{ bocas TUG}$).
+    - Corrección de cantidad de bocas TUG por circuito según pág. 33 del PDF: **C1 (IUG) = 15 bocas** ($I_B = 2.73\text{ A}$), **C2 (TUG) = 11 bocas** ($I_B = 10.0\text{ A}$, antes figuraba 9) y **C3 (TUG) = 12 bocas** ($I_B = 10.0\text{ A}$, antes figuraba 6).
+    - Circuito seccional: DPMS $5000\text{ VA}$, $I_B = 22.73\text{ A}$, sección L/N $4\text{ mm}^2$, PE $4\text{ mm}^2$, PAT $4\text{ mm}^2$, $I_z = 28\text{ A}$, ITM $25\text{ A}$, ID $40\text{ A} / 30\text{ mA}$.
+  - `criterios_instalacion.json` (`GUIA.770.UBICACION`): Ampliado con todos los parámetros físicos de las páginas 18-21, 36-43 y 50-51 del PDF:
+    - Interruptores: altura $0.90\text{--}1.30\text{ m}$ (rec. $1.10\text{ m}$), distancia a marco $\le 0.15\text{ m}$, pasillos $> 3.0\text{ m}$ con llaves combinadas a distancia $\le 6.0\text{ m}$.
+    - Tomacorrientes: altura estándar entre **$0.20\text{ m}$** (límite inferior agregado) y **$0.90\text{ m}$**, garajes $\ge 1.50\text{ m}$, mesadas $\ge 0.10\text{ m}$ fuera de Zonas 0 y 1 ($0.15\text{ m}$ lateral $\times$ $0.40\text{ m}$ vertical).
+    - Zonas de baños: Zona 1 ($h = 2.25\text{ m}$), Zona 2 ($0.60\text{ m}$ alrededor de Zona 1, luminarias Clase II IP44), Zona 3 (única permitida para tomas TUG), hidromasajes con ID exclusivo $\le 30\text{ mA}$.
+    - Tableros, PAT e Intemperie: distancia medidor-TP $\le 2.0\text{ m}$, espacio frontal $\ge 0.90\text{ m}$, TP intemperie IP54, $S_{\text{PAT}} \ge 4.0\text{ mm}^2$, separación entre jabalinas $\ge 2L$, bucle en cajas de $100\text{ mm}$, intemperie con chorro de agua IP55, empalmes subterráneos IP67, enterramiento $\ge 0.70\text{ m}$, conducto subterráneo $\varnothing \ge 50\text{ mm}$, cámaras cada $25\text{ m}$ y cinta de advertencia a $0.20\text{ m}$.
+  - `calibre_maximo_protecciones.json` (`GUIA.770.CALIBRE_MAX`): Nueva tabla verificada por secuencia numérica contigua y citas textuales contra la página 44 del PDF (calibres máximos de protección para secciones de $1.5, 2.5, 4\text{ y }6\text{ mm}^2$ con 1, 2 y 3 circuitos por caño en IRAM NM 247-3 y bandeja/cañería/enterrado en IRAM 2178-1).
+- `aea/core/src/catalogo.rs` y `aea/core/src/lib.rs`:
+  - Embebido `CatalogoGuia770` en tiempo de compilación en el binario nativo de Rust y agregado el test `test_guia_aea770_proyecto_y_calibres`.
+- `src/AdElec.Core/Models/Panel.cs`, `src/AdElec.Core/Aea/PanelAeaExtensions.cs` y `tests/AdElec.Core.Tests/AeaBridgeTests.cs`:
+  - Agregada la propiedad `SuperficieSemicubiertaM2` en `Panel` y su mapeo automático en `ToAeaUnidad()`.
+  - Actualizado `Test_GuiaAea770_ProyectoModeloReferencia` con $94\text{ m}^2$ cubiertos + $4\text{ m}^2$ semicubiertos ($S_{la} = 96\text{ m}^2$) y circuitos de 15, 11 y 12 bocas.
 
 #### 💡 Decisiones técnicas
-- La Guía AEA 770 es el compendio didáctico y metodológico oficial de la Asociación Electrotécnica Argentina para dimensionar viviendas unifamiliares de hasta 10 kW. Su inclusión permite contrastar los algoritmos de cálculo de DPMS, secciones y protecciones contra un caso de prueba cerrado y publicado por el mismo comité normalizador de la AEA.
+- La auditoría contra el PDF original permitió detectar que el proyecto modelo de la Guía tiene $23\text{ bocas TUG}$ repartidas en $11 + 12$ bocas (pág. 33) y un balcón semicubierto de $4\text{ m}^2$ que aporta $2\text{ m}^2$ al límite de aplicación ($S_{la} = 96\text{ m}^2$, pág. 24), lo cual motivó exponer `SuperficieSemicubiertaM2` en la clase `Panel` de .NET.
+- Con la incorporación de `calibre_maximo_protecciones.json`, el catálogo alcanza **26/26 tablas verificadas** automáticamente contra los PDFs oficiales.
 
 #### 📌 Próximos pasos pendientes
 - Replicar el proyecto modelo de la Guía en un archivo DWG de prueba o plantilla de ejemplo en AutoCAD para demostrar la interoperabilidad LISP/Rust/.NET.

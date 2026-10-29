@@ -1,0 +1,33 @@
+{
+  "id": "GUIA.770.CALIBRE_MAX",
+  "titulo": "Calibre máximo de las protecciones para los cables según agrupamiento y método de instalación",
+  "fuente": {
+    "doc": "GUIA-AEA-770-2018",
+    "pagina_pdf": 44,
+    "clausula": "Guía AEA 770 pág. 40 (PDF 44) — ref. 770.12"
+  },
+  "estado": "verificado",
+  "verificacion": {
+    "inicio": "Cable aislado sin envoltura de protección",
+    "fin": "(1) o también /RAM 62267.",
+    "citas": [
+      "CALIBRE MÁXIMO DE LAS PROTECCIONES",
+      "Calibre máximo de las protecciones para los cables.",
+      "en cañería embutida o a la vista.",
+      "En el caso de los cables de tipo \"domiciliario\" se incorporaron los factores de reducción por agrupamiento en aquellos casos en que las cañerías contienen más de un circuito."
+    ]
+  },
+  "datos": {
+    "secciones_mm2": [1.5, 2.5, 4.0, 6.0],
+    "domiciliario_iram_nm_247_3": [
+      { "circuitos_por_cano": 1, "calibres_max_a": [15.0, 20.0, 25.0, 32.0] },
+      { "circuitos_por_cano": 2, "calibres_max_a": [10.0, 15.0, 20.0, 25.0] },
+      { "circuitos_por_cano": 3, "calibres_max_a": [10.0, 13.0, 16.0, 25.0] }
+    ],
+    "subterraneo_iram_2178_1": {
+      "sobre_bandejas_al_aire_a": [15.0, 20.0, 20.0, 32.0],
+      "dentro_de_canerias_a": [13.0, 16.0, 20.0, 25.0],
+      "directamente_enterrado_a": [20.0, 25.0, 32.0, 40.0]
+    }
+  }
+}

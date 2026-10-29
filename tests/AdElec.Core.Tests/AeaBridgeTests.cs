@@ -374,17 +374,18 @@ public class AeaBridgeTests
     [Fact]
     public void Test_GuiaAea770_ProyectoModeloReferencia()
     {
-        // Caso de Estudio Oficial: Guía AEA 770 Edición 2018 (páginas 27-37, PDF 31-41)
-        // Vivienda Unifamiliar Grado Medio (94 m² cubiertos)
+        // Caso de Estudio Oficial: Guía AEA 770 Edición 2018 (páginas 6, 20, 25, 27-37, PDF 10, 24, 29, 31-41)
+        // Vivienda Unifamiliar Grado Medio: 94 m² cubiertos + 4 m² semicubiertos (Balcón, Sup.semic/2 = 2 m²) -> Sla = 96 m²
         var panel = new Models.Panel
         {
             Name = "TS-VIVIENDA",
             SuperficieCubiertaM2 = 94.0,
+            SuperficieSemicubiertaM2 = 4.0,
             PhaseCount = 1,
             MainBreakerAmps = 25.0 // ITM Seccional 25A (Guía pág. 34)
         };
 
-        // Circuito 1: IUG con 15 bocas, cable 1.5 mm², ITM 10A (Guía pág. 31 y 33)
+        // Circuito 1: IUG con 15 bocas (14 luminarias/ventilador + 1 campanilla), cable 1.5 mm², ITM 10A (Guía pág. 31 y 33)
         panel.Circuits.Add(new Models.Circuit
         {
             Name = "C1",
@@ -395,31 +396,32 @@ public class AeaBridgeTests
             LengthMeters = 12.0
         });
 
-        // Circuito 2: TUG con 9 bocas, cable 2.5 mm², ITM 16A (Guía pág. 31 y 33)
+        // Circuito 2: TUG con 11 bocas, cable 2.5 mm², ITM 16A (Guía pág. 33)
         panel.Circuits.Add(new Models.Circuit
         {
             Name = "C2",
             Type = "TUG",
             BreakerAmps = 16.0,
             WireSectionMm2 = 2.5,
-            ArtefactCount = 9,
+            ArtefactCount = 11,
             LengthMeters = 15.0
         });
 
-        // Circuito 3: TUG con 6 bocas, cable 2.5 mm², ITM 16A (Guía pág. 31 y 33)
+        // Circuito 3: TUG con 12 bocas, cable 2.5 mm², ITM 16A (Guía pág. 33)
         panel.Circuits.Add(new Models.Circuit
         {
             Name = "C3",
             Type = "TUG",
             BreakerAmps = 16.0,
             WireSectionMm2 = 2.5,
-            ArtefactCount = 6,
+            ArtefactCount = 12,
             LengthMeters = 18.0
         });
 
-        // 1. Verificación de Grado de Electrificación
-        var grado = AeaBridge.CalcularGrado(94.0, 0.0);
+        // 1. Verificación de Grado de Electrificación: 94 + 4/2 = 96 m² -> Grado Medio
+        var grado = AeaBridge.CalcularGrado(94.0, 4.0);
         Assert.Equal("medio", grado.Grado);
+        Assert.Equal(96.0, grado.SuperficieLimiteM2);
 
         // 2. Cálculo de DPMS según Tabla 770.8.I / Guía pág. 31:
         // C1 (IUG): 15 bocas * 60 VA * 2/3 = 600 VA

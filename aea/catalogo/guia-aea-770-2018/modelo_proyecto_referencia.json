@@ -1,10 +1,10 @@
 {
   "id": "GUIA.770.PROYECTO",
-  "titulo": "Proyecto modelo de referencia — Vivienda unifamiliar Grado Medio (94 m²)",
+  "titulo": "Proyecto modelo de referencia — Vivienda unifamiliar Grado Medio (Sla = 96 m²)",
   "fuente": {
     "doc": "GUIA-AEA-770-2018",
     "pagina_pdf": 31,
-    "clausula": "Guía AEA 770 págs. 27-31 (PDF 31-35)"
+    "clausula": "Guía AEA 770 págs. 6, 20, 25, 27-31 (PDF 10, 24, 29, 31-35)"
   },
   "estado": "verificado",
   "verificacion": {
@@ -16,6 +16,26 @@
       "Circuito 3 (TUG) = 2200 VA por circuito.",
       "600 VA + 2200 VA + 2200 VA = 5000 VA.",
       {
+        "texto": "Estar - Comedor= 2 IUG + 4 TUG",
+        "pagina": 24
+      },
+      {
+        "texto": "Cocina= 2 IUG + 7 TUG (4 TUG para electrodomésticos de ubicación fija",
+        "pagina": 24
+      },
+      {
+        "texto": "Pasillo= 2 IUG + 2 TUG (La longitud del pasillo en forma de \"L\" es superior a 5 m.",
+        "pagina": 24
+      },
+      {
+        "texto": "El circuito TUG supera el número de bocas máximo para este tipo de circuito y por lo tanto debemos dividirlo.",
+        "pagina": 29
+      },
+      {
+        "texto": "Cantidad de bocas 15 11 12",
+        "pagina": 33
+      },
+      {
         "texto": "Determinación de la carga total",
         "pagina": 34
       },
@@ -26,14 +46,30 @@
     ]
   },
   "datos": {
-    "grado_electrificacion": "Medio",
+    "grado_electrificacion": "medio",
     "superficie_cubierta_m2": 94.0,
+    "superficie_semicubierta_m2": 4.0,
+    "sla_m2": 96.0,
+    "ambientes": [
+      { "nombre": "Estar - Comedor", "tipo": "estar_comedor", "superficie_m2": 24.0, "iug": 2, "tug": 4 },
+      { "nombre": "Dormitorio 1",    "tipo": "dormitorio",    "superficie_m2": 15.0, "iug": 1, "tug": 3 },
+      { "nombre": "Dormitorio 2",    "tipo": "dormitorio",    "superficie_m2": 6.4,  "iug": 2, "tug": 2 },
+      { "nombre": "Dormitorio 3",    "tipo": "dormitorio",    "superficie_m2": 9.1,  "iug": 1, "tug": 2 },
+      { "nombre": "Cocina",          "tipo": "cocina",        "superficie_m2": 12.0, "iug": 2, "tug": 7 },
+      { "nombre": "Baño 1",          "tipo": "bano",          "superficie_m2": 4.5,  "iug": 2, "tug": 2 },
+      { "nombre": "Baño 2",          "tipo": "bano",          "superficie_m2": 3.0,  "iug": 1, "tug": 1 },
+      { "nombre": "Pasillo en L",    "tipo": "pasillo",       "superficie_m2": 6.0,  "iug": 2, "tug": 2 },
+      { "nombre": "Balcón",          "tipo": "balcon",        "superficie_m2": 4.0,  "iug": 1, "tug": 0 },
+      { "nombre": "Campanilla",      "tipo": "mbtf_en_iug",   "superficie_m2": 0.0,  "iug": 1, "tug": 0 }
+    ],
     "circuitos": [
       {
         "numero": 1,
         "tipo": "IUG",
         "bocas": 15,
         "dpms_va": 600.0,
+        "tension_v": 220.0,
+        "ib_a": 2.73,
         "seccion_fase_mm2": 1.5,
         "seccion_pe_mm2": 2.5,
         "iz_a": 15.0,
@@ -42,8 +78,10 @@
       {
         "numero": 2,
         "tipo": "TUG",
-        "bocas": 9,
+        "bocas": 11,
         "dpms_va": 2200.0,
+        "tension_v": 220.0,
+        "ib_a": 10.0,
         "seccion_fase_mm2": 2.5,
         "seccion_pe_mm2": 2.5,
         "iz_a": 21.0,
@@ -52,8 +90,10 @@
       {
         "numero": 3,
         "tipo": "TUG",
-        "bocas": 6,
+        "bocas": 12,
         "dpms_va": 2200.0,
+        "tension_v": 220.0,
+        "ib_a": 10.0,
         "seccion_fase_mm2": 2.5,
         "seccion_pe_mm2": 2.5,
         "iz_a": 21.0,
@@ -66,6 +106,7 @@
       "ib_a": 22.73,
       "seccion_fase_mm2": 4.0,
       "seccion_pe_mm2": 4.0,
+      "seccion_pat_mm2": 4.0,
       "iz_a": 28.0,
       "itm_in_a": 25.0,
       "id_in_a": 40.0,
