@@ -103,6 +103,80 @@
   (tblsearch "BLOCK" nombre)
 )
 
+;; -- Obtener coordenadas mundiales WCS de los Pines A y B de un bloque dinámico
+;; Retorna: '((pinA_x pinA_y) (pinB_x pinB_y)) o '((ins_x ins_y) (ins_x ins_y)) si no tiene pines
+(defun ade:get-block-pins (ent / vla-obj props ax ay bx by rot ins cos-r sin-r
+                                 rel-ax rel-ay rel-bx rel-by pA pB)
+  (setq vla-obj (vlax-ename->vla-object ent)
+        ins     (cdr (assoc 10 (entget ent)))
+        rot     (cdr (assoc 50 (entget ent)))  ;; radianes
+        cos-r   (cos rot)
+        sin-r   (sin rot)
+        ax      nil ay nil bx nil by nil)
+
+  (if (vlax-property-available-p vla-obj 'IsDynamicBlock)
+    (if (= (vla-get-IsDynamicBlock vla-obj) :vlax-true)
+      (progn
+        (setq props (vlax-invoke vla-obj 'GetDynamicBlockProperties))
+        (foreach prop props
+          (cond
+            ((= (strcase (vla-get-PropertyName prop)) "A X")
+             (setq ax (vlax-variant-value (vla-get-Value prop))))
+            ((= (strcase (vla-get-PropertyName prop)) "A Y")
+             (setq ay (vlax-variant-value (vla-get-Value prop))))
+            ((= (strcase (vla-get-PropertyName prop)) "B X")
+             (setq bx (vlax-variant-value (vla-get-Value prop))))
+            ((= (strcase (vla-get-PropertyName prop)) "B Y")
+             (setq by (vlax-variant-value (vla-get-Value prop))))
+          )
+        )
+      )
+    )
+  )
+
+  ;; Si tiene los parámetros A y B, rotar respecto al punto de inserción
+  (if (and ax ay)
+    (setq pA (list (+ (car ins)  (- (* ax cos-r) (* ay sin-r)))
+                   (+ (cadr ins) (+ (* ax sin-r) (* ay cos-r)))))
+    (setq pA (list (car ins) (cadr ins)))
+  )
+  (if (and bx by)
+    (setq pB (list (+ (car ins)  (- (* bx cos-r) (* by sin-r)))
+                   (+ (cadr ins) (+ (* bx sin-r) (* by cos-r)))))
+    (setq pB (list (car ins) (cadr ins)))
+  )
+  (list pA pB)
+)
+
+;; -- Recolectar inserciones de tomas con entidad, insercion y pines por atributo CX
+;; Retorna lista de elementos: '((ename . ent) (ins . '(x y)) (pinA . '(x y)) (pinB . '(x y)))
+(defun ade:get-tomas-by-cx (block-name cx / ss n i ent cx-val pins ins tomas)
+  (setq tomas '())
+  (if (setq ss (ssget "X" (list (cons 0 "INSERT")
+                                (cons 2 block-name))))
+    (progn
+      (setq n (sslength ss) i 0)
+      (while (< i n)
+        (setq ent    (ssname ss i)
+              cx-val (ade:get-att ent "CX"))
+        (if (and cx-val (= (strcase cx-val) (strcase cx)))
+          (progn
+            (setq ins  (cdr (assoc 10 (entget ent)))
+                  pins (ade:get-block-pins ent))
+            (setq tomas (append tomas
+                          (list (list (cons 'ent  ent)
+                                      (cons 'ins  (list (car ins) (cadr ins)))
+                                      (cons 'pinA (car pins))
+                                      (cons 'pinB (cadr pins))))))
+          )
+        )
+        (setq i (1+ i))
+      )
+    )
+  )
+  tomas
+)
+
 ;; -- Recolectar inserciones de un bloque por atributo CX -----
 ;; Retorna lista de puntos de insercion '(x y z)
 (defun ade:get-blocks-by-cx (block-name cx / ss n i ent cx-val pts)

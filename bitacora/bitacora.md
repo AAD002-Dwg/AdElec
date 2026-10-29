@@ -31,6 +31,79 @@ Motivo detrás de las elecciones de diseño o solución implementada.
 
 ## 📜 Historial de Registros
 
+### [2026-10-26] — Corrección Crítica en ADE_NOMENCLATURA: Eliminación de `command ERASE L` y Carga ActiveX de Bloques
+**Tipo:** `Fix`
+**Autor / Asistente:** Antigravity / Usuario
+
+#### 🎯 Objetivo
+- Solucionar el fallo en `ADE_NOMENCLATURA` (`WN`) donde los diálogos en consola reportaban `Comando "0,0,0" desconocido` y terminaban borrando las polilíneas de las cañerías trazadas.
+
+#### 🛠️ Cambios realizados
+- `lisp/ade_nomenclatura.lsp`:
+  - Eliminado el uso de `(command "_.INSERT" ...)` y `(command "_.ERASE" "L" "")` que, al fallar el prompt clásico de AutoCAD moderno, enviaba las coordenadas `"0,0,0"`, `"1"`, `"0"` como comandos a la consola y el comando ERASE "L" borraba la última entidad dibujada en el plano (la cañería recién trazada por el usuario).
+  - Reemplazado por `vla-InsertBlock` de ActiveX directamente desde la API COM: carga la definición de bloque desde el archivo DWG sin interactuar con la línea de comandos ni requerir borrado destructivo.
+  - Normalizadas las rutas de búsqueda de `I.E-AD-Nomenclatura_Cables.dwg` soportando barras invertidas y directas de Windows.
+- `deploy/`: Actualizado el archivo desplegado.
+
+#### 💡 Decisiones técnicas
+- En versiones modernas de AutoCAD (2024 / 2025), el comando clásico `_.INSERT` tiene un flujo interactivo diferente al de versiones antiguas. Operar la definición e inserción de bloques a través de la API COM (`vla-InsertBlock`) es 100% transaccional y elimina todo riesgo de colisión con la línea de comandos.
+
+#### 📌 Próximos pasos pendientes
+- Probar en AutoCAD con `(load "deploy/ade_nomenclatura.lsp")` y ejecutar `WN`.
+
+---
+
+### [2026-10-26] — Trazado Perimetral Inteligente de Cañerías con Conexión a Pines Dinámicos ("A" y "B") y Quiebres a 45°
+**Tipo:** `Feature`
+**Autor / Asistente:** Antigravity / Usuario
+
+#### 🎯 Objetivo
+- Eliminar el cruce desordenado de cañerías por el centro de los ambientes en el trazado automático de tomas (`ADE_CANERIAS` / `WE`).
+- Utilizar los parámetros de punto dinámicos **"A"** y **"B"** del bloque `I.E-AD-09` como bornes de entrada y salida orientados a muro.
+- Preservar los quiebres a 45° en encuentros de esquinas y quiebres de muros para una identificación gráfica óptima del circuito.
+
+#### 🛠️ Cambios realizados
+- `lisp/ade_utils.lsp`:
+  - `ade:get-block-pins`: Extrae las coordenadas relativas de los parámetros dinámicos `A X`, `A Y`, `B X`, `B Y` vía ActiveX (`GetDynamicBlockProperties`), aplica rotación según el ángulo del bloque y calcula sus posiciones absolutas en WCS.
+  - `ade:get-tomas-by-cx`: Recolecta entidades de tomas con sus puntos de inserción y coordenadas mundiales de los pines A y B.
+- `lisp/ade_canerias.lsp`:
+  - `ade:ordenar-tomas-perimetro`: Algoritmo de vecino más próximo (Nearest Neighbor) perimetral que recorre los muros ordenadamente y sin saltos cruzados.
+  - `ade:canerias-tomas-auto`: Evalúa y selecciona el pin de salida más cercano al siguiente toma y el pin de llegada correspondiente, trazando la polilínea continua y expandiendo los vértices a 45° con `ade:expandir-puntos`.
+  - `ade:canerias-tomas-manual`: Adaptado para usar la misma lógica de pines A y B: al cliquear el bloque de inicio y el bloque destino (con o sin puntos intermedios por esquinas), conecta automáticamente desde el pin de salida más cercano al de llegada, aplicando quiebres a 45°.
+- `deploy/`: Actualizadas las rutinas LISP desplegadas.
+
+#### 💡 Decisiones técnicas
+- El ordenamiento ciego por coordenada X generaba saltos transversales; el encadenamiento perimetral sigue naturalmente las paredes del recinto.
+- Conectar entre pines A y B en lugar del centroide del bloque asegura que la cañería entre y salga por los laterales de la caja, evitando interferir con el símbolo gráfico del tomacorriente.
+
+#### 📌 Próximos pasos pendientes
+- Probar en AutoCAD con el comando `ADE_CANERIAS` (modo Tomas / Auto) para validar el comportamiento visual.
+
+---
+
+### [2026-10-26] — Corrección de Nomenclatura de Suministro, Supresión de Calibre 13A y Mínimo Normativo de Cabecera (≥ 25A)
+**Tipo:** `Fix`
+**Autor / Asistente:** Antigravity / Usuario
+
+#### 🎯 Objetivo
+- Eliminar la nomenclatura confusa de polos en la selección de suministro de red ("Monofásico (2P)" / "Trifásico (4P)") adoptando la denominación electrotécnica limpia "Monofásica" / "Trifásica".
+- Corregir el cálculo de la protección general de cabecera en `Panel.cs` para cumplir con AEA 770.15 (mínimo 25 A y margen térmico continuo de 15% sobre $I_b$) evitando sugerencias indebidas (como 20 A ante $I_b = 18.5\text{ A}$).
+- Eliminar el calibre no comercial de 13 A de la lista de térmicas sugeridas del motor Rust (`CALIBRES_ITM_A`), restringiéndolo exclusivamente a los calibres IRAM 2169 / IEC 60898 comercializados en Argentina (6, 10, 16, 20, 25, 32, 40, 50, 63 A).
+
+#### 🛠️ Cambios realizados
+- `src/AdElec.UI/Views/MainPaletteView.xaml`: Actualizados los `ComboBoxItem` del selector de suministro tanto del panel activo como del modal de alta de tablero a "Monofásica" y "Trifásica".
+- `src/AdElec.Core/Models/Panel.cs`: Actualizado `SuggestedBreakerAmps` fijando umbral `target = Math.Max(25.0, ib * 1.15)` con calibres comerciales estándar [25, 32, 40, 50, 63, 80, 100, 125].
+- `aea/core/src/aea770.rs`: Modificada la constante `CALIBRES_ITM_A` suprimiendo 13.0 A para que el motor AEA sugiera directamente 16 A en circuitos como TUG.
+
+#### 💡 Decisiones técnicas
+- En el mercado argentino bajo norma IRAM 2169, los calibres estandarizados en plaza son 6, 10, 16, 20, 25, 32, 40, 50 y 63 A (el calibre 13 A existe en el anexo de IEC 60898 europeo/británico pero no tiene distribución comercial masiva en Argentina).
+- La cabecera de un tablero seccional o principal no debe operar al límite térmico de su curva bimetálica ni por debajo de las exigencias del grado de electrificación de la vivienda (AEA 770.15).
+
+#### 📌 Próximos pasos pendientes
+- Cerrar AutoCAD para liberar los DLLs bloqueados en `deploy/` y transferir los binarios recién compilados.
+
+---
+
 ### [2026-10-25] — Verificación Térmica de Cortocircuito (I²·t ≤ k²·S²), Poder de Corte (Icn ≥ Icc), Marcas de Revisión en DWG y Exportación CSV
 **Tipo:** `Feature`
 **Autor / Asistente:** Antigravity / Usuario

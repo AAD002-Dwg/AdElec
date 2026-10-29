@@ -163,7 +163,10 @@ public class Panel : INotifyPropertyChanged
     }
 
     /// <summary>
-    /// Calibre normalizado comercial sugerido para el interruptor general (In >= Ib)
+    /// Calibre normalizado comercial sugerido para el interruptor general (cabecera).
+    /// Según AEA 770.15 y buenas prácticas de ingeniería:
+    /// - La cabecera mínima no debe ser inferior a 25 A.
+    /// - Se contempla un margen continuo sobre Ib (15%) para evitar disparos térmicos en carga plena simultánea.
     /// </summary>
     public double SuggestedBreakerAmps
     {
@@ -171,10 +174,13 @@ public class Panel : INotifyPropertyChanged
         {
             double ib = CalculatedIbAmps;
             if (ib <= 0) return 32;
-            double[] standardBreakers = [16, 20, 25, 32, 40, 50, 63, 80, 100, 125];
+
+            // Mínimo 25A de cabecera según AEA 770.15 y margen continuo del 15% sobre Ib
+            double target = Math.Max(25.0, ib * 1.15);
+            double[] standardBreakers = [25, 32, 40, 50, 63, 80, 100, 125];
             foreach (var b in standardBreakers)
             {
-                if (b >= ib) return b;
+                if (b >= target) return b;
             }
             return 125;
         }

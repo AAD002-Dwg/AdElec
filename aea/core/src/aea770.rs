@@ -10,9 +10,9 @@ use crate::diagnostico::{Correccion, Diagnostico, Severidad};
 use crate::modelo::{Circuito, Unidad};
 use serde::Serialize;
 
-/// Valores preferidos de corriente asignada para interruptores automáticos
-/// (IEC 60898-1). No es una tabla AEA: se usa solo para proponer correcciones.
-pub const CALIBRES_ITM_A: [f64; 10] = [6.0, 10.0, 13.0, 16.0, 20.0, 25.0, 32.0, 40.0, 50.0, 63.0];
+/// Valores comerciales estándar de corriente asignada para pequeños interruptores automáticos
+/// en el mercado argentino (IRAM 2169 / IEC 60898-1): 6, 10, 16, 20, 25, 32, 40, 50, 63 A.
+pub const CALIBRES_ITM_A: [f64; 9] = [6.0, 10.0, 16.0, 20.0, 25.0, 32.0, 40.0, 50.0, 63.0];
 
 const EPS: f64 = 1e-9;
 

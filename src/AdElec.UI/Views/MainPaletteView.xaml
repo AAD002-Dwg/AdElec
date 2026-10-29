@@ -515,8 +515,8 @@
                                                 <ComboBox Style="{StaticResource DarkCombo}"
                                                           SelectedValue="{Binding SelectedPanel.PhaseCount, Mode=TwoWay}"
                                                           SelectedValuePath="Tag">
-                                                    <ComboBoxItem Content="Monofásico (2P)" Tag="1"/>
-                                                    <ComboBoxItem Content="Trifásico (4P)"  Tag="3"/>
+                                                    <ComboBoxItem Content="Monofásica" Tag="1"/>
+                                                    <ComboBoxItem Content="Trifásica"  Tag="3"/>
                                                 </ComboBox>
                                             </StackPanel>
                                             <StackPanel Grid.Column="2">
@@ -626,8 +626,8 @@
                                         <ComboBox Style="{StaticResource DarkCombo}"
                                                   SelectedValue="{Binding NewPanelPhaseCount, Mode=TwoWay}"
                                                   SelectedValuePath="Tag">
-                                            <ComboBoxItem Content="Monofásico (2P)" Tag="1"/>
-                                            <ComboBoxItem Content="Trifásico (4P)"  Tag="3"/>
+                                            <ComboBoxItem Content="Monofásica" Tag="1"/>
+                                            <ComboBoxItem Content="Trifásica"  Tag="3"/>
                                         </ComboBox>
                                     </StackPanel>
                                 </Grid>

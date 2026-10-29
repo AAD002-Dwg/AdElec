@@ -40,14 +40,15 @@
 (defun ade:nom:get-block-dwg ( / candidates p)
   (setq candidates
     (list
-      (strcat (getvar "DWGPREFIX") "blocks/" *ADE:NOM:BLK-NAME* ".dwg")
+      (strcat (getvar "DWGPREFIX") "blocks\\" *ADE:NOM:BLK-NAME* ".dwg")
       (strcat (getvar "DWGPREFIX") *ADE:NOM:BLK-NAME* ".dwg")
+      (strcat "G:\\PROYECTOS AD\\AD-ELEC\\blocks\\" *ADE:NOM:BLK-NAME* ".dwg")
       (strcat "g:/PROYECTOS AD/AD-ELEC/blocks/" *ADE:NOM:BLK-NAME* ".dwg")
       (strcat "g:/AD-ELEC/Bloques_CAD/" *ADE:NOM:BLK-NAME* ".dwg")
     )
   )
   (setq p (vl-some '(lambda (c) (if (findfile c) (findfile c))) candidates))
-  (if p p (strcat "g:/PROYECTOS AD/AD-ELEC/blocks/" *ADE:NOM:BLK-NAME* ".dwg"))
+  (if p p (strcat "G:\\PROYECTOS AD\\AD-ELEC\\blocks\\" *ADE:NOM:BLK-NAME* ".dwg"))
 )
 
 (setq *ADE:NOM:BLK-DWG* (ade:nom:get-block-dwg))
@@ -136,34 +137,40 @@
 ;; =============================================================
 
 ;; -- Cargar bloque desde DWG si no esta definido -------------
-(defun ade:nom:ensure-block ( / old-att old-cmd)
+(defun ade:nom:ensure-block ( / dwg ms tmp-ref)
   (if (not (tblsearch "BLOCK" *ADE:NOM:BLK-NAME*))
     (progn
-      (setq old-att (getvar "ATTREQ")
-            old-cmd (getvar "CMDECHO"))
-      (setvar "ATTREQ"  0)
-      (setvar "CMDECHO" 0)
-      (command "_.INSERT" (strcat *ADE:NOM:BLK-DWG* "=")
-               "0,0,0" "1" "1" "0")
-      (command "_.ERASE" "L" "")
-      (setvar "ATTREQ"  old-att)
-      (setvar "CMDECHO" old-cmd)
-      (if (not (tblsearch "BLOCK" *ADE:NOM:BLK-NAME*))
+      (setq dwg (ade:nom:get-block-dwg))
+      (if (and dwg (findfile dwg))
         (progn
-          (princ (strcat "\n  ERROR: No se pudo cargar el bloque desde:\n  "
-                         *ADE:NOM:BLK-DWG*))
-          (exit)
+          (setq ms (vla-get-ModelSpace (ade:nom:acdoc)))
+          ;; Insertar temporalmente el archivo DWG para cargar su definicion de bloque en la BD
+          (setq tmp-ref (vl-catch-all-apply 'vla-insertblock
+                          (list ms (vlax-3d-point '(0.0 0.0 0.0)) dwg 1.0 1.0 1.0 0.0)))
+          (if (not (vl-catch-all-error-p tmp-ref))
+            (vla-delete tmp-ref)
+          )
         )
+        (princ (strcat "\n  ADVERTENCIA: No se encontro el archivo DWG de nomenclatura:\n  " dwg))
       )
     )
   )
 )
 
 ;; -- Insertar bloque en pt con angulo ang --------------------
-(defun ade:nom:place (pt ang cables caneria)
-  (setq *ADE:NOM:BLK-DWG* (ade:nom:get-block-dwg))
+(defun ade:nom:place (pt ang cables caneria / dwg nombre-or-path)
+  (if (tblsearch "BLOCK" *ADE:NOM:BLK-NAME*)
+    (setq nombre-or-path *ADE:NOM:BLK-NAME*)
+    (progn
+      (setq dwg (ade:nom:get-block-dwg))
+      (if (and dwg (findfile dwg))
+        (setq nombre-or-path dwg)
+        (setq nombre-or-path *ADE:NOM:BLK-NAME*)
+      )
+    )
+  )
   (ade:insert-block
-    *ADE:NOM:BLK-NAME*
+    nombre-or-path
     (list (car pt) (cadr pt) 0.0)
     (ade:nom:normalize-angle ang)
     (list (cons "CABLES"   cables)
