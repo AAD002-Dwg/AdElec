@@ -251,54 +251,134 @@ pub fn calcular_dpms_770(cat: &Catalogo770, u: &Unidad) -> ResultadoDpms {
 
 // ------------------------------------------------------------- circuito --- //
 
-/// Valida un circuito contra 770.6, 770.10, 770.11, 770.14 y 770.15.
+/// Valida un circuito contra 770.6, 770.10, 770.11, 770.14 y 770.15 (y circuitos específicos según Guía AEA 770 / AEA 771.7).
 pub fn validar_circuito(cat: &Catalogo770, c: &Circuito) -> Vec<Diagnostico> {
     let mut d = Vec::new();
+    let sigla_norm = c.tipo.trim().to_uppercase();
 
-    let Some(tipo) = cat.tipo(&c.tipo) else {
+    let max_in_circuito: f64;
+    if let Some(tipo) = cat.tipo(&sigla_norm) {
+        max_in_circuito = tipo.max_in_a;
+        // 770.6 — bocas máximas
+        if c.bocas > tipo.max_bocas {
+            d.push(Diagnostico {
+                codigo: "770.6/bocas",
+                severidad: Severidad::Error,
+                elemento: c.id.clone(),
+                mensaje: format!("{} bocas en circuito {}: el máximo es {}.", c.bocas, tipo.sigla, tipo.max_bocas),
+                referencia: cat.tipos_circuito.referencia(),
+                correcciones: vec![],
+            });
+        }
+
+        // 770.6 — calibre máximo de protección
+        if c.in_a > tipo.max_in_a + EPS {
+            d.push(Diagnostico {
+                codigo: "770.6/proteccion_max",
+                severidad: Severidad::Error,
+                elemento: c.id.clone(),
+                mensaje: format!("Protección de {} A en circuito {}: el máximo es {} A.", c.in_a, tipo.sigla, tipo.max_in_a),
+                referencia: cat.tipos_circuito.referencia(),
+                correcciones: vec![Correccion::CambiarProteccion { in_a: tipo.max_in_a }],
+            });
+        }
+    } else if let Some(gen_esp) = cat
+        .guia770
+        .clasificacion_circuitos
+        .datos
+        .generales_y_especiales
+        .iter()
+        .find(|g| g.sigla.eq_ignore_ascii_case(&sigla_norm))
+    {
+        max_in_circuito = gen_esp.max_in_a;
+        if c.bocas > gen_esp.max_bocas {
+            d.push(Diagnostico {
+                codigo: "770.6/bocas",
+                severidad: Severidad::Error,
+                elemento: c.id.clone(),
+                mensaje: format!("{} bocas en circuito {}: el máximo es {}.", c.bocas, gen_esp.sigla, gen_esp.max_bocas),
+                referencia: cat.guia770.clasificacion_circuitos.referencia(),
+                correcciones: vec![],
+            });
+        }
+        if c.in_a > gen_esp.max_in_a + EPS {
+            d.push(Diagnostico {
+                codigo: "770.6/proteccion_max",
+                severidad: Severidad::Error,
+                elemento: c.id.clone(),
+                mensaje: format!("Protección de {} A en circuito {}: el máximo es {} A.", c.in_a, gen_esp.sigla, gen_esp.max_in_a),
+                referencia: cat.guia770.clasificacion_circuitos.referencia(),
+                correcciones: vec![Correccion::CambiarProteccion { in_a: gen_esp.max_in_a }],
+            });
+        }
+    } else if let Some(esp) = cat
+        .guia770
+        .clasificacion_circuitos
+        .datos
+        .usos_especificos
+        .iter()
+        .find(|e| e.sigla.eq_ignore_ascii_case(&sigla_norm))
+    {
+        max_in_circuito = esp.max_in_a.unwrap_or(63.0);
+        if !esp.permitido_en_viviendas {
+            d.push(Diagnostico {
+                codigo: "770.6/ite_prohibido_vivienda",
+                severidad: Severidad::Error,
+                elemento: c.id.clone(),
+                mensaje: format!(
+                    "El circuito {} ({}) no se puede utilizar en viviendas (Guía AEA 770 pág. 24 Nota 4).",
+                    esp.sigla, esp.designacion
+                ),
+                referencia: cat.guia770.clasificacion_circuitos.referencia(),
+                correcciones: vec![],
+            });
+        }
+        if let Some(max_bocas) = esp.max_bocas {
+            if c.bocas > max_bocas {
+                d.push(Diagnostico {
+                    codigo: "770.6/bocas",
+                    severidad: Severidad::Error,
+                    elemento: c.id.clone(),
+                    mensaje: format!("{} bocas en circuito {}: el máximo es {}.", c.bocas, esp.sigla, max_bocas),
+                    referencia: cat.guia770.clasificacion_circuitos.referencia(),
+                    correcciones: vec![],
+                });
+            }
+        }
+        if let Some(max_in) = esp.max_in_a {
+            if c.in_a > max_in + EPS {
+                d.push(Diagnostico {
+                    codigo: "770.6/proteccion_max",
+                    severidad: Severidad::Error,
+                    elemento: c.id.clone(),
+                    mensaje: format!("Protección de {} A en circuito {}: el máximo es {} A.", c.in_a, esp.sigla, max_in),
+                    referencia: cat.guia770.clasificacion_circuitos.referencia(),
+                    correcciones: vec![Correccion::CambiarProteccion { in_a: max_in }],
+                });
+            }
+        }
+    } else {
         d.push(Diagnostico {
             codigo: "770.6/tipo",
             severidad: Severidad::Advertencia,
             elemento: c.id.clone(),
             mensaje: format!(
-                "El tipo '{}' no figura en la Tabla 770.6.I (IUG, TUG, TUE). Los circuitos de uso específico se rigen por AEA 90364-7-771.",
+                "El tipo '{}' no figura en la Tabla 770.6.I (IUG, TUG, TUE) ni en los circuitos específicos de AEA 771.7.",
                 c.tipo
             ),
             referencia: cat.tipos_circuito.referencia(),
             correcciones: vec![],
         });
         return d;
-    };
-
-    // 770.6 — bocas máximas
-    if c.bocas > tipo.max_bocas {
-        d.push(Diagnostico {
-            codigo: "770.6/bocas",
-            severidad: Severidad::Error,
-            elemento: c.id.clone(),
-            mensaje: format!("{} bocas en circuito {}: el máximo es {}.", c.bocas, tipo.sigla, tipo.max_bocas),
-            referencia: cat.tipos_circuito.referencia(),
-            correcciones: vec![],
-        });
-    }
-
-    // 770.6 — calibre máximo de protección
-    if c.in_a > tipo.max_in_a + EPS {
-        d.push(Diagnostico {
-            codigo: "770.6/proteccion_max",
-            severidad: Severidad::Error,
-            elemento: c.id.clone(),
-            mensaje: format!("Protección de {} A en circuito {}: el máximo es {} A.", c.in_a, tipo.sigla, tipo.max_in_a),
-            referencia: cat.tipos_circuito.referencia(),
-            correcciones: vec![Correccion::CambiarProteccion { in_a: tipo.max_in_a }],
-        });
     }
 
     // 770.11 — sección mínima (incluyendo IUG con tomacorrientes derivados = 2.5 mm²)
-    let clave_sec = if tipo.sigla.eq_ignore_ascii_case("IUG") && c.incluye_tomacorrientes {
+    let clave_sec = if sigla_norm == "IUG" && c.incluye_tomacorrientes {
         "IUG_con_tomacorrientes"
+    } else if matches!(sigla_norm.as_str(), "IUE" | "APM" | "ATE" | "ACU" | "MBTF" | "OCE") {
+        "circuitos_especificos"
     } else {
-        tipo.sigla.as_str()
+        sigla_norm.as_str()
     };
     if let Some(min) = cat.seccion_minima(clave_sec) {
         if c.seccion_mm2 + EPS < min {
@@ -360,12 +440,12 @@ pub fn validar_circuito(cat: &Catalogo770, c: &Circuito) -> Vec<Diagnostico> {
     }
 
     // 770.15.3 — coordinación Ib <= In <= Iz
-    d.extend(validar_coordinacion(cat, c, tipo.max_in_a));
+    d.extend(validar_coordinacion(cat, c, max_in_circuito));
 
     // 770.15.6 — caída de tensión reglamentaria (3% iluminación y tomas; 5% motores en régimen)
     if let Some(l) = c.longitud_m {
         if l > 0.0 {
-            d.extend(validar_caida_tension(cat, c, &tipo.sigla));
+            d.extend(validar_caida_tension(cat, c, &sigla_norm));
         }
     }
     d

@@ -31,31 +31,32 @@ Motivo detrás de las elecciones de diseño o solución implementada.
 
 ## 📜 Historial de Registros
 
-### [2026-10-29] — Integración y Auditoría Exhaustiva de la Guía AEA 770 Edición 2018 (26/26 Tablas Verificadas)
+### [2026-10-29] — Integración y Auditoría Exhaustiva de la Guía AEA 770 Edición 2018 y Circuitos Específicos AEA 771 (27/27 Tablas Verificadas)
 **Tipo:** `Feature` | `Fix`
 **Autor / Asistente:** Antigravity / Usuario
 
 #### 🎯 Objetivo
 - Incorporar y auditar página por página el manual oficial `Guia AEA 770-2018-Guia de Instalación Electrica Hasta 10 kw.pdf` (60 páginas) en el catálogo normativo, el motor en Rust (`catalogo.rs`) y el modelo C# (`Panel.cs` / `AeaBridgeTests.cs`).
+- Completar los circuitos faltantes (`ACU`, `MBTS`, `OCE`) en `aea/catalogo/aea-771-2006/tipos_circuito.json` (`Tabla 771.7.I`) y agregar el capítulo `"CLASIFICACIÓN DE LOS CIRCUITOS"` (págs. impresas 22-24 / PDF 26-28) con la tabla completa de **Circuitos para Usos Específicos** en `aea/catalogo/guia-aea-770-2018/clasificacion_circuitos.json`.
 - Corregir discrepancias en la transcripción preliminar del proyecto modelo y completar la totalidad de criterios constructivos y tablas de la Guía.
 
 #### 🛠️ Cambios realizados
+- `aea/catalogo/aea-771-2006/tipos_circuito.json` (`Tabla 771.7.I`):
+  - Incorporados los circuitos **`MBTS`**, **`ACU`** y **`OCE`** junto a `MBTF`, `APM`, `ATE`, `ITE`, `IUG`, `TUG`, `IUE` y `TUE` (completando los 11 circuitos de la Tabla 771.7.I, con `"estado": "verificado"`).
 - `aea/catalogo/fuentes.json`:
   - Registrado el documento `GUIA-AEA-770-2018` con su hash criptográfico SHA-256 (`6B7A9C66152DFB953EF16A76C36F63044F4ACD44CEF307B4B03659576B7117FB`).
 - `aea/catalogo/guia-aea-770-2018/`:
+  - `clasificacion_circuitos.json` (`GUIA.770.CIRCUITOS`): Nueva tabla verificada contra las páginas 26, 27 y 28 del PDF (págs. impresas 22, 23 y 24) que documenta en detalle los circuitos de Usos Generales (`IUG`, `TUG`), Especiales (`TUE`, `IUE`) y la tabla de **Circuitos para Usos Específicos** (`MBTS`, `ATE`, `APM`, `ACU`, `MBTF`, `ITE`, `OCE`), incluyendo tipo de alimentación, cargas permitidas, forma de conexión, calibres máximos, usos típicos y la prohibición expresa de `ITE` en viviendas (Nota 4).
   - `modelo_proyecto_referencia.json` (`GUIA.770.PROYECTO`): Corregido y completado contra las páginas 10, 24, 29, 31, 33, 34 y 35 del PDF:
     - Superficie cubierta $94.0\text{ m}^2$ + superficie semicubierta $4.0\text{ m}^2$ (Balcón: $\text{Sup.semic}/2 = 2\text{ m}^2$) $\implies S_{la} = 96.0\text{ m}^2$ (Grado Medio).
     - Desglose completo de los 9 ambientes + campanilla ($15\text{ bocas IUG} + 23\text{ bocas TUG}$).
     - Corrección de cantidad de bocas TUG por circuito según pág. 33 del PDF: **C1 (IUG) = 15 bocas** ($I_B = 2.73\text{ A}$), **C2 (TUG) = 11 bocas** ($I_B = 10.0\text{ A}$, antes figuraba 9) y **C3 (TUG) = 12 bocas** ($I_B = 10.0\text{ A}$, antes figuraba 6).
     - Circuito seccional: DPMS $5000\text{ VA}$, $I_B = 22.73\text{ A}$, sección L/N $4\text{ mm}^2$, PE $4\text{ mm}^2$, PAT $4\text{ mm}^2$, $I_z = 28\text{ A}$, ITM $25\text{ A}$, ID $40\text{ A} / 30\text{ mA}$.
-  - `criterios_instalacion.json` (`GUIA.770.UBICACION`): Ampliado con todos los parámetros físicos de las páginas 18-21, 36-43 y 50-51 del PDF:
-    - Interruptores: altura $0.90\text{--}1.30\text{ m}$ (rec. $1.10\text{ m}$), distancia a marco $\le 0.15\text{ m}$, pasillos $> 3.0\text{ m}$ con llaves combinadas a distancia $\le 6.0\text{ m}$.
-    - Tomacorrientes: altura estándar entre **$0.20\text{ m}$** (límite inferior agregado) y **$0.90\text{ m}$**, garajes $\ge 1.50\text{ m}$, mesadas $\ge 0.10\text{ m}$ fuera de Zonas 0 y 1 ($0.15\text{ m}$ lateral $\times$ $0.40\text{ m}$ vertical).
-    - Zonas de baños: Zona 1 ($h = 2.25\text{ m}$), Zona 2 ($0.60\text{ m}$ alrededor de Zona 1, luminarias Clase II IP44), Zona 3 (única permitida para tomas TUG), hidromasajes con ID exclusivo $\le 30\text{ mA}$.
-    - Tableros, PAT e Intemperie: distancia medidor-TP $\le 2.0\text{ m}$, espacio frontal $\ge 0.90\text{ m}$, TP intemperie IP54, $S_{\text{PAT}} \ge 4.0\text{ mm}^2$, separación entre jabalinas $\ge 2L$, bucle en cajas de $100\text{ mm}$, intemperie con chorro de agua IP55, empalmes subterráneos IP67, enterramiento $\ge 0.70\text{ m}$, conducto subterráneo $\varnothing \ge 50\text{ mm}$, cámaras cada $25\text{ m}$ y cinta de advertencia a $0.20\text{ m}$.
-  - `calibre_maximo_protecciones.json` (`GUIA.770.CALIBRE_MAX`): Nueva tabla verificada por secuencia numérica contigua y citas textuales contra la página 44 del PDF (calibres máximos de protección para secciones de $1.5, 2.5, 4\text{ y }6\text{ mm}^2$ con 1, 2 y 3 circuitos por caño en IRAM NM 247-3 y bandeja/cañería/enterrado en IRAM 2178-1).
-- `aea/core/src/catalogo.rs` y `aea/core/src/lib.rs`:
-  - Embebido `CatalogoGuia770` en tiempo de compilación en el binario nativo de Rust y agregado el test `test_guia_aea770_proyecto_y_calibres`.
+  - `criterios_instalacion.json` (`GUIA.770.UBICACION`): Ampliado con todos los parámetros físicos de las páginas 18-21, 36-43 y 50-51 del PDF.
+  - `calibre_maximo_protecciones.json` (`GUIA.770.CALIBRE_MAX`): Tabla verificada por secuencia numérica contigua y citas textuales contra la página 44 del PDF.
+- `aea/core/src/catalogo.rs`, `aea/core/src/aea770.rs` y `aea/core/src/aea771.rs`:
+  - Actualizado `TipoCircuito771::max_bocas` a `Option<u32>` para soportar circuitos sin límite de bocas (`MBTS`, `OCE`) y validada la regla de carga única sin derivación para `ACU` (`771.7/acu_carga_unica`).
+  - Integrado `clasificacion_circuitos.json` en `aea770::validar_circuito`: valida circuitos específicos (`ACU`, `MBTS`, `MBTF`, `APM`, `ATE`, `OCE`, `IUE`) cuando se emplean en viviendas y emite error `770.6/ite_prohibido_vivienda` si se proyecta un circuito `ITE` en una vivienda unifamiliar.
 - `src/AdElec.Core/Models/Panel.cs`, `src/AdElec.Core/Aea/PanelAeaExtensions.cs` y `tests/AdElec.Core.Tests/AeaBridgeTests.cs`:
   - Agregada la propiedad `SuperficieSemicubiertaM2` en `Panel` y su mapeo automático en `ToAeaUnidad()`.
   - Actualizado `Test_GuiaAea770_ProyectoModeloReferencia` con $94\text{ m}^2$ cubiertos + $4\text{ m}^2$ semicubiertos ($S_{la} = 96\text{ m}^2$) y circuitos de 15, 11 y 12 bocas.

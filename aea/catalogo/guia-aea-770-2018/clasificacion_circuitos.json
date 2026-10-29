@@ -1,0 +1,210 @@
+{
+  "id": "GUIA.770.CIRCUITOS",
+  "titulo": "Clasificación de los circuitos: Usos Generales, Especiales y Tabla de Circuitos para Usos Específicos",
+  "fuente": {
+    "doc": "GUIA-AEA-770-2018",
+    "pagina_pdf": 28,
+    "clausula": "Guía AEA 770 págs. 22-24 (PDF 26-28) — ref. 770.6 y 771.7"
+  },
+  "estado": "verificado",
+  "verificacion": {
+    "inicio": null,
+    "fin": null,
+    "citas": [
+      {
+        "texto": "CLASIFICACIÓN DE LOS CIRCUITOS",
+        "pagina": 26
+      },
+      {
+        "texto": "Artefactos de iluminación, de ventilación o combinados con corrientes de hasta 10 A",
+        "pagina": 26
+      },
+      {
+        "texto": "60 VA por boca o el valor real si se conociera y fuera superior",
+        "pagina": 26
+      },
+      {
+        "texto": "2200 VA por circuito o el valor real si se conociera y fuera superior",
+        "pagina": 26
+      },
+      {
+        "texto": "Consumos unitarios mayores de 10 A y hasta 20 A e instalaciones a la intemperie",
+        "pagina": 27
+      },
+      {
+        "texto": "3300VA por circuito o el valor real si se conociera y fuera superior",
+        "pagina": 27
+      },
+      {
+        "texto": "Para alimentar estas luminarias podemos recurrir a la Sección 771 y considerar el tipo de circuito denominado IUE (Iluminación de Uso Especial)",
+        "pagina": 27
+      },
+      "Circuitos para Usos Específicos",
+      "Asimismo, de ser necesarios otros tipos de circuito por razones de proyecto, debemos recurrir nuevamente a la Sección 771.",
+      "La potencia que demanden los circuitos para Usos Específicos debe tenerse en cuenta a los efectos del cálculo de los cables, la selección de las protecciones y el cálculo de la Carga Total correspondiente al inmueble.",
+      "pileta de natación o bañeras con hidromasaje (12 V máximo).",
+      "Iluminación en oficinas y locales.",
+      "equipamiento de Tecnología de la Información.",
+      "Campanillas, porteros eléctricos, centrales telefónicas, sistemas de alarma y seguridad.",
+      "unitaria sin derivación alguna.",
+      "comprendidas en las anteriores.",
+      "de Muy Baja Tensión Funcional.",
+      "Iluminación Trifásica Específica.",
+      "(4) No se pueden utilizar en viviendas."
+    ]
+  },
+  "datos": {
+    "generales_y_especiales": [
+      {
+        "sigla": "IUG",
+        "designacion": "Iluminación Uso General",
+        "categoria": "uso_general",
+        "alimentacion": "monofasica",
+        "ambito_uso": "Interior o exterior semicubierto",
+        "cargas": "Artefactos de iluminación, de ventilación o combinados con corrientes de hasta 10 A",
+        "conexion": "Fija (uniones o borneras) o tomacorrientes 2P+T 10 A (IRAM 2071)",
+        "max_bocas": 15,
+        "potencia_estimada_va": 60.0,
+        "factor_simultaneidad_circuito": 0.6666666666666666,
+        "max_in_a": 16.0,
+        "seccion_min_mm2": 1.5,
+        "max_corriente_boca_a": 10.0,
+        "permitido_en_viviendas": true
+      },
+      {
+        "sigla": "TUG",
+        "designacion": "Tomacorrientes Uso General",
+        "categoria": "uso_general",
+        "alimentacion": "monofasica",
+        "ambito_uso": "Interior o exterior semicubierto",
+        "cargas": "Cargas unitarias con corrientes de hasta 10 A",
+        "conexion": "Por medio de fichas adecuadas (hasta 2 módulos en caja 50x100 mm)",
+        "max_bocas": 15,
+        "potencia_estimada_va": 2200.0,
+        "factor_simultaneidad_circuito": 1.0,
+        "max_in_a": 20.0,
+        "seccion_min_mm2": 2.5,
+        "max_corriente_boca_a": 10.0,
+        "permitido_en_viviendas": true
+      },
+      {
+        "sigla": "TUE",
+        "designacion": "Tomacorrientes Uso Especial",
+        "categoria": "uso_especial",
+        "alimentacion": "monofasica",
+        "ambito_uso": "Interior o exterior de la vivienda (intemperie)",
+        "cargas": "Consumos unitarios mayores de 10 A y hasta 20 A e instalaciones a la intemperie",
+        "conexion": "Por medio de fichas adecuadas (IRAM 2071 20 A o IRAM-IEC 60309 16 A)",
+        "max_bocas": 15,
+        "potencia_estimada_va": 3300.0,
+        "factor_simultaneidad_circuito": 1.0,
+        "max_in_a": 32.0,
+        "seccion_min_mm2": 2.5,
+        "max_corriente_boca_a": 20.0,
+        "permitido_en_viviendas": true
+      },
+      {
+        "sigla": "IUE",
+        "designacion": "Iluminación Uso Especial (Sección 771)",
+        "categoria": "uso_especial",
+        "alimentacion": "monofasica",
+        "ambito_uso": "Exterior / intemperie (jardines, parques), semicubierto o interior",
+        "cargas": "Artefactos de iluminación exclusivamente",
+        "conexion": "Fija (uniones o borneras) o tomacorrientes IRAM 2071 10 A / IRAM-IEC 60309 16 A hora 6",
+        "max_bocas": 12,
+        "potencia_estimada_va": 500.0,
+        "factor_simultaneidad_circuito": 0.6666666666666666,
+        "max_in_a": 32.0,
+        "seccion_min_mm2": 2.5,
+        "max_corriente_boca_a": 16.0,
+        "permitido_en_viviendas": true
+      }
+    ],
+    "usos_especificos": [
+      {
+        "sigla": "MBTS",
+        "designacion": "Circuitos de Muy Baja Tensión sin puesta a tierra",
+        "alimentacion": "monofasica_o_trifasica",
+        "cargas": "Circuitos predeterminados con tensión máxima 24 V (12 V máximo en piletas/hidromasajes)",
+        "conexion": "Fija (uniones o borneras) o fichas y tomas IEC 60309 color según tensión",
+        "max_bocas": null,
+        "max_in_a": null,
+        "max_corriente_boca_a": null,
+        "usos_tipicos": "Iluminación dentro de piletas de natación o bañeras con hidromasaje (12 V máximo)",
+        "permitido_en_viviendas": true
+      },
+      {
+        "sigla": "ATE",
+        "designacion": "Alimentación de Tensión Estabilizada",
+        "alimentacion": "monofasica",
+        "cargas": "Equipos o redes que usen tensión estabilizada (UPS) o similar",
+        "conexion": "Fija o tomas IRAM 2071 (10 A / 20 A color rojo) o IEC 60309 (16 A color azul)",
+        "max_bocas": 15,
+        "max_in_a": null,
+        "max_corriente_boca_a": 20.0,
+        "usos_tipicos": "PCs, equipamiento de Tecnología de la Información",
+        "permitido_en_viviendas": true
+      },
+      {
+        "sigla": "APM",
+        "designacion": "Alimentación a Pequeños Motores",
+        "alimentacion": "monofasica",
+        "cargas": "Pequeños motores monofásicos (carga máx. por boca 10 A)",
+        "conexion": "Fija o tomas IRAM 2071 10 A / IEC 60309 16 A",
+        "max_bocas": 15,
+        "max_in_a": 25.0,
+        "max_corriente_boca_a": 10.0,
+        "usos_tipicos": "Ventiladores, portones, cortinas",
+        "permitido_en_viviendas": true
+      },
+      {
+        "sigla": "ACU",
+        "designacion": "Alimentación de Carga Única",
+        "alimentacion": "monofasica_o_trifasica",
+        "cargas": "Carga unitaria sin derivación alguna",
+        "conexion": "Fija (uniones o borneras)",
+        "max_bocas": 1,
+        "max_in_a": null,
+        "max_corriente_boca_a": null,
+        "usos_tipicos": "Bombas de agua, ascensores, aire acondicionado",
+        "permitido_en_viviendas": true
+      },
+      {
+        "sigla": "MBTF",
+        "designacion": "Alimentación a fuentes de Muy Baja Tensión Funcional",
+        "alimentacion": "monofasica",
+        "cargas": "Fuentes para consumos de MBTF (carga máx. por boca 10 A)",
+        "conexion": "Fija o tomas IRAM 2071 10 A / IEC 60309 16 A",
+        "max_bocas": 15,
+        "max_in_a": 20.0,
+        "max_corriente_boca_a": 10.0,
+        "usos_tipicos": "Campanillas, porteros eléctricos, centrales telefónicas, sistemas de alarma y seguridad",
+        "permitido_en_viviendas": true
+      },
+      {
+        "sigla": "ITE",
+        "designacion": "Iluminación Trifásica Específica",
+        "alimentacion": "trifasica",
+        "cargas": "Cargas de iluminación (máximo 12 bocas por fase)",
+        "conexion": "Fija o tomas IRAM 2071 10 A / IEC 60309 16 A",
+        "max_bocas": 12,
+        "max_in_a": null,
+        "max_corriente_boca_a": 10.0,
+        "usos_tipicos": "Iluminación en oficinas y locales (Nota 4: No se pueden utilizar en viviendas)",
+        "permitido_en_viviendas": false
+      },
+      {
+        "sigla": "OCE",
+        "designacion": "Otros Circuitos Específicos",
+        "alimentacion": "monofasica_o_trifasica",
+        "cargas": "Cargas no comprendidas en las anteriores",
+        "conexion": "Sin limitaciones",
+        "max_bocas": null,
+        "max_in_a": null,
+        "max_corriente_boca_a": null,
+        "usos_tipicos": "Otras cargas especiales definidas por el proyectista",
+        "permitido_en_viviendas": true
+      }
+    ]
+  }
+}

@@ -315,6 +315,7 @@ pub struct Catalogo770 {
     pub conductor_pe: Tabla<ConductorProteccion770>,
     pub dps: Tabla<Dps770>,
     pub caida_tension: Tabla<CaidaTension770>,
+    pub guia770: CatalogoGuia770,
 }
 
 macro_rules! cargar {
@@ -343,6 +344,7 @@ impl Catalogo770 {
             conductor_pe: cargar!("conductor_proteccion_pe.json"),
             dps: cargar!("dps_sobretensiones.json"),
             caida_tension: cargar!("caida_tension.json"),
+            guia770: CatalogoGuia770::embebido(),
         }
     }
 
@@ -375,7 +377,7 @@ impl TablaGrados {
 #[derive(Debug, Clone, Deserialize)]
 pub struct TipoCircuito771 {
     pub sigla: String,
-    pub max_bocas: u32,
+    pub max_bocas: Option<u32>,
     pub max_in_a: Option<f64>,
 }
 
@@ -717,9 +719,48 @@ pub struct ModeloProyectoGuia770 {
     pub circuito_seccional: SeccionalProyectoGuia770,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct CircuitoGeneralGuia770 {
+    pub sigla: String,
+    pub designacion: String,
+    pub categoria: String,
+    pub alimentacion: String,
+    pub ambito_uso: String,
+    pub cargas: String,
+    pub conexion: String,
+    pub max_bocas: u32,
+    pub potencia_estimada_va: f64,
+    pub factor_simultaneidad_circuito: f64,
+    pub max_in_a: f64,
+    pub seccion_min_mm2: f64,
+    pub max_corriente_boca_a: f64,
+    pub permitido_en_viviendas: bool,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct CircuitoEspecificoGuia770 {
+    pub sigla: String,
+    pub designacion: String,
+    pub alimentacion: String,
+    pub cargas: String,
+    pub conexion: String,
+    pub max_bocas: Option<u32>,
+    pub max_in_a: Option<f64>,
+    pub max_corriente_boca_a: Option<f64>,
+    pub usos_tipicos: String,
+    pub permitido_en_viviendas: bool,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ClasificacionCircuitosGuia770 {
+    pub generales_y_especiales: Vec<CircuitoGeneralGuia770>,
+    pub usos_especificos: Vec<CircuitoEspecificoGuia770>,
+}
+
 #[derive(Debug, Clone)]
 pub struct CatalogoGuia770 {
     pub calibre_maximo: Tabla<CalibreMaxProteccionesGuia770>,
+    pub clasificacion_circuitos: Tabla<ClasificacionCircuitosGuia770>,
     pub criterios_instalacion: Tabla<CriteriosInstalacionGuia770>,
     pub proyecto_referencia: Tabla<ModeloProyectoGuia770>,
 }
@@ -735,6 +776,7 @@ impl CatalogoGuia770 {
     pub fn embebido() -> Self {
         Self {
             calibre_maximo: cargar_guia770!("calibre_maximo_protecciones.json"),
+            clasificacion_circuitos: cargar_guia770!("clasificacion_circuitos.json"),
             criterios_instalacion: cargar_guia770!("criterios_instalacion.json"),
             proyecto_referencia: cargar_guia770!("modelo_proyecto_referencia.json"),
         }

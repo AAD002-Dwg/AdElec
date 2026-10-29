@@ -210,22 +210,39 @@ pub fn validar_circuito_771(cat: &Catalogo771, c: &Circuito) -> Vec<Diagnostico>
         return d;
     };
 
-    // Máximo de bocas
-    if c.bocas > tipo.max_bocas {
+    // Máximo de bocas (si tiene tope numérico en Tabla 771.7.I, o ACU que es carga única sin derivación)
+    if tipo.sigla.eq_ignore_ascii_case("ACU") && c.bocas > 1 {
         d.push(Diagnostico {
-            codigo: "771.7/max_bocas",
+            codigo: "771.7/acu_carga_unica",
             severidad: Severidad::Error,
             elemento: c.id.clone(),
             mensaje: format!(
-                "Circuito {} ({}) tiene {} bocas; el máximo normativo es {}.",
-                c.id, c.tipo, c.bocas, tipo.max_bocas
+                "Circuito {} (ACU) tiene {} bocas; el circuito de Alimentación de Carga Única no admite derivaciones (máximo 1 boca/carga).",
+                c.id, c.bocas
             ),
             referencia: ref_tabla.clone(),
             correcciones: vec![Correccion::AgregarCircuitos {
                 tipo: c.tipo.clone(),
-                cantidad: ((c.bocas as f64) / (tipo.max_bocas as f64)).ceil() as u32 - 1,
+                cantidad: c.bocas - 1,
             }],
         });
+    } else if let Some(max_bocas) = tipo.max_bocas {
+        if c.bocas > max_bocas {
+            d.push(Diagnostico {
+                codigo: "771.7/max_bocas",
+                severidad: Severidad::Error,
+                elemento: c.id.clone(),
+                mensaje: format!(
+                    "Circuito {} ({}) tiene {} bocas; el máximo normativo es {}.",
+                    c.id, c.tipo, c.bocas, max_bocas
+                ),
+                referencia: ref_tabla.clone(),
+                correcciones: vec![Correccion::AgregarCircuitos {
+                    tipo: c.tipo.clone(),
+                    cantidad: ((c.bocas as f64) / (max_bocas as f64)).ceil() as u32 - 1,
+                }],
+            });
+        }
     }
 
     // Máxima corriente asignada de protección

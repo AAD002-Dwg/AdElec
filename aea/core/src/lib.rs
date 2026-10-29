@@ -530,10 +530,42 @@ mod tests {
         let diags = aea770::validar_unidad(&cat, &u);
         assert!(diags.is_empty(), "El proyecto modelo oficial de la Guía no debe arrojar errores: {:?}", diags);
 
-        // 4. Validar tabla de calibres máximos y criterios de instalación
+        // 4. Validar tabla de calibres máximos, clasificación de circuitos y criterios de instalación
         assert_eq!(guia.calibre_maximo.datos.secciones_mm2, vec![1.5, 2.5, 4.0, 6.0]);
+        assert_eq!(guia.clasificacion_circuitos.datos.generales_y_especiales.len(), 4);
+        assert_eq!(guia.clasificacion_circuitos.datos.usos_especificos.len(), 7);
         assert_eq!(guia.criterios_instalacion.datos.tomacorrientes.altura_estandar_min_m, 0.20);
         assert_eq!(guia.criterios_instalacion.datos.tomacorrientes.altura_estandar_max_m, 0.90);
         assert_eq!(guia.criterios_instalacion.datos.tableros_y_pat.seccion_min_pat_mm2, 4.0);
+
+        // 5. Validar circuitos específicos (ACU, MBTS, MBTF, ITE) en AEA 771 y AEA 770
+        let cat771 = Catalogo771::embebido();
+        assert_eq!(cat771.tipos_circuito.datos.len(), 11);
+        assert!(cat771.tipo("ACU").is_some());
+        assert!(cat771.tipo("MBTS").is_some());
+        assert!(cat771.tipo("MBTF").is_some());
+        assert!(cat771.tipo("OCE").is_some());
+
+        // En viviendas (AEA 770), ACU con 1 boca es válido, pero ITE está prohibido (Nota 4 Guía AEA 770 pág. 24)
+        let c_acu = Circuito {
+            id: "C-BOMBA".into(),
+            tipo: "ACU".into(),
+            seccion_mm2: 2.5,
+            in_a: 16.0,
+            bocas: 1,
+            ..Default::default()
+        };
+        assert!(aea770::validar_circuito(&cat, &c_acu).is_empty());
+
+        let c_ite = Circuito {
+            id: "C-ITE".into(),
+            tipo: "ITE".into(),
+            seccion_mm2: 2.5,
+            in_a: 16.0,
+            bocas: 6,
+            ..Default::default()
+        };
+        let diags_ite = aea770::validar_circuito(&cat, &c_ite);
+        assert!(diags_ite.iter().any(|d| d.codigo == "770.6/ite_prohibido_vivienda"));
     }
 }
