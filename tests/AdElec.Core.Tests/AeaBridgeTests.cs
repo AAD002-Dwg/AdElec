@@ -175,8 +175,16 @@ public class AeaBridgeTests
             ArtefactCount = 10
         });
 
+        // Con solo 1 circuito en 60 m² (grado medio), Tabla 771.8.V exige 3 circuitos (1 IUG + 1 TUG + 1 IUE)
+        var diagsIncompleto = panel.ValidarNormativaAea();
+        Assert.Contains(diagsIncompleto, d => d.Codigo == "771.8.5/circuitos_minimos");
+
+        // Completando la variante a) de Tabla 771.8.V (1 IUG + 1 TUG + 1 IUE) -> 0 errores
+        panel.Circuits.Add(new Models.Circuit { Name = "C2", Type = "IUG", BreakerAmps = 10, WireSectionMm2 = 1.5, ArtefactCount = 8 });
+        panel.Circuits.Add(new Models.Circuit { Name = "C3", Type = "TUG", BreakerAmps = 16, WireSectionMm2 = 2.5, ArtefactCount = 10 });
+
         var diags = panel.ValidarNormativaAea();
-        // IUE con 10 bocas y 25A en 4.0mm2 cumple plenamente AEA 771 (máx 12 bocas, 32A)
+        // IUE con 10 bocas y 25A en 4.0mm2 + 1 IUG + 1 TUG cumple plenamente AEA 771
         Assert.DoesNotContain(diags, d => d.Severidad == "error");
     }
 
@@ -318,5 +326,119 @@ public class AeaBridgeTests
 
         var diags = AeaBridge.ValidarUnidad(unidadDto);
         Assert.Contains(diags, d => d.Codigo == "770.16/poder_de_corte");
+    }
+
+    [Fact]
+    public void Test_Dpms_Caneria_Pe_Y_PuntosComerciales()
+    {
+        // 1. Sección PE según Tabla 770.14.I
+        Assert.Equal(2.5, AeaBridge.CalcularSeccionPe(1.5));
+        Assert.Equal(16.0, AeaBridge.CalcularSeccionPe(25.0));
+
+        // 2. Dimensionamiento de cañería al 35% según Tabla 770.10.VIII
+        var cano = AeaBridge.DimensionarCaneria(seccionMm2: 6.0, conductoresTotales: 3, familiaODesignacion: "aislante_rigido");
+        Assert.True(cano.Cumple);
+        Assert.Equal("RSP 22", cano.Designacion);
+        Assert.True(cano.OcupacionPct <= 35.0);
+
+        // 3. Puntos mínimos comerciales bajo AEA 771 (Tabla 771.8.VI)
+        var ambComercial = new AeaAmbienteDto
+        {
+            Id = "LOC1",
+            Nombre = "Salón Comercial",
+            Tipo = "salon_general",
+            SuperficieM2 = 45.0
+        };
+        var ptsCom = AeaBridge.CalcularPuntosMinimos(ambComercial, "medio", "AEA-771");
+        Assert.Equal(5, ptsCom.IugMinimo);
+        Assert.Equal(5, ptsCom.TugMinimo);
+
+        // 4. Cálculo de DPMS bajo AEA 770 (Tablas 770.8.I y 770.8.II)
+        var unidad = new AeaUnidadDto
+        {
+            Id = "VIV1",
+            SuperficieCubiertaM2 = 80.0,
+            Circuitos = new()
+            {
+                new AeaCircuitoDto { Id = "C1", Tipo = "IUG", SeccionMm2 = 1.5, InA = 10, Bocas = 9 },
+                new AeaCircuitoDto { Id = "C2", Tipo = "TUG", SeccionMm2 = 2.5, InA = 16, Bocas = 10 },
+                new AeaCircuitoDto { Id = "C3", Tipo = "TUE", SeccionMm2 = 4.0, InA = 20, Bocas = 2 }
+            }
+        };
+        var dpms = AeaBridge.CalcularDpms(unidad);
+        Assert.Equal(0.8, dpms.CoeficienteSimultaneidad);
+        Assert.Equal(4688.0, dpms.DpmsVa);
+        Assert.Equal(25.0, dpms.ProteccionCabeceraSugeridaA);
+    }
+
+    [Fact]
+    public void Test_GuiaAea770_ProyectoModeloReferencia()
+    {
+        // Caso de Estudio Oficial: Guía AEA 770 Edición 2018 (páginas 27-37, PDF 31-41)
+        // Vivienda Unifamiliar Grado Medio (94 m² cubiertos)
+        var panel = new Models.Panel
+        {
+            Name = "TS-VIVIENDA",
+            SuperficieCubiertaM2 = 94.0,
+            PhaseCount = 1,
+            MainBreakerAmps = 25.0 // ITM Seccional 25A (Guía pág. 34)
+        };
+
+        // Circuito 1: IUG con 15 bocas, cable 1.5 mm², ITM 10A (Guía pág. 31 y 33)
+        panel.Circuits.Add(new Models.Circuit
+        {
+            Name = "C1",
+            Type = "IUG",
+            BreakerAmps = 10.0,
+            WireSectionMm2 = 1.5,
+            ArtefactCount = 15,
+            LengthMeters = 12.0
+        });
+
+        // Circuito 2: TUG con 9 bocas, cable 2.5 mm², ITM 16A (Guía pág. 31 y 33)
+        panel.Circuits.Add(new Models.Circuit
+        {
+            Name = "C2",
+            Type = "TUG",
+            BreakerAmps = 16.0,
+            WireSectionMm2 = 2.5,
+            ArtefactCount = 9,
+            LengthMeters = 15.0
+        });
+
+        // Circuito 3: TUG con 6 bocas, cable 2.5 mm², ITM 16A (Guía pág. 31 y 33)
+        panel.Circuits.Add(new Models.Circuit
+        {
+            Name = "C3",
+            Type = "TUG",
+            BreakerAmps = 16.0,
+            WireSectionMm2 = 2.5,
+            ArtefactCount = 6,
+            LengthMeters = 18.0
+        });
+
+        // 1. Verificación de Grado de Electrificación
+        var grado = AeaBridge.CalcularGrado(94.0, 0.0);
+        Assert.Equal("medio", grado.Grado);
+
+        // 2. Cálculo de DPMS según Tabla 770.8.I / Guía pág. 31:
+        // C1 (IUG): 15 bocas * 60 VA * 2/3 = 600 VA
+        // C2 (TUG): 2200 VA
+        // C3 (TUG): 2200 VA
+        // Potencia Bruta = 600 + 2200 + 2200 = 5000 VA
+        var unidadDto = panel.ToAeaUnidad();
+        var dpms = AeaBridge.CalcularDpms(unidadDto);
+        Assert.Equal(5000.0, dpms.PotenciaSinSimultaneidadVa);
+        Assert.Equal(0.8, dpms.CoeficienteSimultaneidad);
+        Assert.Equal(4000.0, dpms.DpmsVa);
+
+        // 3. Verificación de la sección de PE según Tabla 770.14.I (Guía pág. 34)
+        Assert.Equal(2.5, AeaBridge.CalcularSeccionPe(1.5)); // C1: Fase 1.5 -> PE 2.5 mm²
+        Assert.Equal(2.5, AeaBridge.CalcularSeccionPe(2.5)); // C2, C3: Fase 2.5 -> PE 2.5 mm²
+        Assert.Equal(4.0, AeaBridge.CalcularSeccionPe(4.0)); // Seccional: Fase 4.0 -> PE 4.0 mm²
+
+        // 4. Validación normativa completa del panel: 0 violaciones
+        var diags = panel.ValidarNormativaAea();
+        Assert.Empty(diags);
     }
 }

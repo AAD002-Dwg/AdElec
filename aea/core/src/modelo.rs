@@ -2,6 +2,7 @@
 //! entregar al núcleo. Cada adaptador traduce sus entidades a estas estructuras.
 
 use serde::{Deserialize, Serialize};
+use crate::catalogo::Referencia;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Circuito {
@@ -31,6 +32,18 @@ pub struct Circuito {
     /// Poder de corte asignado de la protección (Icn) en [kA]. Por defecto 3.0 kA.
     #[serde(default)]
     pub icn_ka: Option<f64>,
+    /// Sección del conductor de protección PE [mm²]. Si se indica, se valida contra Tabla 770.14.I.
+    #[serde(default)]
+    pub seccion_pe_mm2: Option<f64>,
+    /// Designación de la cañería (ej. "RS 16", "RP 20", "CSP 19"). Si se indica, se valida factor de ocupación <= 35%.
+    #[serde(default)]
+    pub cano_designacion: Option<String>,
+    /// Potencia declarada del circuito en [VA] (para cálculo de DPMS).
+    #[serde(default)]
+    pub potencia_va: Option<f64>,
+    /// Indica si un circuito IUG incluye tomacorrientes derivados (exige 2.5 mm² y 2200 VA).
+    #[serde(default)]
+    pub incluye_tomacorrientes: bool,
 }
 
 impl Default for Circuito {
@@ -47,6 +60,10 @@ impl Default for Circuito {
             longitud_m: None,
             cos_phi: None,
             icn_ka: None,
+            seccion_pe_mm2: None,
+            cano_designacion: None,
+            potencia_va: None,
+            incluye_tomacorrientes: false,
         }
     }
 }
@@ -66,17 +83,52 @@ pub struct Unidad {
     /// Norma o uso: "AEA-770" (residencial), "AEA-771" (comercial/oficinas), "AEA-772" (partes comunes de edificios).
     #[serde(default)]
     pub norma: Option<String>,
+    /// Cantidad de interruptores diferenciales (ID) en el tablero.
+    #[serde(default)]
+    pub cantidad_id: Option<u32>,
+    /// Resistencia de puesta a tierra de protección medida/proyectada [Ohm] (máx 40 Ohm según 770.14.4.1).
+    #[serde(default)]
+    pub resistencia_pat_ohm: Option<f64>,
+    /// Indica si cuenta con descargadores de sobretensión (DPS).
+    #[serde(default)]
+    pub tiene_dps: Option<bool>,
+    /// Tipo de alimentación externa: "red_aerea", "con_pararrayos", "red_subterranea".
+    #[serde(default)]
+    pub alimentacion_red: Option<String>,
+    /// Nivel ceráunico AQ (días de tormenta al año, umbral AQ2 > 25).
+    #[serde(default)]
+    pub aq_dias_tormenta: Option<u32>,
     #[serde(default)]
     pub circuitos: Vec<Circuito>,
     #[serde(default)]
     pub ambientes: Vec<Ambiente>,
 }
 
+impl Default for Unidad {
+    fn default() -> Self {
+        Self {
+            id: "U1".into(),
+            superficie_cubierta_m2: 0.0,
+            superficie_semicubierta_m2: 0.0,
+            in_cabecera_a: None,
+            icc_origen_ka: None,
+            norma: None,
+            cantidad_id: None,
+            resistencia_pat_ohm: None,
+            tiene_dps: None,
+            alimentacion_red: None,
+            aq_dias_tormenta: None,
+            circuitos: Vec::new(),
+            ambientes: Vec::new(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Ambiente {
     pub id: String,
     pub nombre: String,
-    /// Tipo normalizado: "sala_estar", "dormitorio", "cocina", "bano", "pasillo", "lavadero", "garaje", "balcon", etc.
+    /// Tipo normalizado: "sala_estar", "dormitorio", "cocina", "bano", "pasillo", "lavadero", "garaje", "balcon", "salon_general", "oficina", etc.
     pub tipo: String,
     pub superficie_m2: f64,
     #[serde(default)]
@@ -85,6 +137,8 @@ pub struct Ambiente {
     pub bocas_iug: u32,
     #[serde(default)]
     pub bocas_tug: u32,
+    #[serde(default)]
+    pub bocas_tue: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -93,6 +147,28 @@ pub struct PuntosMinimosAmbiente {
     pub iug_minimo: u32,
     pub tug_minimo: u32,
     pub modulos_fijos: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ResultadoDpms {
+    pub potencia_sin_simultaneidad_va: f64,
+    pub coeficiente_simultaneidad: f64,
+    pub dpms_va: f64,
+    pub dpms_kva: f64,
+    pub corriente_proyecto_ib_a: f64,
+    pub proteccion_cabecera_sugerida_a: f64,
+    pub referencia: Referencia,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ResultadoCaneria {
+    pub designacion: String,
+    pub tipo: String,
+    pub seccion_interna_mm2: f64,
+    pub area_cables_mm2: f64,
+    pub ocupacion_pct: f64,
+    pub cumple: bool,
+    pub referencia: Referencia,
 }
 
 fn dos() -> u8 {

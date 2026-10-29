@@ -22,8 +22,12 @@ pub enum Severidad {
 pub enum Correccion {
     CambiarProteccion { in_a: f64 },
     CambiarSeccion { seccion_mm2: f64 },
+    CambiarSeccionPe { seccion_pe_mm2: f64 },
+    CambiarCaneria { cano_designacion: String },
     CambiarNorma { norma: String },
     AgregarCircuitos { tipo: String, cantidad: u32 },
+    AgregarDiferencial { cantidad: u32 },
+    InstalarDps,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]

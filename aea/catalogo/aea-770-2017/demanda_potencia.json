@@ -1,0 +1,32 @@
+{
+  "id": "770.8.I",
+  "titulo": "Demanda de potencia máxima simultánea y coeficientes de simultaneidad",
+  "fuente": { "doc": "AEA-770-2017", "pagina_pdf": 26, "clausula": "770.8.1" },
+  "estado": "verificado",
+  "verificacion": {
+    "inicio": null,
+    "fin": null,
+    "citas": [
+      "Tabla 770.8.I – Demanda de potencia máxima simultánea",
+      "2/3 de la que resulte al considerar todos los puntos de utilización previstos, a razón de 60 VA cada uno.",
+      "2 200 VA por cada circuito.",
+      "3 300 VA por cada circuito.",
+      "Tabla 770.8.II – Coeficientes de simultaneidad",
+      "Cantidad mínima de circuitos Coeficiente de simultaneidad"
+    ]
+  },
+  "datos": {
+    "iug_va_por_boca": 60.0,
+    "iug_factor": 0.6666666666666666,
+    "iug_con_tomas_va": 2200.0,
+    "tug_va": 2200.0,
+    "tue_va": 3300.0,
+    "coeficientes_simultaneidad": [
+      { "circuitos_minimos": 2, "coeficiente": 1.0 },
+      { "circuitos_minimos": 3, "coeficiente": 0.8 },
+      { "circuitos_minimos": 5, "coeficiente": 0.7 },
+      { "circuitos_minimos": 6, "coeficiente": 0.6 }
+    ]
+  }
+}
+

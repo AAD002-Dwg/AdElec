@@ -80,10 +80,12 @@ pub unsafe extern "C" fn aea_validar_unidad(json_input: *const c_char) -> *mut c
 struct ReqPuntosMinimos {
     pub ambiente: Ambiente,
     pub grado: String,
+    #[serde(default)]
+    pub norma: Option<String>,
 }
 
-/// Calculates minimum IUG/TUG points according to Tabla 770.7.III.
-/// Input JSON: `{"ambiente": {...}, "grado": "medio"}`.
+/// Calculates minimum IUG/TUG points according to Tabla 770.7.III (residential) or Tabla 771.8.VI (commercial).
+/// Input JSON: `{"ambiente": {...}, "grado": "medio", "norma": "AEA-770"}`.
 #[no_mangle]
 pub unsafe extern "C" fn aea_puntos_minimos_ambiente(json_input: *const c_char) -> *mut c_char {
     if json_input.is_null() {
@@ -98,7 +100,19 @@ pub unsafe extern "C" fn aea_puntos_minimos_ambiente(json_input: *const c_char) 
         Err(e) => return error_json(&format!("JSON deserialization failed: {}", e)),
     };
 
-    let res = aea770::calcular_puntos_minimos_ambiente(catalogo_770(), &req.ambiente, &req.grado);
+    let norma = req.norma.as_deref().unwrap_or("").trim().to_uppercase();
+    let tipo_low = req.ambiente.tipo.to_lowercase();
+    let es_comercial = norma.contains("771")
+        || matches!(
+            tipo_low.as_str(),
+            "salon_general" | "local" | "comercio" | "oficina" | "sala_reuniones" | "despacho_privado" | "recepcion"
+        );
+
+    let res = if es_comercial {
+        aea771::calcular_puntos_minimos_comercial(catalogo_771(), &req.ambiente, &req.grado)
+    } else {
+        aea770::calcular_puntos_minimos_ambiente(catalogo_770(), &req.ambiente, &req.grado)
+    };
     to_c_string(&res)
 }
 
@@ -114,6 +128,58 @@ pub extern "C" fn aea_grado_electrificacion(cubierta_m2: c_double, semicubierta_
 pub extern "C" fn aea_grado_electrificacion_comercial(superficie_m2: c_double) -> *mut c_char {
     let res = aea771::grado_electrificacion_comercial(catalogo_771(), superficie_m2);
     to_c_string(&res)
+}
+
+/// Calculates Simultaneous Maximum Power Demand (DPMS) according to AEA 770.8, 771.9 or 772.9.
+/// Input JSON: `Unidad`. Returns JSON: `ResultadoDpms`.
+#[no_mangle]
+pub unsafe extern "C" fn aea_calcular_dpms(json_input: *const c_char) -> *mut c_char {
+    if json_input.is_null() {
+        return error_json("null input pointer");
+    }
+    let c_str = match CStr::from_ptr(json_input).to_str() {
+        Ok(s) => s,
+        Err(_) => return error_json("invalid utf-8 input"),
+    };
+    let unidad: Unidad = match serde_json::from_str(c_str) {
+        Ok(u) => u,
+        Err(e) => return error_json(&format!("JSON deserialization failed: {}", e)),
+    };
+
+    let norma = unidad.norma.as_deref().unwrap_or("").trim().to_uppercase();
+    let res = if norma.contains("771") || norma == "COMERCIAL" || norma == "OFICINA" {
+        aea771::calcular_dpms_771(catalogo_771(), &unidad)
+    } else if norma.contains("772") || norma == "COMUNES" || norma == "SERVICIOS_GENERALES" {
+        aea772::calcular_dpms_772(catalogo_772(), &unidad)
+    } else {
+        aea770::calcular_dpms_770(catalogo_770(), &unidad)
+    };
+    to_c_string(&res)
+}
+
+/// Sizes or verifies conduit occupancy (≤ 35% fill according to Tabla 770.10.VIII).
+/// `familia_o_designacion`: C-string (e.g., `"RS 19"`, `"RP 20"`, `"aislante_rigido"`).
+#[no_mangle]
+pub unsafe extern "C" fn aea_dimensionar_caneria(
+    seccion_mm2: c_double,
+    conductores_totales: u32,
+    familia_o_designacion: *const c_char,
+) -> *mut c_char {
+    let clave = if familia_o_designacion.is_null() {
+        "aislante_rigido"
+    } else {
+        CStr::from_ptr(familia_o_designacion).to_str().unwrap_or("aislante_rigido")
+    };
+    match aea770::dimensionar_caneria(catalogo_770(), seccion_mm2, conductores_totales, clave) {
+        Some(res) => to_c_string(&res),
+        None => error_json("conduit or cable section not found in catalog"),
+    }
+}
+
+/// Returns the normative minimum protective conductor (PE) cross-section [mm²] according to Tabla 770.14.I.
+#[no_mangle]
+pub extern "C" fn aea_seccion_pe(seccion_fase_mm2: c_double) -> c_double {
+    aea770::seccion_minima_pe(catalogo_770(), seccion_fase_mm2)
 }
 
 /// Calculates voltage drop percentage (ΔV%) using standard copper resistivity at 70°C.

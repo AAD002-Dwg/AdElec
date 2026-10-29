@@ -1,0 +1,60 @@
+{
+  "id": "771.8.VI",
+  "titulo": "Resumen de los puntos mínimos de utilización en oficinas y locales comerciales",
+  "fuente": { "doc": "AEA-771-2006", "pagina_pdf": 46, "clausula": "771.8.3.2.3" },
+  "estado": "verificado",
+  "verificacion": {
+    "inicio": null,
+    "fin": null,
+    "citas": [
+      "Tabla 771.8.VI – Resumen de los puntos mínimos de utilización en oficinas y locales comerciales proyectados originalmente para tal fin",
+      "Salón general",
+      "Una boca cada 9 m² de superficie o fracción (mínimo una boca)",
+      "Una boca cada 9 m² de superficie o fracción (mínimo dos bocas)",
+      "Despacho privado",
+      "Vestíbulo o recepción"
+    ]
+  },
+  "datos": {
+    "salon_general": {
+      "iug_cada_m2": 9.0,
+      "iug_minimo": 1,
+      "tug_cada_m2": 9.0,
+      "tug_minimo": 2,
+      "tue_cada_m_perimetro_elevado_sup": 18.0
+    },
+    "sala_reuniones": {
+      "iug_cada_m2": 9.0,
+      "iug_minimo": 1,
+      "tug_cada_m2": 9.0,
+      "tug_minimo": 2,
+      "tue_minimo_elevado_sup": 1
+    },
+    "despacho_privado": {
+      "iug": 1,
+      "tug": 2
+    },
+    "cocina": {
+      "minimo_medio": { "iug": 1, "tug": 2, "tue": 0 },
+      "elevado_superior": { "iug": 2, "tug": 3, "tue": 1 }
+    },
+    "bano": {
+      "minimo_medio": { "iug": 1, "tug": 1 },
+      "elevado_superior": { "iug_cada_m2": 18.0, "iug_minimo": 1, "tug": 2 }
+    },
+    "vestibulo_recepcion": {
+      "iug_cada_m2": 9.0,
+      "iug_minimo": 1,
+      "tug_cada_m2": 18.0,
+      "tug_minimo": 1,
+      "tue_minimo_elevado_sup": 1
+    },
+    "pasillo": {
+      "iug_cada_m": 5.0,
+      "iug_minimo": 1,
+      "tug_longitud_min_m": 2.0,
+      "tug_cada_m": 5.0
+    }
+  }
+}
+

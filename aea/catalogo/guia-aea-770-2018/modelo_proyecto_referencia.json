@@ -1,0 +1,75 @@
+{
+  "id": "GUIA.770.PROYECTO",
+  "titulo": "Proyecto modelo de referencia — Vivienda unifamiliar Grado Medio (94 m²)",
+  "fuente": {
+    "doc": "GUIA-AEA-770-2018",
+    "pagina_pdf": 31,
+    "clausula": "Guía AEA 770 págs. 27-31 (PDF 31-35)"
+  },
+  "estado": "verificado",
+  "verificacion": {
+    "inicio": null,
+    "fin": null,
+    "citas": [
+      "Circuito 1 (IUG) = 15 bocas x 60 VA/boca x 2/3 = 600 VA",
+      "Circuito 2 (TUG) = 2200 VA por circuito.",
+      "Circuito 3 (TUG) = 2200 VA por circuito.",
+      "600 VA + 2200 VA + 2200 VA = 5000 VA.",
+      {
+        "texto": "Determinación de la carga total",
+        "pagina": 34
+      },
+      {
+        "texto": "Interruptor Diferencial (ID)",
+        "pagina": 35
+      }
+    ]
+  },
+  "datos": {
+    "grado_electrificacion": "Medio",
+    "superficie_cubierta_m2": 94.0,
+    "circuitos": [
+      {
+        "numero": 1,
+        "tipo": "IUG",
+        "bocas": 15,
+        "dpms_va": 600.0,
+        "seccion_fase_mm2": 1.5,
+        "seccion_pe_mm2": 2.5,
+        "iz_a": 15.0,
+        "in_a": 10.0
+      },
+      {
+        "numero": 2,
+        "tipo": "TUG",
+        "bocas": 9,
+        "dpms_va": 2200.0,
+        "seccion_fase_mm2": 2.5,
+        "seccion_pe_mm2": 2.5,
+        "iz_a": 21.0,
+        "in_a": 16.0
+      },
+      {
+        "numero": 3,
+        "tipo": "TUG",
+        "bocas": 6,
+        "dpms_va": 2200.0,
+        "seccion_fase_mm2": 2.5,
+        "seccion_pe_mm2": 2.5,
+        "iz_a": 21.0,
+        "in_a": 16.0
+      }
+    ],
+    "circuito_seccional": {
+      "dpms_total_va": 5000.0,
+      "tension_v": 220.0,
+      "ib_a": 22.73,
+      "seccion_fase_mm2": 4.0,
+      "seccion_pe_mm2": 4.0,
+      "iz_a": 28.0,
+      "itm_in_a": 25.0,
+      "id_in_a": 40.0,
+      "id_sensibilidad_ma": 30.0
+    }
+  }
+}

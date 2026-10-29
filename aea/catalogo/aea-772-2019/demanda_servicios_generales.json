@@ -1,0 +1,36 @@
+{
+  "id": "772.9.II",
+  "titulo": "Demanda de potencia y factores de simultaneidad en servicios generales y conjuntos de unidades funcionales",
+  "fuente": { "doc": "AEA-772-2019", "pagina_pdf": 35, "clausula": "772.9.1" },
+  "estado": "verificado",
+  "verificacion": {
+    "inicio": null,
+    "fin": null,
+    "citas": [
+      { "texto": "En caso de incertidumbre en la potencia de los artefactos de iluminación, para el proyecto debe establecerse el valor de 60 VA por cada boca de iluminación.", "pagina": 34 },
+      "Tabla 772.9.II – Factores de simultaneidad",
+      "no pudiendo ser inferior a las dos terceras partes (2/3) de las sumas de las DPMS de los diferentes tableros seccionales",
+      { "texto": "Tabla 772.9.III – Coeficientes de simultaneidad para conjuntos de unidades funcionales", "pagina": 36 }
+    ]
+  },
+  "datos": {
+    "iug_va_por_boca": 60.0,
+    "iug_con_tomas_va": 2200.0,
+    "tug_va": 2200.0,
+    "tue_va": 3300.0,
+    "factor_min_tablero_servicios_generales": 0.6666666666666666,
+    "simultaneidad_circuitos": {
+      "fuerza_motriz":          [1.0, 0.8, 0.8, 0.7, 0.7, 0.6, 0.6, 0.6, 0.5],
+      "iluminacion_viviendas":  [1.0, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.2, 0.1],
+      "iluminacion_no_viviendas": [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+      "tomacorrientes":         [1.0, 0.5, 0.33, 0.25, 0.20, 0.17, 0.14, 0.12, 0.10]
+    },
+    "simultaneidad_unidades_funcionales": [
+      { "desde_unidades": 2,  "hasta_unidades": 4,    "oficinas_locales": 0.9, "viviendas": 0.7 },
+      { "desde_unidades": 5,  "hasta_unidades": 15,   "oficinas_locales": 0.8, "viviendas": 0.6 },
+      { "desde_unidades": 16, "hasta_unidades": 25,   "oficinas_locales": 0.6, "viviendas": 0.5 },
+      { "desde_unidades": 26, "hasta_unidades": null, "oficinas_locales": 0.5, "viviendas": 0.4 }
+    ]
+  }
+}
+

@@ -31,6 +31,67 @@ Motivo detrás de las elecciones de diseño o solución implementada.
 
 ## 📜 Historial de Registros
 
+### [2026-10-29] — Integración de la Guía AEA 770 Edición 2018 (Hasta 10 kW) y Metodología Oficial de Proyecto
+**Tipo:** `Feature`
+**Autor / Asistente:** Antigravity / Usuario
+
+#### 🎯 Objetivo
+- Incorporar al catálogo normativo y a la suite de verificación automatizada el manual oficial `Guia AEA 770-2018-Guia de Instalación Electrica Hasta 10 kw.pdf` ubicado en `AEA_NORMATIVA/`.
+- Extraer y catalogar los criterios de ubicación física (alturas de llaves de efecto, distancias a marcos, tomas sobre mesadas, zonas húmedas 0/1 y grado IP44 en semicubiertos) y el proyecto modelo de referencia (Grado Medio, 94 m², 3 circuitos, DPMS 5000 VA, seccional 4 mm²).
+
+#### 🛠️ Cambios realizados
+- `aea/catalogo/fuentes.json`:
+  - Registrado el documento `GUIA-AEA-770-2018` con su hash criptográfico SHA-256 (`6B7A9C66152DFB953EF16A76C36F63044F4ACD44CEF307B4B03659576B7117FB`).
+- `aea/catalogo/guia-aea-770-2018/`:
+  - `criterios_instalacion.json` (`GUIA.770.UBICACION`): Alturas de llaves de efecto ($0.90\text{ m} \le h \le 1.30\text{ m}$, rec. $1.10\text{ m}$, distancia a marco $\le 0.15\text{ m}$), tomas estándar ($\le 0.90\text{ m}$), tomas en garajes ($\ge 1.50\text{ m}$), tomas sobre mesadas ($\ge 0.10\text{ m}$ sobre nivel mesada con exclusión en Zonas 0 y 1 de piletas/bachas) y protección mínima IP44 en semicubiertos.
+  - `modelo_proyecto_referencia.json` (`GUIA.770.PROYECTO`): Parámetros exactos del proyecto modelo oficial (Vivienda Grado Medio, 94 m², C1 IUG 15 bocas = 600 VA, C2 TUG = 2200 VA, C3 TUG = 2200 VA, Total DPMS = 5000 VA, Seccional 4 mm², ITM 25 A, ID 40 A / 30 mA).
+- `aea/herramientas/verificar_catalogo.py`:
+  - Verificación superada al 100% sobre **25/25 tablas** contra los cuatro documentos PDF oficiales.
+- `tests/AdElec.Core.Tests/AeaBridgeTests.cs`:
+  - Incorporada prueba unitaria `Test_GuiaAea770_ProyectoModeloReferencia` validando el dimensionamiento y verificación contra el caso testigo de la Guía AEA 770.
+
+#### 💡 Decisiones técnicas
+- La Guía AEA 770 es el compendio didáctico y metodológico oficial de la Asociación Electrotécnica Argentina para dimensionar viviendas unifamiliares de hasta 10 kW. Su inclusión permite contrastar los algoritmos de cálculo de DPMS, secciones y protecciones contra un caso de prueba cerrado y publicado por el mismo comité normalizador de la AEA.
+
+#### 📌 Próximos pasos pendientes
+- Replicar el proyecto modelo de la Guía en un archivo DWG de prueba o plantilla de ejemplo en AutoCAD para demostrar la interoperabilidad LISP/Rust/.NET.
+
+---
+
+### [2026-10-29] — Auditoría Normativa Completa y Cobertura Integral AEA 770, 771 y 772 (23/23 Tablas Verificadas contra PDF)
+**Tipo:** `Feature`
+**Autor / Asistente:** Antigravity / Usuario
+
+#### 🎯 Objetivo
+- Auditar, validar contra los PDFs originales en `AEA_NORMATIVA/` e implementar la cobertura normativa total de las reglamentaciones **AEA 90364-7-770 (Edición 2017)**, **AEA 90364-7-771 (Edición 2006)** y **AEA 90364-7-772 (Edición 2019)** en el catálogo embebido, el motor nativo en Rust (`aea_core.dll`) y el puente C# (`AeaBridge.cs`).
+
+#### 🛠️ Cambios realizados
+- `aea/catalogo/aea-770-2017/`:
+  - Nuevas tablas verificadas contra `_AEA 90364-7-770-2017.pdf`: `demanda_potencia.json` (Tablas 770.8.I y 770.8.II), `canalizaciones_ocupacion.json` (Tablas 770.10.VIII y 770.10.IX, factor de llenado $\le 35\%$), `cajas_volumen.json` (Tablas 770.10.X a XIII), `conductor_proteccion_pe.json` (Tabla 770.14.I y $R_a \le 40\text{ }\Omega$), `dps_sobretensiones.json` (Tabla 770.15.III) y `caida_tension.json` (Cláusula 770.15.6 y Tabla 770.15.IV).
+- `aea/catalogo/aea-771-2006/`:
+  - Nuevas tablas verificadas contra `_AEA 90364-7-771-2006.pdf`: `circuitos_minimos_comercial.json` (Tabla 771.8.V), `puntos_minimos_comercial.json` (Tabla 771.8.VI) y `demanda_potencia_771.json` (Tablas 771.9.I y 771.9.II).
+- `aea/catalogo/aea-772-2019/`:
+  - Nueva tabla verificada contra `_AEA-90364-7-772-2019.pdf`: `demanda_servicios_generales.json` (Tablas 772.9.I, 772.9.II y 772.9.III).
+- `aea/core/src/`:
+  - `catalogo.rs` y `modelo.rs`: Estructuras tipadas para las 23 tablas embebidas y nuevos resultados (`ResultadoDpms`, `ResultadoCaneria`).
+  - `aea770.rs`: Implementación de `calcular_dpms_770`, `seccion_minima_pe`, `dimensionar_caneria`, `dimensionar_caja`, validación de $R_a \le 40\text{ }\Omega$, obligatoriedad de DPS, y corrección de `validar_caida_tension` (aplicando límite del $3\%$ tanto a iluminación como a tomacorrientes según cláusula 770.15.6, y $5\%$ solo a circuitos de motores).
+  - `aea771.rs`: Implementación de `calcular_puntos_minimos_comercial`, `calcular_dpms_771`, validación de circuitos mínimos comerciales (Tabla 771.8.V) y selectividad de diferenciales (máximo 3 circuitos por ID según 771.18.4).
+  - `aea772.rs`: Implementación de `calcular_dpms_772` y `simultaneidad_unidades_funcionales` (Tabla 772.9.III) más validaciones de caída de tensión, PE y ocupación de cañerías en servicios generales.
+  - `ffi.rs`: Nuevos endpoints C-ABI (`aea_calcular_dpms`, `aea_dimensionar_caneria`, `aea_seccion_pe`).
+- `src/AdElec.Core/Aea/AeaBridge.cs` y `tests/AdElec.Core.Tests/AeaBridgeTests.cs`:
+  - Exposición en .NET 8 de `CalcularDpms`, `DimensionarCaneria`, `CalcularSeccionPe` y soporte de `norma` comercial en `CalcularPuntosMinimos`.
+- `docs/ARQUITECTURA.md`:
+  - Actualizada la documentación de arquitectura para reflejar el motor nativo en Rust (`aea_core.dll`) y el puente en memoria `AeaBridge.cs`.
+
+#### 💡 Decisiones técnicas
+- Durante la auditoría contra el PDF oficial de AEA 770 (pág. 59, cláusula 770.15.6) se detectó que el límite de caída de tensión del $3\%$ rige tanto para iluminación como para tomacorrientes (`IUG`, `IUE`, `TUG`, `TUE`), mientras que el $5\%$ en régimen aplica únicamente a circuitos que alimentan exclusivamente motores (`APM`, `ACU`, `BOM`, `ASC`). Se corrigió esta regla en el motor Rust.
+- Las 23 tablas del catálogo pasan el verificador automatizado `python aea/herramientas/verificar_catalogo.py` (23/23 OK contra los PDFs con hash SHA-256 validado).
+
+#### 📌 Próximos pasos pendientes
+- Integrar la visualización de DPMS y sugerencia de cañerías en la vista WPF si se desea mostrar en el panel lateral de AutoCAD.
+
+---
+
 ### [2026-10-26] — Corrección Crítica en ADE_NOMENCLATURA: Eliminación de `command ERASE L` y Carga ActiveX de Bloques
 **Tipo:** `Fix`
 **Autor / Asistente:** Antigravity / Usuario

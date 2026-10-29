@@ -7,7 +7,7 @@ pub mod aea772;
 pub mod ffi;
 
 pub use catalogo::{Catalogo770, Catalogo771, Catalogo772};
-pub use modelo::{Circuito, Unidad};
+pub use modelo::{Circuito, ResultadoCaneria, ResultadoDpms, Unidad};
 pub use diagnostico::{Diagnostico, Correccion, Severidad};
 
 #[cfg(test)]
@@ -20,6 +20,15 @@ mod tests {
         assert_eq!(cat.alcance.datos.max_in_cabecera_a, 63.0);
         assert_eq!(cat.alcance.datos.max_icc_origen_ka, 10.0);
         assert_eq!(cat.tipos_circuito.datos.len(), 3);
+        assert_eq!(cat.demanda_potencia.datos.tug_va, 2200.0);
+        assert_eq!(cat.canalizaciones.datos.factor_ocupacion_max, 0.35);
+
+        let cat771 = Catalogo771::embebido();
+        assert_eq!(cat771.circuitos_minimos_comercial.datos.len(), 4);
+        assert_eq!(cat771.demanda_potencia.datos.iug_va_por_boca, 150.0);
+
+        let cat772 = Catalogo772::embebido();
+        assert_eq!(cat772.demanda_servicios.datos.tug_va, 2200.0);
     }
 
     #[test]
@@ -100,6 +109,7 @@ mod tests {
             longitud_m: None,
             bocas_iug: 0,
             bocas_tug: 0,
+            bocas_tue: 0,
         };
         let p_estar = aea770::calcular_puntos_minimos_ambiente(&cat, &estar, "medio");
         assert_eq!(p_estar.iug_minimo, 2);
@@ -114,6 +124,7 @@ mod tests {
             longitud_m: None,
             bocas_iug: 0,
             bocas_tug: 0,
+            bocas_tue: 0,
         };
         let p_dorm1 = aea770::calcular_puntos_minimos_ambiente(&cat, &dorm1, "medio");
         assert_eq!(p_dorm1.iug_minimo, 1);
@@ -128,6 +139,7 @@ mod tests {
             longitud_m: None,
             bocas_iug: 0,
             bocas_tug: 0,
+            bocas_tue: 0,
         };
         let p_cocina = aea770::calcular_puntos_minimos_ambiente(&cat, &cocina, "medio");
         assert_eq!(p_cocina.iug_minimo, 2);
@@ -148,6 +160,7 @@ mod tests {
             longitud_m: None,
             bocas_iug: 0,
             bocas_tug: 0,
+            bocas_tue: 0,
         };
         let p_bano = aea770::calcular_puntos_minimos_ambiente(&cat, &bano, "medio");
         assert_eq!(p_bano.iug_minimo, 1);
@@ -162,6 +175,7 @@ mod tests {
             longitud_m: Some(4.0),
             bocas_iug: 0,
             bocas_tug: 0,
+            bocas_tue: 0,
         };
         let p_balcon = aea770::calcular_puntos_minimos_ambiente(&cat, &balcon, "medio");
         assert_eq!(p_balcon.iug_minimo, 1);
@@ -175,7 +189,7 @@ mod tests {
     #[test]
     fn test_aea771_comercial_y_circuitos_especiales() {
         let cat771 = Catalogo771::embebido();
-        let _cat770 = Catalogo770::embebido();
+        let cat770 = Catalogo770::embebido();
 
         // 1. Grados de oficinas y locales comerciales (Tabla 771.8.IV)
         let g1 = aea771::grado_electrificacion_comercial(&cat771, 25.0);
@@ -222,6 +236,38 @@ mod tests {
         };
         let diags_iue_exc = aea771::validar_circuito_771(&cat771, &c_iue_exc);
         assert!(diags_iue_exc.iter().any(|d| d.codigo == "771.7/max_bocas"));
+
+        // 4. Puntos mínimos comerciales en salón general de 45 m² (Tabla 771.8.VI -> 1 boca cada 9m² = 5 IUG, 5 TUG)
+        let salon = modelo::Ambiente {
+            id: "LOC1".into(),
+            nombre: "Salón Ventas".into(),
+            tipo: "salon_general".into(),
+            superficie_m2: 45.0,
+            longitud_m: None,
+            bocas_iug: 2, // menos que 5
+            bocas_tug: 5,
+            bocas_tue: 0,
+        };
+        let pts_com = aea771::calcular_puntos_minimos_comercial(&cat771, &salon, "medio");
+        assert_eq!(pts_com.iug_minimo, 5);
+        assert_eq!(pts_com.tug_minimo, 5);
+
+        // 5. Validación integral de local comercial con pocos circuitos y pocas bocas IUG
+        let u_com = Unidad {
+            id: "LOCAL_1".into(),
+            superficie_cubierta_m2: 60.0, // grado medio -> mín 3 circuitos (Tabla 771.8.V)
+            norma: Some("AEA-771".into()),
+            cantidad_id: Some(1),
+            circuitos: vec![
+                Circuito { id: "C1".into(), tipo: "IUG".into(), seccion_mm2: 1.5, in_a: 10.0, bocas: 6, ..Default::default() },
+                Circuito { id: "C2".into(), tipo: "TUG".into(), seccion_mm2: 2.5, in_a: 16.0, bocas: 8, ..Default::default() },
+            ],
+            ambientes: vec![salon],
+            ..Default::default()
+        };
+        let diags_u = aea771::validar_unidad_771(&cat771, &cat770, &u_com);
+        assert!(diags_u.iter().any(|d| d.codigo == "771.8.5/circuitos_minimos"));
+        assert!(diags_u.iter().any(|d| d.codigo == "771.8.6/bocas_iug"));
     }
 
     #[test]
@@ -262,11 +308,22 @@ mod tests {
                 },
             ],
             ambientes: vec![],
+            ..Default::default()
         };
 
         // Tiene 2 circuitos, requiere 4 -> diagnóstico 772.8.1/circuitos_minimos
         let diags = aea772::validar_unidad_772(&cat772, &cat770, &u);
         assert!(diags.iter().any(|d| d.codigo == "772.8.1/circuitos_minimos"));
+
+        // Cálculo de DPMS de servicios generales (Tabla 772.9.I / II)
+        let dpms = aea772::calcular_dpms_772(&cat772, &u);
+        // C1 IUG: 8 bocas * 60 VA = 480 VA (1 circuito -> factor 1.0)
+        // C2 TUG: 2200 VA (1 circuito -> factor 1.0)
+        assert_eq!(dpms.dpms_va, 2680.0);
+
+        // Simultaneidad para conjunto de 10 viviendas (Tabla 772.9.III: 5 a 15 -> 0.6)
+        assert_eq!(aea772::simultaneidad_unidades_funcionales(&cat772, 10, false), 0.6);
+        assert_eq!(aea772::simultaneidad_unidades_funcionales(&cat772, 10, true), 0.8);
     }
 
     #[test]
@@ -295,6 +352,92 @@ mod tests {
         assert!(d.mensaje.contains("supera el límite reglamentario"));
         // Con 2.5 mm2 -> ΔV = 2.77% <= 3.0%
         assert!(d.correcciones.iter().any(|corr| matches!(corr, Correccion::CambiarSeccion { seccion_mm2 } if *seccion_mm2 == 2.5)));
+
+        // Además en TUG también rige el 3.0% según Cláusula 770.15.6:
+        // L = 35 m, Ib = 16 A, S = 2.5 mm2 -> ΔV = 2 * 0.0212 * 35 * 16 * 0.9 / 2.5 = 8.547 V -> 3.88% (> 3.0%)
+        let c_tug = Circuito {
+            id: "C_TUG_LARGO".into(),
+            tipo: "TUG".into(),
+            seccion_mm2: 2.5,
+            in_a: 16.0,
+            ib_a: Some(16.0),
+            bocas: 10,
+            longitud_m: Some(35.0),
+            cos_phi: Some(0.9),
+            ..Default::default()
+        };
+        let diags_tug = aea770::validar_circuito(&cat, &c_tug);
+        assert!(diags_tug.iter().any(|d| d.codigo == "770.12/caida_tension"));
+    }
+
+    #[test]
+    fn test_dpms_canerias_pe_y_dps_770() {
+        let cat = Catalogo770::embebido();
+
+        // 1. Sección mínima de PE (Tabla 770.14.I)
+        assert_eq!(aea770::seccion_minima_pe(&cat, 1.5), 2.5);
+        assert_eq!(aea770::seccion_minima_pe(&cat, 4.0), 4.0);
+        assert_eq!(aea770::seccion_minima_pe(&cat, 25.0), 16.0);
+        assert_eq!(aea770::seccion_minima_pe(&cat, 50.0), 25.0);
+
+        // 2. Ocupación de cañería (Tabla 770.10.VIII): 3 cables de 6 mm² (3 * 31.17 = 93.51 mm²)
+        // En RP 16 (127 mm²) -> 93.51 / 127 = 73.6% (> 35% -> NO cumple)
+        let r_rp16 = aea770::dimensionar_caneria(&cat, 6.0, 3, "RP 16").unwrap();
+        assert!(!r_rp16.cumple);
+        // Buscando en familia "aislante_rigido" -> sugiere RSP 22 (302 mm², 30.96% <= 35%)
+        let r_auto = aea770::dimensionar_caneria(&cat, 6.0, 3, "aislante_rigido").unwrap();
+        assert!(r_auto.cumple);
+        assert_eq!(r_auto.designacion, "RSP 22");
+
+        // 3. DPMS en vivienda Grado Medio (80 m² -> 3 circuitos mín -> coef 0.80 según Tabla 770.8.II)
+        let u = Unidad {
+            id: "VIV_1".into(),
+            superficie_cubierta_m2: 80.0,
+            resistencia_pat_ohm: Some(55.0), // > 40 Ohm -> falla 770.14/resistencia_pat
+            alimentacion_red: Some("con_pararrayos".into()),
+            tiene_dps: Some(false),          // -> falla 770.15.4/dps_obligatorio
+            circuitos: vec![
+                Circuito {
+                    id: "C1".into(),
+                    tipo: "IUG".into(),
+                    seccion_mm2: 1.5,
+                    in_a: 10.0,
+                    bocas: 9, // 9 * 60 * 2/3 = 360 VA
+                    ..Default::default()
+                },
+                Circuito {
+                    id: "C2".into(),
+                    tipo: "TUG".into(),
+                    seccion_mm2: 2.5,
+                    in_a: 16.0,
+                    bocas: 10, // 2200 VA
+                    ..Default::default()
+                },
+                Circuito {
+                    id: "C3".into(),
+                    tipo: "TUE".into(),
+                    seccion_mm2: 4.0,
+                    seccion_pe_mm2: Some(2.5), // < 4.0 mm² -> falla 770.14/seccion_pe
+                    cano_designacion: Some("RP 16".into()), // 3x4.0 = 54.3 mm² / 127 = 42.7% > 35% -> falla 770.10/ocupacion_caneria
+                    in_a: 20.0,
+                    bocas: 2, // 3300 VA
+                    ..Default::default()
+                },
+            ],
+            ..Default::default()
+        };
+
+        let dpms = aea770::calcular_dpms_770(&cat, &u);
+        // Suma bruta = 360 + 2200 + 3300 = 5860 VA; Coef = 0.8 -> DPMS = 4688 VA
+        assert_eq!(dpms.potencia_sin_simultaneidad_va, 5860.0);
+        assert_eq!(dpms.coeficiente_simultaneidad, 0.8);
+        assert_eq!(dpms.dpms_va, 4688.0);
+
+        let diags = aea770::validar_unidad(&cat, &u);
+        assert!(diags.iter().any(|d| d.codigo == "770.14/resistencia_pat"));
+        assert!(diags.iter().any(|d| d.codigo == "770.15.4/dps_obligatorio"));
+        assert!(diags.iter().any(|d| d.codigo == "770.14/seccion_pe"));
+        assert!(diags.iter().any(|d| d.codigo == "770.10/ocupacion_caneria"));
     }
 
     #[test]
@@ -331,11 +474,10 @@ mod tests {
                 },
             ],
             ambientes: vec![],
+            ..Default::default()
         };
 
         let diags = aea770::validar_unidad(&cat, &u);
         assert!(diags.iter().any(|d| d.codigo == "770.16/poder_de_corte"));
     }
 }
-
-

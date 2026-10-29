@@ -20,6 +20,8 @@ public record AeaCorreccionDto(
     [property: JsonPropertyName("accion")] string Accion,
     [property: JsonPropertyName("in_a")] double? InA = null,
     [property: JsonPropertyName("seccion_mm2")] double? SeccionMm2 = null,
+    [property: JsonPropertyName("seccion_pe_mm2")] double? SeccionPeMm2 = null,
+    [property: JsonPropertyName("cano_designacion")] string? CanoDesignacion = null,
     [property: JsonPropertyName("norma")] string? Norma = null,
     [property: JsonPropertyName("tipo")] string? Tipo = null,
     [property: JsonPropertyName("cantidad")] int? Cantidad = null
@@ -37,6 +39,7 @@ public record AeaDiagnostic(
 public record AeaGradoResultadoDto(
     [property: JsonPropertyName("grado")] string Grado,
     [property: JsonPropertyName("superficie_limite_m2")] double SuperficieLimiteM2,
+    [property: JsonPropertyName("max_demanda_kva")] double? MaxDemandaKva,
     [property: JsonPropertyName("referencia")] AeaReferenciaDto Referencia
 );
 
@@ -54,6 +57,26 @@ public record AeaResultadoCortocircuitoDto(
     [property: JsonPropertyName("cumple")] bool Cumple
 );
 
+public record AeaResultadoDpmsDto(
+    [property: JsonPropertyName("potencia_sin_simultaneidad_va")] double PotenciaSinSimultaneidadVa,
+    [property: JsonPropertyName("coeficiente_simultaneidad")] double CoeficienteSimultaneidad,
+    [property: JsonPropertyName("dpms_va")] double DpmsVa,
+    [property: JsonPropertyName("dpms_kva")] double DpmsKva,
+    [property: JsonPropertyName("corriente_proyecto_ib_a")] double CorrienteProyectoIbA,
+    [property: JsonPropertyName("proteccion_cabecera_sugerida_a")] double ProteccionCabeceraSugeridaA,
+    [property: JsonPropertyName("referencia")] AeaReferenciaDto Referencia
+);
+
+public record AeaResultadoCaneriaDto(
+    [property: JsonPropertyName("designacion")] string Designacion,
+    [property: JsonPropertyName("tipo")] string Tipo,
+    [property: JsonPropertyName("seccion_interna_mm2")] double SeccionInternaMm2,
+    [property: JsonPropertyName("area_cables_mm2")] double AreaCablesMm2,
+    [property: JsonPropertyName("ocupacion_pct")] double OcupacionPct,
+    [property: JsonPropertyName("cumple")] bool Cumple,
+    [property: JsonPropertyName("referencia")] AeaReferenciaDto Referencia
+);
+
 public class AeaCircuitoDto
 {
     [JsonPropertyName("id")] public string Id { get; set; } = string.Empty;
@@ -67,6 +90,10 @@ public class AeaCircuitoDto
     [JsonPropertyName("longitud_m")] public double? LongitudM { get; set; }
     [JsonPropertyName("cos_phi")] public double? CosPhi { get; set; }
     [JsonPropertyName("icn_ka")] public double? IcnKa { get; set; }
+    [JsonPropertyName("seccion_pe_mm2")] public double? SeccionPeMm2 { get; set; }
+    [JsonPropertyName("cano_designacion")] public string? CanoDesignacion { get; set; }
+    [JsonPropertyName("potencia_va")] public double? PotenciaVa { get; set; }
+    [JsonPropertyName("incluye_tomacorrientes")] public bool IncluyeTomacorrientes { get; set; }
 }
 
 public class AeaAmbienteDto
@@ -78,6 +105,7 @@ public class AeaAmbienteDto
     [JsonPropertyName("longitud_m")] public double? LongitudM { get; set; }
     [JsonPropertyName("bocas_iug")] public int BocasIug { get; set; }
     [JsonPropertyName("bocas_tug")] public int BocasTug { get; set; }
+    [JsonPropertyName("bocas_tue")] public int BocasTue { get; set; }
 }
 
 public class AeaUnidadDto
@@ -88,6 +116,11 @@ public class AeaUnidadDto
     [JsonPropertyName("in_cabecera_a")] public double? InCabeceraA { get; set; }
     [JsonPropertyName("icc_origen_ka")] public double? IccOrigenKa { get; set; }
     [JsonPropertyName("norma")] public string? Norma { get; set; }
+    [JsonPropertyName("cantidad_id")] public int? CantidadId { get; set; }
+    [JsonPropertyName("resistencia_pat_ohm")] public double? ResistenciaPatOhm { get; set; }
+    [JsonPropertyName("tiene_dps")] public bool? TieneDps { get; set; }
+    [JsonPropertyName("alimentacion_red")] public string? AlimentacionRed { get; set; }
+    [JsonPropertyName("aq_dias_tormenta")] public int? AqDiasTormenta { get; set; }
     [JsonPropertyName("circuitos")] public List<AeaCircuitoDto> Circuitos { get; set; } = new();
     [JsonPropertyName("ambientes")] public List<AeaAmbienteDto> Ambientes { get; set; } = new();
 }
@@ -165,9 +198,23 @@ public static class AeaBridge
     [DllImport(LibName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "aea_verificar_cortocircuito_conductor")]
     private static extern IntPtr NativeVerificarCortocircuito(double iccKa, double tiempoS, double seccionMm2, bool aislacionPvc);
 
+    [DllImport(LibName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "aea_calcular_dpms")]
+    private static extern IntPtr NativeCalcularDpms(IntPtr jsonInput);
+
+    [DllImport(LibName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "aea_dimensionar_caneria")]
+    private static extern IntPtr NativeDimensionarCaneria(double seccionMm2, uint conductoresTotales, IntPtr familiaODesignacion);
+
+    [DllImport(LibName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "aea_seccion_pe")]
+    private static extern double NativeSeccionPe(double seccionFaseMm2);
+
     public static double CalcularCaidaTension(double longitudM, double corrienteA, double seccionMm2, int cablesCargados = 2, double cosPhi = 0.9)
     {
         return NativeCalcularCaidaTension(longitudM, corrienteA, seccionMm2, (byte)cablesCargados, cosPhi);
+    }
+
+    public static double CalcularSeccionPe(double seccionFaseMm2)
+    {
+        return NativeSeccionPe(seccionFaseMm2);
     }
 
     public static AeaResultadoCortocircuitoDto VerificarCortocircuito(double iccKa, double tiempoS, double seccionMm2, bool aislacionPvc = true)
@@ -182,6 +229,53 @@ public static class AeaBridge
         finally
         {
             NativeFreeString(ptr);
+        }
+    }
+
+    public static AeaResultadoDpmsDto CalcularDpms(AeaUnidadDto unidad)
+    {
+        string jsonIn = JsonSerializer.Serialize(unidad);
+        IntPtr inPtr = StringToHGlobalUtf8(jsonIn);
+        try
+        {
+            IntPtr outPtr = NativeCalcularDpms(inPtr);
+            try
+            {
+                string jsonOut = PtrToStringUtf8(outPtr);
+                return JsonSerializer.Deserialize<AeaResultadoDpmsDto>(jsonOut)
+                       ?? throw new InvalidOperationException("Respuesta nula en cálculo de DPMS");
+            }
+            finally
+            {
+                NativeFreeString(outPtr);
+            }
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(inPtr);
+        }
+    }
+
+    public static AeaResultadoCaneriaDto DimensionarCaneria(double seccionMm2, int conductoresTotales, string familiaODesignacion = "aislante_rigido")
+    {
+        IntPtr strPtr = StringToHGlobalUtf8(familiaODesignacion);
+        try
+        {
+            IntPtr outPtr = NativeDimensionarCaneria(seccionMm2, (uint)Math.Max(1, conductoresTotales), strPtr);
+            try
+            {
+                string jsonOut = PtrToStringUtf8(outPtr);
+                return JsonSerializer.Deserialize<AeaResultadoCaneriaDto>(jsonOut)
+                       ?? throw new InvalidOperationException("Respuesta nula en dimensionamiento de cañería");
+            }
+            finally
+            {
+                NativeFreeString(outPtr);
+            }
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(strPtr);
         }
     }
 
@@ -238,9 +332,9 @@ public static class AeaBridge
         }
     }
 
-    public static AeaPuntosMinimosDto CalcularPuntosMinimos(AeaAmbienteDto ambiente, string grado)
+    public static AeaPuntosMinimosDto CalcularPuntosMinimos(AeaAmbienteDto ambiente, string grado, string? norma = null)
     {
-        var req = new { ambiente, grado };
+        var req = new { ambiente, grado, norma };
         string jsonIn = JsonSerializer.Serialize(req);
         IntPtr inPtr = StringToHGlobalUtf8(jsonIn);
         try

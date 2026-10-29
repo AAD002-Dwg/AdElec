@@ -1,59 +1,73 @@
 # Arquitectura del Sistema AD-ELEC
 
-> Documentación técnica del plugin AutoCAD para diseño eléctrico según norma AEA 90364-7-771
+> Documentación técnica del plugin AutoCAD para diseño eléctrico multi-norma según reglamentaciones **AEA 90364-7-770 (Edición 2017)**, **AEA 90364-7-771 (Edición 2006)** y **AEA 90364-7-772 (Edición 2019)**.
 
 ---
 
 ## 1. Visión General
 
-AD-ELEC es una **aplicación distribuida de dos capas** para el diseño de instalaciones eléctricas residenciales:
+AD-ELEC es una **aplicación nativa de alto rendimiento** que integra la interfaz CAD/WPF en .NET 8 con un núcleo normativo compilado en **Rust** (`aea_core.dll`) ejecutado en memoria (*in-process*) mediante `P/Invoke` (`AeaBridge`):
 
 | Capa | Tecnología | Ubicación |
 |------|-----------|-----------|
-| Plugin AutoCAD | C# / .NET 8 / WPF | `G:\PROYECTOS AD\AD-ELEC` |
-| Motor de Cálculo | Python / FastAPI | `G:\PROYECTOS AD\AEA 90364-B\AEA-MOTOR-RESTORED` |
+| Plugin AutoCAD & UI | C# / .NET 8 / WPF + AutoLISP | `G:\PROYECTOS AD\AD-ELEC\src` y `lisp/` |
+| Núcleo Normativo Nativo | Rust (`aea_core.dll` / WASM) | `G:\PROYECTOS AD\AD-ELEC\aea\core` |
+| Catálogo Verificado | JSON embebido + Verificador PyMuPDF | `G:\PROYECTOS AD\AD-ELEC\aea\catalogo` (23/23 tablas contrastadas contra PDFs oficiales) |
 
-La comunicación entre capas es **HTTP/JSON REST** sobre `http://localhost:8000`.
+La comunicación entre C# y el motor Rust ocurre directamente en memoria a través de C-ABI (`AeaBridge.cs`) con latencia de microsegundos y sin depender de procesos ni servidores externos.
 
 ```
-┌─────────────────────────────────────────────┐
-│              AutoCAD 2025                   │
-│                                             │
-│  ┌────────────┐   ┌───────────────────────┐ │
-│  │  Comandos  │   │   Sidebar WPF         │ │
-│  │  LISP/C#   │   │   (ADE_PANEL)         │ │
-│  └─────┬──────┘   └──────────┬────────────┘ │
-│        │                     │              │
-│        └──────────┬──────────┘              │
-│                   │ AeaMotorClient           │
-└───────────────────┼─────────────────────────┘
-                    │ HTTP/JSON
-┌───────────────────▼─────────────────────────┐
-│         FastAPI  (localhost:8000)            │
-│                                             │
-│  ┌─────────────┐   ┌───────────────────────┐│
-│  │  aea_motor  │   │  backend API          ││
-│  │  (cálculos) │   │  (DB, auth, sync)     ││
-│  └─────────────┘   └───────────────────────┘│
-│                     SQLite (aea_motor.db)    │
-└─────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│                      AutoCAD 2025                        │
+│                                                          │
+│  ┌────────────────┐        ┌───────────────────────────┐ │
+│  │ Rutinas LISP   │        │   Sidebar WPF             │ │
+│  │ (WE, WN, etc.) │        │   (ADE_PANEL / Tableros)  │ │
+│  └───────┬────────┘        └─────────────┬─────────────┘ │
+│          │                               │               │
+│          └───────────────┬───────────────┘               │
+│                          ▼                               │
+│          ┌───────────────────────────────┐               │
+│          │   AdElec.Core (AeaBridge.cs)  │               │
+│          └───────────────┬───────────────┘               │
+│                          │ P/Invoke C-ABI (In-Process)   │
+│                          ▼                               │
+│          ┌───────────────────────────────┐               │
+│          │     aea_core.dll (Rust)       │               │
+│          │  ┌─────────┬─────────┬──────┐ │               │
+│          │  │ AEA 770 │ AEA 771 │ 772  │ │               │
+│          │  └─────────┴─────────┴──────┘ │               │
+│          │  Catálogo Embebido (23 JSON)  │               │
+│          └───────────────────────────────┘               │
+└──────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## 2. Estructura de Directorios
 
-### 2.1 Plugin AutoCAD — `G:\PROYECTOS AD\AD-ELEC`
+### 2.1 Repositorio Principal — `G:\PROYECTOS AD\AD-ELEC`
 
 ```
 G:\PROYECTOS AD\AD-ELEC\
-├── AdElec.sln                    # Solución Visual Studio (3 proyectos)
+├── AdElec.sln                    # Solución Visual Studio
+├── aea/                          # Subsistema Normativo AEA
+│   ├── catalogo/                 # 23 tablas JSON verificadas contra PDFs oficiales
+│   │   ├── aea-770-2017/         # Viviendas unifamiliares hasta 63 A (15 tablas)
+│   │   ├── aea-771-2006/         # Locales comerciales, oficinas y terciario (5 tablas)
+│   │   └── aea-772-2019/         # Servicios generales y partes comunes (3 tablas)
+│   ├── core/                     # Motor en Rust (compila a aea_core.dll y WASM)
+│   │   └── src/                  # aea770.rs, aea771.rs, aea772.rs, catalogo.rs, ffi.rs
+│   └── herramientas/
+│       └── verificar_catalogo.py # Verificador criptográfico/textual contra AEA_NORMATIVA/*.pdf
+│
 ├── src/
 │   ├── AdElec.Core/              # Lógica de negocio (sin dependencias CAD)
 │   │   ├── Models/               # Panel, Circuit, Ambiente, Point2D
 │   │   ├── Interfaces/           # IPanelRepository, IAmbienteRepository
-│   │   ├── AeaMotor/             # Cliente HTTP + DTOs
-│   │   ├── Algorithms/           # GridCalculator
+│   │   ├── Aea/                  # AeaBridge.cs (P/Invoke Rust) + PanelAeaExtensions.cs
+│   │   ├── AeaMotor/             # Cliente HTTP legado + DTOs
+│   │   ├── Algorithms/           # GridCalculator, AeaRules
 │   │   └── Utils/                # GeometryConverter
 │   │
 │   ├── AdElec.AutoCAD/           # Capa de integración con AutoCAD

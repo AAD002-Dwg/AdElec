@@ -1,0 +1,23 @@
+{
+  "id": "770.14.I",
+  "titulo": "Sección nominal mínima de los conductores de protección y del cable de puesta a tierra",
+  "fuente": { "doc": "AEA-770-2017", "pagina_pdf": 54, "clausula": "770.14.4" },
+  "estado": "verificado",
+  "verificacion": {
+    "inicio": null,
+    "fin": null,
+    "citas": [
+      "el valor máximo permanente de la resistencia de puesta a tierra de protección debe ser menor o igual a 40",
+      "Tabla 770.14.I - Sección nominal mínima de los conductores de protección y del cable de puesta a tierra",
+      "En ningún caso la sección del cable de puesta a tierra debe ser menor que 4 mm²."
+    ]
+  },
+  "datos": {
+    "resistencia_pat_max_ohm": 40.0,
+    "seccion_min_pe_mm2": 2.5,
+    "seccion_min_pat_mm2": 4.0,
+    "umbral_igual_fase_hasta_mm2": 16.0,
+    "umbral_fijo_16_hasta_mm2": 35.0
+  }
+}
+

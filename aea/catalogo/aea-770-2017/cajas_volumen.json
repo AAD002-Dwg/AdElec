@@ -1,0 +1,33 @@
+{
+  "id": "770.10.X",
+  "titulo": "Volumen utilizable de las cajas de embutir e identificación de conductores",
+  "fuente": { "doc": "AEA-770-2017", "pagina_pdf": 43, "clausula": "770.10.3.8" },
+  "estado": "verificado",
+  "verificacion": {
+    "inicio": null,
+    "fin": null,
+    "citas": [
+      "Tabla 770.10.X - Volumen utilizable de las cajas de embutir",
+      "Tabla 770.10.XI - Volumen ocupado por cada cable que pasa por o deriva en una caja",
+      "Tabla 770.10.XII - Volumen típico ocupado por dispositivos",
+      "Tabla 770.10.XIII - Identificación",
+      "Verde-Amarillo (bicolor)"
+    ]
+  },
+  "datos": {
+    "cajas": [
+      { "tipo": "rectangular_5x10",  "volumen_total_cm3": 240.0, "volumen_utilizable_cm3": 120.0 },
+      { "tipo": "cuadrada_10x10",    "volumen_total_cm3": 400.0, "volumen_utilizable_cm3": 200.0 },
+      { "tipo": "octogonal_grande",  "volumen_total_cm3": 250.0, "volumen_utilizable_cm3": 120.0 },
+      { "tipo": "octogonal_chica",   "volumen_total_cm3": 155.0, "volumen_utilizable_cm3": 75.0 }
+    ],
+    "volumen_cable_cm3": [
+      { "seccion_mm2": 1.5,  "volumen_cm3": 6.0 },
+      { "seccion_mm2": 2.5,  "volumen_cm3": 8.5 },
+      { "seccion_mm2": 4.0,  "volumen_cm3": 12.0 },
+      { "seccion_mm2": 6.0,  "volumen_cm3": 20.0 },
+      { "seccion_mm2": 10.0, "volumen_cm3": 25.0 }
+    ]
+  }
+}
+

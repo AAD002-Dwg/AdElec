@@ -1,0 +1,51 @@
+{
+  "id": "771.8.V",
+  "titulo": "Resumen de los números mínimos de circuitos de las oficinas y locales comerciales",
+  "fuente": { "doc": "AEA-771-2006", "pagina_pdf": 44, "clausula": "771.8.3.2.2" },
+  "estado": "verificado",
+  "verificacion": {
+    "inicio": null,
+    "fin": null,
+    "citas": [
+      "Tabla 771.8.V – Resumen de los números mínimos de circuitos de las oficinas y locales comerciales construidos originalmente para tal fin",
+      "Para el grado de electrificación \"Mínimo\": como mínimo dos circuitos",
+      "Para el grado de electrificación \"Medio\": como mínimo tres circuitos",
+      "Para el grado de electrificación \"Elevado\": como mínimo cinco circuitos",
+      "Para el grado de electrificación \"Superior\": como mínimo seis circuitos"
+    ]
+  },
+  "datos": [
+    {
+      "grado": "minimo",
+      "cantidad_minima": 2,
+      "variantes": [
+        { "id": "unica", "iug": 1, "tug": 1, "iue": 0, "tue": 0, "libre": 0 }
+      ]
+    },
+    {
+      "grado": "medio",
+      "cantidad_minima": 3,
+      "variantes": [
+        { "id": "a", "iug": 1, "tug": 1, "iue": 1, "tue": 0, "libre": 0 },
+        { "id": "b", "iug": 1, "tug": 1, "iue": 0, "tue": 1, "libre": 0 },
+        { "id": "c", "iug": 2, "tug": 1, "iue": 0, "tue": 0, "libre": 0 },
+        { "id": "d", "iug": 1, "tug": 2, "iue": 0, "tue": 0, "libre": 0 }
+      ]
+    },
+    {
+      "grado": "elevado",
+      "cantidad_minima": 5,
+      "variantes": [
+        { "id": "unica", "iug": 2, "tug": 2, "iue": 0, "tue": 1, "libre": 0 }
+      ]
+    },
+    {
+      "grado": "superior",
+      "cantidad_minima": 6,
+      "variantes": [
+        { "id": "unica", "iug": 2, "tug": 2, "iue": 0, "tue": 1, "libre": 1 }
+      ]
+    }
+  ]
+}
+

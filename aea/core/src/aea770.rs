@@ -7,7 +7,7 @@
 
 use crate::catalogo::{Catalogo770, Referencia};
 use crate::diagnostico::{Correccion, Diagnostico, Severidad};
-use crate::modelo::{Circuito, Unidad};
+use crate::modelo::{Circuito, ResultadoCaneria, ResultadoDpms, Unidad};
 use serde::Serialize;
 
 /// Valores comerciales estándar de corriente asignada para pequeños interruptores automáticos
@@ -84,9 +84,174 @@ pub fn iz_corregida(cat: &Catalogo770, seccion_mm2: f64, cables_cargados: u8, ci
     Ok(ResultadoIz { iz_tabla_a: iz_tabla, factor_agrupamiento: factor, iz_a: iz_tabla * factor })
 }
 
+// ------------------------------------------------------------- PE / Caños - //
+
+/// Determina la sección nominal mínima del conductor de protección PE según Tabla 770.14.I.
+/// - S <= 16 mm² -> S (con mínimo absoluto de 2.5 mm² en canalizaciones según Tabla 770.11.I)
+/// - 16 < S <= 35 mm² -> 16 mm²
+/// - S > 35 mm² -> S / 2
+pub fn seccion_minima_pe(cat: &Catalogo770, seccion_fase_mm2: f64) -> f64 {
+    let cfg = &cat.conductor_pe.datos;
+    let s = seccion_fase_mm2.max(0.0);
+    let pe_regla = if s <= cfg.umbral_igual_fase_hasta_mm2 + EPS {
+        s
+    } else if s <= cfg.umbral_fijo_16_hasta_mm2 + EPS {
+        16.0
+    } else {
+        s / 2.0
+    };
+    pe_regla.max(cfg.seccion_min_pe_mm2)
+}
+
+/// Dimensiona o verifica una cañería bajo la regla del 35% de ocupación máxima (770.10.3 / Tabla 770.10.VIII).
+/// `conductores_totales`: cantidad total de conductores unipolares alojados (incluyendo PE).
+/// `familia_o_designacion`: puede ser una designación exacta ("RS 19", "RP 20") o una familia ("metalico_semipesado", "aislante_rigido", "aislante_curvable").
+pub fn dimensionar_caneria(
+    cat: &Catalogo770,
+    seccion_mm2: f64,
+    conductores_totales: u32,
+    familia_o_designacion: &str,
+) -> Option<ResultadoCaneria> {
+    let datos = &cat.canalizaciones.datos;
+    let cable = datos
+        .cables_unipolares
+        .iter()
+        .find(|c| (c.seccion_mm2 - seccion_mm2).abs() < EPS)
+        .or_else(|| datos.cables_unipolares.iter().find(|c| c.seccion_mm2 >= seccion_mm2 - EPS))?;
+
+    let area_cables = cable.seccion_total_mm2 * (conductores_totales.max(1) as f64);
+    let clave = familia_o_designacion.trim();
+
+    // 1. Si coincide con una designación exacta (ej. "RS 16", "RP 20", "CSP 19")
+    if let Some(cano) = datos.canos.iter().find(|c| c.designacion.eq_ignore_ascii_case(clave)) {
+        let ocupacion = area_cables / cano.seccion_interna_mm2;
+        return Some(ResultadoCaneria {
+            designacion: cano.designacion.clone(),
+            tipo: cano.tipo.clone(),
+            seccion_interna_mm2: cano.seccion_interna_mm2,
+            area_cables_mm2: (area_cables * 100.0).round() / 100.0,
+            ocupacion_pct: (ocupacion * 10000.0).round() / 100.0,
+            cumple: ocupacion <= datos.factor_ocupacion_max + EPS,
+            referencia: cat.canalizaciones.referencia(),
+        });
+    }
+
+    // 2. Si es un tipo/familia, busca el menor caño que cumpla <= 35%
+    let familia = if clave.is_empty() { "aislante_rigido" } else { clave };
+    let cano = datos
+        .canos
+        .iter()
+        .filter(|c| c.tipo.eq_ignore_ascii_case(familia))
+        .find(|c| (area_cables / c.seccion_interna_mm2) <= datos.factor_ocupacion_max + EPS)
+        .or_else(|| datos.canos.iter().filter(|c| c.tipo.eq_ignore_ascii_case(familia)).last())?;
+
+    let ocupacion = area_cables / cano.seccion_interna_mm2;
+    Some(ResultadoCaneria {
+        designacion: cano.designacion.clone(),
+        tipo: cano.tipo.clone(),
+        seccion_interna_mm2: cano.seccion_interna_mm2,
+        area_cables_mm2: (area_cables * 100.0).round() / 100.0,
+        ocupacion_pct: (ocupacion * 10000.0).round() / 100.0,
+        cumple: ocupacion <= datos.factor_ocupacion_max + EPS,
+        referencia: cat.canalizaciones.referencia(),
+    })
+}
+
+/// Determina la menor caja de embutir reglamentaria según el volumen ocupado por los cables (Tablas 770.10.X y 770.10.XI).
+pub fn dimensionar_caja(cat: &Catalogo770, cables_secciones: &[(f64, u32)]) -> Option<String> {
+    let mut vol_req = 0.0;
+    for &(sec, cant) in cables_secciones {
+        let v_unit = cat
+            .cajas
+            .datos
+            .volumen_cable_cm3
+            .iter()
+            .find(|v| v.seccion_mm2 >= sec - EPS)
+            .map(|v| v.volumen_cm3)
+            .unwrap_or(25.0);
+        vol_req += v_unit * (cant as f64);
+    }
+    let mut cajas_ordenadas = cat.cajas.datos.cajas.clone();
+    cajas_ordenadas.sort_by(|a, b| a.volumen_utilizable_cm3.partial_cmp(&b.volumen_utilizable_cm3).unwrap());
+    cajas_ordenadas
+        .into_iter()
+        .find(|c| c.volumen_utilizable_cm3 + EPS >= vol_req)
+        .map(|c| c.tipo)
+}
+
+// ------------------------------------------------------------- DPMS ------- //
+
+/// Calcula la Demanda de Potencia Máxima Simultánea (DPMS) bajo AEA 770.8 (Tablas 770.8.I y 770.8.II).
+pub fn calcular_dpms_770(cat: &Catalogo770, u: &Unidad) -> ResultadoDpms {
+    let cfg = &cat.demanda_potencia.datos;
+    let grado_res = grado_electrificacion(cat, u.superficie_cubierta_m2, u.superficie_semicubierta_m2);
+    let min_circs = cat
+        .circuitos_minimos
+        .datos
+        .iter()
+        .find(|m| m.grado == grado_res.grado)
+        .map(|m| m.cantidad_minima)
+        .unwrap_or(2);
+
+    let coef = cfg
+        .coeficientes_simultaneidad
+        .iter()
+        .find(|c| c.circuitos_minimos == min_circs)
+        .map(|c| c.coeficiente)
+        .unwrap_or(1.0);
+
+    let mut suma_general_especial_va = 0.0;
+    let mut suma_especificos_va = 0.0;
+
+    for c in &u.circuitos {
+        let sigla = c.tipo.trim().to_uppercase();
+        let min_va = match sigla.as_str() {
+            "IUG" => {
+                if c.incluye_tomacorrientes {
+                    cfg.iug_con_tomas_va
+                } else {
+                    (c.bocas.max(1) as f64) * cfg.iug_va_por_boca * cfg.iug_factor
+                }
+            }
+            "TUG" => cfg.tug_va,
+            "TUE" => cfg.tue_va,
+            _ => 0.0,
+        };
+        let real_va = c.potencia_va.unwrap_or(0.0).max(min_va);
+        if matches!(sigla.as_str(), "IUG" | "TUG" | "TUE") {
+            suma_general_especial_va += real_va;
+        } else {
+            suma_especificos_va += real_va;
+        }
+    }
+
+    let pot_bruta = suma_general_especial_va + suma_especificos_va;
+    let dpms_va = suma_general_especial_va * coef + suma_especificos_va;
+    let es_trifasico = u.circuitos.iter().any(|c| c.cables_cargados >= 3);
+    let v_ref = if es_trifasico { 1.7320508 * 380.0 } else { 220.0 };
+    let ib = if v_ref > 0.0 { dpms_va / v_ref } else { 0.0 };
+
+    let target_cab = (ib * 1.15).max(25.0);
+    let cab_sugerida = CALIBRES_ITM_A
+        .iter()
+        .copied()
+        .find(|&cal| cal >= target_cab - EPS)
+        .unwrap_or(63.0);
+
+    ResultadoDpms {
+        potencia_sin_simultaneidad_va: (pot_bruta * 100.0).round() / 100.0,
+        coeficiente_simultaneidad: coef,
+        dpms_va: (dpms_va * 100.0).round() / 100.0,
+        dpms_kva: ((dpms_va / 1000.0) * 100.0).round() / 100.0,
+        corriente_proyecto_ib_a: (ib * 100.0).round() / 100.0,
+        proteccion_cabecera_sugerida_a: cab_sugerida,
+        referencia: cat.demanda_potencia.referencia(),
+    }
+}
+
 // ------------------------------------------------------------- circuito --- //
 
-/// Valida un circuito contra 770.6, 770.11 y 770.15.3.
+/// Valida un circuito contra 770.6, 770.10, 770.11, 770.14 y 770.15.
 pub fn validar_circuito(cat: &Catalogo770, c: &Circuito) -> Vec<Diagnostico> {
     let mut d = Vec::new();
 
@@ -129,24 +294,75 @@ pub fn validar_circuito(cat: &Catalogo770, c: &Circuito) -> Vec<Diagnostico> {
         });
     }
 
-    // 770.11 — sección mínima
-    if let Some(min) = cat.seccion_minima(&tipo.sigla) {
+    // 770.11 — sección mínima (incluyendo IUG con tomacorrientes derivados = 2.5 mm²)
+    let clave_sec = if tipo.sigla.eq_ignore_ascii_case("IUG") && c.incluye_tomacorrientes {
+        "IUG_con_tomacorrientes"
+    } else {
+        tipo.sigla.as_str()
+    };
+    if let Some(min) = cat.seccion_minima(clave_sec) {
         if c.seccion_mm2 + EPS < min {
             d.push(Diagnostico {
                 codigo: "770.11/seccion_min",
                 severidad: Severidad::Error,
                 elemento: c.id.clone(),
-                mensaje: format!("Sección {} mm² en circuito {}: la mínima es {} mm².", c.seccion_mm2, tipo.sigla, min),
+                mensaje: format!("Sección {} mm² en circuito {}: la mínima es {} mm².", c.seccion_mm2, clave_sec, min),
                 referencia: cat.secciones_minimas.referencia(),
                 correcciones: vec![Correccion::CambiarSeccion { seccion_mm2: min }],
             });
         }
     }
 
+    // 770.14.I — sección mínima del conductor de protección PE (si fue informado)
+    if let Some(sec_pe) = c.seccion_pe_mm2 {
+        let min_pe = seccion_minima_pe(cat, c.seccion_mm2);
+        if sec_pe + EPS < min_pe {
+            d.push(Diagnostico {
+                codigo: "770.14/seccion_pe",
+                severidad: Severidad::Error,
+                elemento: c.id.clone(),
+                mensaje: format!(
+                    "Conductor de protección PE de {} mm² en circuito {} (fase {} mm²): la Tabla 770.14.I exige al menos {} mm².",
+                    sec_pe, c.id, c.seccion_mm2, min_pe
+                ),
+                referencia: cat.conductor_pe.referencia(),
+                correcciones: vec![Correccion::CambiarSeccionPe { seccion_pe_mm2: min_pe }],
+            });
+        }
+    }
+
+    // 770.10.VIII — ocupación máxima del 35% de la cañería (si fue informada)
+    if let Some(ref desig) = c.cano_designacion {
+        if !desig.trim().is_empty() {
+            let n_cond = (c.cables_cargados as u32) * c.circuitos_en_canalizacion.max(1) + 1; // +1 por PE
+            if let Some(res_cano) = dimensionar_caneria(cat, c.seccion_mm2, n_cond, desig) {
+                if !res_cano.cumple {
+                    let mut corrs = Vec::new();
+                    if let Some(sugerido) = dimensionar_caneria(cat, c.seccion_mm2, n_cond, &res_cano.tipo) {
+                        if sugerido.cumple {
+                            corrs.push(Correccion::CambiarCaneria { cano_designacion: sugerido.designacion });
+                        }
+                    }
+                    d.push(Diagnostico {
+                        codigo: "770.10/ocupacion_caneria",
+                        severidad: Severidad::Error,
+                        elemento: c.id.clone(),
+                        mensaje: format!(
+                            "Cañería '{}' en circuito {} tiene una ocupación de {:.1}% ({} conductores de {} mm²); el límite reglamentario es 35.0%.",
+                            desig, c.id, res_cano.ocupacion_pct, n_cond, c.seccion_mm2
+                        ),
+                        referencia: cat.canalizaciones.referencia(),
+                        correcciones: corrs,
+                    });
+                }
+            }
+        }
+    }
+
     // 770.15.3 — coordinación Ib <= In <= Iz
     d.extend(validar_coordinacion(cat, c, tipo.max_in_a));
 
-    // Caída de tensión reglamentaria (AEA 770 / 771: máx 3% iluminación, 5% otros usos)
+    // 770.15.6 — caída de tensión reglamentaria (3% iluminación y tomas; 5% motores en régimen)
     if let Some(l) = c.longitud_m {
         if l > 0.0 {
             d.extend(validar_caida_tension(cat, c, &tipo.sigla));
@@ -274,7 +490,7 @@ pub fn calcular_caida_tension(
     }
 }
 
-fn validar_caida_tension(cat: &Catalogo770, c: &Circuito, tipo_sigla: &str) -> Vec<Diagnostico> {
+pub fn validar_caida_tension(cat: &Catalogo770, c: &Circuito, tipo_sigla: &str) -> Vec<Diagnostico> {
     let l = match c.longitud_m {
         Some(val) if val > 0.0 => val,
         _ => return vec![],
@@ -283,8 +499,16 @@ fn validar_caida_tension(cat: &Catalogo770, c: &Circuito, tipo_sigla: &str) -> V
     let cos_p = c.cos_phi.unwrap_or(0.9);
     let delta_v_pct = calcular_caida_tension(l, i_calc, c.seccion_mm2, c.cables_cargados, cos_p);
 
-    let es_iluminacion = tipo_sigla.to_uppercase().starts_with('I');
-    let max_pct = if es_iluminacion { 3.0 } else { 5.0 };
+    // Cláusula 770.15.6 / 771.19.7:
+    // 1. Circuitos terminales, de uso general o especial, para iluminación y tomacorrientes: 3 %.
+    // 2. Otros circuitos que alimentan sólo motores (APM, ACU, BOM, ASC, etc.): 5 % en régimen.
+    let sigla_up = tipo_sigla.trim().to_uppercase();
+    let es_solo_motor = matches!(sigla_up.as_str(), "APM" | "AP" | "ACU" | "BOM" | "ASC" | "MOTOR");
+    let max_pct = if es_solo_motor {
+        cat.caida_tension.datos.max_pct_motores_regimen
+    } else {
+        cat.caida_tension.datos.max_pct_iluminacion_y_tomas
+    };
 
     if delta_v_pct > max_pct + EPS {
         let mut correcciones = Vec::new();
@@ -300,10 +524,10 @@ fn validar_caida_tension(cat: &Catalogo770, c: &Circuito, tipo_sigla: &str) -> V
             severidad: Severidad::Error,
             elemento: c.id.clone(),
             mensaje: format!(
-                "Caída de tensión de {:.2}% en circuito {} (L = {:.1} m, S = {} mm², I = {:.1} A): supera el límite reglamentario de {:.1}%.",
+                "Caída de tensión de {:.2}% en circuito {} (L = {:.1} m, S = {} mm², I = {:.1} A): supera el límite reglamentario de {:.1}% (770.15.6).",
                 delta_v_pct, c.tipo, l, c.seccion_mm2, i_calc, max_pct
             ),
-            referencia: cat.coordinacion.referencia(),
+            referencia: cat.caida_tension.referencia(),
             correcciones,
         }]
     } else {
@@ -347,8 +571,8 @@ pub fn verificar_cortocircuito_conductor(
 
 // ------------------------------------------------------------- unidad ----- //
 
-/// Valida una vivienda completa: alcance (770.1), circuitos mínimos (770.7.4)
-/// y cada circuito.
+/// Valida una vivienda completa: alcance (770.1), puesta a tierra (770.14), DPS (770.15.4),
+/// circuitos mínimos (770.7.4), puntos mínimos (770.7.5) y cada circuito.
 pub fn validar_unidad(cat: &Catalogo770, u: &Unidad) -> Vec<Diagnostico> {
     let mut d = Vec::new();
     let alc = &cat.alcance;
@@ -397,6 +621,45 @@ pub fn validar_unidad(cat: &Catalogo770, u: &Unidad) -> Vec<Diagnostico> {
                     ),
                     referencia: alc.referencia(),
                     correcciones: vec![],
+                });
+            }
+        }
+    }
+
+    // 770.14.4.1 — Resistencia máxima de puesta a tierra (Ra <= 40 Ohm)
+    if let Some(ra) = u.resistencia_pat_ohm {
+        let max_ra = cat.conductor_pe.datos.resistencia_pat_max_ohm;
+        if ra > max_ra + EPS {
+            d.push(Diagnostico {
+                codigo: "770.14/resistencia_pat",
+                severidad: Severidad::Error,
+                elemento: u.id.clone(),
+                mensaje: format!(
+                    "Resistencia de puesta a tierra Ra = {:.1} Ω supera el máximo permanente admisible de {:.0} Ω (770.14.4.1).",
+                    ra, max_ra
+                ),
+                referencia: cat.conductor_pe.referencia(),
+                correcciones: vec![],
+            });
+        }
+    }
+
+    // 770.15.4 / Tabla 770.15.III — Protección contra sobretensiones (DPS)
+    if let Some(ref alim) = u.alimentacion_red {
+        let aq2 = u.aq_dias_tormenta.unwrap_or(30) > cat.dps.datos.umbral_aq2_dias_ano;
+        if let Some(regla) = cat.dps.datos.reglas.iter().find(|r| r.alimentacion.eq_ignore_ascii_case(alim)) {
+            let obligatorio = if aq2 { regla.aq2_obligatorio } else { regla.aq1_obligatorio };
+            if obligatorio && u.tiene_dps == Some(false) {
+                d.push(Diagnostico {
+                    codigo: "770.15.4/dps_obligatorio",
+                    severidad: Severidad::Error,
+                    elemento: u.id.clone(),
+                    mensaje: format!(
+                        "La instalación con alimentación '{}' requiere obligatoriamente descargadores de sobretensión (DPS) según Tabla 770.15.III.",
+                        alim
+                    ),
+                    referencia: cat.dps.referencia(),
+                    correcciones: vec![Correccion::InstalarDps],
                 });
             }
         }
@@ -576,4 +839,3 @@ pub fn calcular_puntos_minimos_ambiente(
         modulos_fijos: modulos,
     }
 }
-

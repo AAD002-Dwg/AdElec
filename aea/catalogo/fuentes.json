@@ -15,6 +15,11 @@
       "titulo": "AEA 90364-7-772 Edición 2019 — Servicios generales de inmuebles",
       "archivo": "_AEA-90364-7-772-2019.pdf",
       "sha256": "DA9B2FB197B5C0F069888CBBF32EBFD9902C2BEAD0F0653882F131F005224AA0"
+    },
+    "GUIA-AEA-770-2018": {
+      "titulo": "Guía AEA 770 Edición 2018 — Instalaciones eléctricas en viviendas unifamiliares hasta 10 kW",
+      "archivo": "Guia AEA 770-2018-Guia de Instalación Electrica Hasta 10 kw.pdf",
+      "sha256": "6B7A9C66152DFB953EF16A76C36F63044F4ACD44CEF307B4B03659576B7117FB"
     }
   }
 }

@@ -1,0 +1,26 @@
+{
+  "id": "770.15.III",
+  "titulo": "Condiciones de instalación de los dispositivos de protección contra sobretensiones (DPS)",
+  "fuente": { "doc": "AEA-770-2017", "pagina_pdf": 59, "clausula": "770.15.4" },
+  "estado": "verificado",
+  "verificacion": {
+    "inicio": null,
+    "fin": null,
+    "citas": [
+      "Tabla 770.15.III – Condiciones de instalación de los DPS",
+      "Inmueble equipado con pararrayos (sistema externo o primario)",
+      "Inmueble alimentado en BT por una red totalmente aérea o parcialmente aérea",
+      "Inmueble alimentado en BT por una red totalmente subterránea",
+      "AQ > 25 días por año (AQ2)"
+    ]
+  },
+  "datos": {
+    "umbral_aq2_dias_ano": 25,
+    "reglas": [
+      { "alimentacion": "con_pararrayos", "aq1_obligatorio": true,  "aq2_obligatorio": true },
+      { "alimentacion": "red_aerea",      "aq1_obligatorio": false, "aq2_obligatorio": true },
+      { "alimentacion": "red_subterranea","aq1_obligatorio": false, "aq2_obligatorio": false }
+    ]
+  }
+}
+

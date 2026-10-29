@@ -1,0 +1,65 @@
+{
+  "id": "770.10.VIII",
+  "titulo": "Ocupación máxima de canalizaciones y dimensionamiento de cañerías",
+  "fuente": { "doc": "AEA-770-2017", "pagina_pdf": 41, "clausula": "770.10.3" },
+  "estado": "verificado",
+  "verificacion": {
+    "inicio": null,
+    "fin": null,
+    "citas": [
+      { "texto": "el área total ocupada por los cables, comprendida la aislación, no debe ser mayor que el 35 % de la sección interna menor del caño.", "pagina": 40 },
+      { "texto": "Para conductos que alojen circuitos principales o seccionales, el diámetro interno mínimo de los caños debe ser de 15 mm (RL 19, RS 19, RSP 20 o RP 20)", "pagina": 40 },
+      { "texto": "Para conductos que alojen circuitos terminales, de usos generales o especiales, el diámetro interno mínimo de los caños debe ser de 13 mm (RL 16, RS 16, RSP 16 o RP 16)", "pagina": 40 },
+      "Tabla 770.10.VIII - Máxima cantidad de cables por canalización aislante rígida",
+      { "texto": "Tabla 770.10.IX - Máxima cantidad de cables por canalización aislante curvable", "pagina": 42 }
+    ]
+  },
+  "datos": {
+    "factor_ocupacion_max": 0.35,
+    "diametro_interno_min_terminal_mm": 13.0,
+    "diametro_interno_min_seccional_mm": 15.0,
+    "cables_unipolares": [
+      { "seccion_mm2": 1.0,  "diametro_ext_mm": 2.50, "seccion_total_mm2": 4.91 },
+      { "seccion_mm2": 1.5,  "diametro_ext_mm": 3.50, "seccion_total_mm2": 9.62 },
+      { "seccion_mm2": 2.5,  "diametro_ext_mm": 4.20, "seccion_total_mm2": 13.85 },
+      { "seccion_mm2": 4.0,  "diametro_ext_mm": 4.80, "seccion_total_mm2": 18.10 },
+      { "seccion_mm2": 6.0,  "diametro_ext_mm": 6.30, "seccion_total_mm2": 31.17 },
+      { "seccion_mm2": 10.0, "diametro_ext_mm": 7.60, "seccion_total_mm2": 45.36 },
+      { "seccion_mm2": 16.0, "diametro_ext_mm": 8.80, "seccion_total_mm2": 60.82 },
+      { "seccion_mm2": 25.0, "diametro_ext_mm": 11.00, "seccion_total_mm2": 95.03 },
+      { "seccion_mm2": 35.0, "diametro_ext_mm": 12.50, "seccion_total_mm2": 122.72 },
+      { "seccion_mm2": 50.0, "diametro_ext_mm": 14.50, "seccion_total_mm2": 165.13 }
+    ],
+    "canos": [
+      { "designacion": "RS 16",  "tipo": "metalico_semipesado", "seccion_interna_mm2": 132.0 },
+      { "designacion": "RL 16",  "tipo": "metalico_liviano",    "seccion_interna_mm2": 154.0 },
+      { "designacion": "RS 19",  "tipo": "metalico_semipesado", "seccion_interna_mm2": 196.0 },
+      { "designacion": "RL 19",  "tipo": "metalico_liviano",    "seccion_interna_mm2": 222.0 },
+      { "designacion": "RS 22",  "tipo": "metalico_semipesado", "seccion_interna_mm2": 272.0 },
+      { "designacion": "RL 22",  "tipo": "metalico_liviano",    "seccion_interna_mm2": 302.0 },
+      { "designacion": "RS 25",  "tipo": "metalico_semipesado", "seccion_interna_mm2": 360.0 },
+      { "designacion": "RL 25",  "tipo": "metalico_liviano",    "seccion_interna_mm2": 408.0 },
+      { "designacion": "RP 16",  "tipo": "aislante_rigido",     "seccion_interna_mm2": 127.0 },
+      { "designacion": "RSP 16", "tipo": "aislante_rigido",     "seccion_interna_mm2": 146.0 },
+      { "designacion": "RP 20",  "tipo": "aislante_rigido",     "seccion_interna_mm2": 213.0 },
+      { "designacion": "RSP 20", "tipo": "aislante_rigido",     "seccion_interna_mm2": 235.0 },
+      { "designacion": "RP 22",  "tipo": "aislante_rigido",     "seccion_interna_mm2": 264.0 },
+      { "designacion": "RSP 22", "tipo": "aislante_rigido",     "seccion_interna_mm2": 302.0 },
+      { "designacion": "RP 25",  "tipo": "aislante_rigido",     "seccion_interna_mm2": 347.0 },
+      { "designacion": "RSP 25", "tipo": "aislante_rigido",     "seccion_interna_mm2": 388.0 },
+      { "designacion": "RP 32",  "tipo": "aislante_rigido",     "seccion_interna_mm2": 613.0 },
+      { "designacion": "RSP 32", "tipo": "aislante_rigido",     "seccion_interna_mm2": 649.0 },
+      { "designacion": "CSP 16", "tipo": "aislante_curvable",   "seccion_interna_mm2": 98.0 },
+      { "designacion": "CL 16",  "tipo": "aislante_curvable",   "seccion_interna_mm2": 102.0 },
+      { "designacion": "CSP 19", "tipo": "aislante_curvable",   "seccion_interna_mm2": 158.0 },
+      { "designacion": "CL 19",  "tipo": "aislante_curvable",   "seccion_interna_mm2": 164.0 },
+      { "designacion": "CSP 22", "tipo": "aislante_curvable",   "seccion_interna_mm2": 213.0 },
+      { "designacion": "CL 22",  "tipo": "aislante_curvable",   "seccion_interna_mm2": 223.0 },
+      { "designacion": "CSP 25", "tipo": "aislante_curvable",   "seccion_interna_mm2": 293.0 },
+      { "designacion": "CL 25",  "tipo": "aislante_curvable",   "seccion_interna_mm2": 309.0 },
+      { "designacion": "CSP 32", "tipo": "aislante_curvable",   "seccion_interna_mm2": 509.0 },
+      { "designacion": "CL 32",  "tipo": "aislante_curvable",   "seccion_interna_mm2": 527.0 }
+    ]
+  }
+}
+

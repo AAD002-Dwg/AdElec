@@ -1,0 +1,47 @@
+{
+  "id": "GUIA.770.UBICACION",
+  "titulo": "Criterios de ubicación física de bocas, interruptores y grado de protección",
+  "fuente": {
+    "doc": "GUIA-AEA-770-2018",
+    "pagina_pdf": 40,
+    "clausula": "Guía AEA 770 págs. 36-37 (PDF 40-41)"
+  },
+  "estado": "verificado",
+  "verificacion": {
+    "inicio": null,
+    "fin": null,
+    "citas": [
+      "UBICACIÓN ACEPTABLE DE LOS INTERRUPTORES DE EFECTO",
+      "de efecto entre 0,90 y 1,30m.",
+      "Se recomienda 1, 10m.",
+      "UBICACIÓN DE LAS BOCAS DE TOMACORRIENTES",
+      "garajes y zonas de acceso vehicular, se recomienda ubicar los tomacorrientes",
+      "En espacios semicubiertos (balcones techados, galerías, atrios o porches), se deben instalar artefactos con un grado de protección como mínimo IP44.",
+      {
+        "texto": "Las cajas que contienen los tomacorrientes instalados sobre la mesada de cocinas",
+        "pagina": 41
+      },
+      {
+        "texto": "a no menos de 10 cm del nivel de mesada",
+        "pagina": 41
+      }
+    ]
+  },
+  "datos": {
+    "interruptores": {
+      "altura_min_m": 0.90,
+      "altura_max_m": 1.30,
+      "altura_recomendada_m": 1.10,
+      "distancia_max_marco_m": 0.15
+    },
+    "tomacorrientes": {
+      "altura_estandar_max_m": 0.90,
+      "altura_garajes_min_m": 1.50,
+      "altura_mesada_min_m": 0.10,
+      "exclusion_mesada_zonas": [0, 1]
+    },
+    "espacios_semicubiertos": {
+      "ip_minimo": "IP44"
+    }
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "id": "771.9.I",
+  "titulo": "Demanda máxima de potencia simultánea y coeficientes de simultaneidad en oficinas, locales y viviendas",
+  "fuente": { "doc": "AEA-771-2006", "pagina_pdf": 57, "clausula": "771.9.1" },
+  "estado": "verificado",
+  "verificacion": {
+    "inicio": null,
+    "fin": null,
+    "citas": [
+      "Tabla 771.9.I – Demanda máxima de potencia simultánea",
+      "66 % de la que resulte al considerar todos los puntos de utilización previstos, a razón de 150 VA cada uno.",
+      "100 % de la que resulte al considerar todos los puntos de utilización previstos, a razón de 150 VA cada uno.",
+      "2200 VA por cada circuito.",
+      "3300 VA por cada circuito.",
+      "Tabla 771.9.II – Coeficientes de simultaneidad"
+    ]
+  },
+  "datos": {
+    "iug_va_por_boca": 150.0,
+    "iug_factor_viviendas": 0.66,
+    "iug_factor_oficinas_locales": 1.0,
+    "iug_con_tomas_va": 2200.0,
+    "tug_va": 2200.0,
+    "iue_va_por_boca": 500.0,
+    "iue_factor_viviendas": 0.66,
+    "iue_factor_oficinas_locales": 1.0,
+    "tue_va": 3300.0,
+    "coeficientes_por_grado": [
+      { "grado": "minimo",   "coeficiente": 1.0 },
+      { "grado": "medio",    "coeficiente": 0.9 },
+      { "grado": "elevado",  "coeficiente": 0.8 },
+      { "grado": "superior", "coeficiente": 0.7 }
+    ]
+  }
+}
+
